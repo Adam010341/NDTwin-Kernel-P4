@@ -1004,12 +1004,12 @@ section '14. the teardown marker has an OWNER'
 # sampled every 0.2 s). The H3 marker had no owner: mark_teardown_start wrote `pid=$$`
 # unconditionally and mark_teardown_end was an unconditional `rm -f`.
 #
-#   02:07:18.107  D1 writes the marker, pid=2455882.          15 samples say so.
-#   02:07:22.115  D2 (a second `ndt down`, same owner) OVERWRITES it with its own pid, while
-#                 D1 is still alive. 55 samples say so -- so for 11 s every bring-up that was
+#   02:07:18.107  the first `ndt down` writes the marker, pid=2455882.   15 samples say so.
+#   02:07:22.115  a second `ndt down` (same owner) OVERWRITES it with its own pid, while
+#                 the first is still alive. 55 samples say so -- so for 11 s every bring-up that was
 #                 refused printed the pid of the teardown that was NOT the one it collided with.
-#   02:07:32.687  D1 finishes first and `rm -f`s the marker. The marker was D2's, and D2 is
-#                 still running.
+#   02:07:32.687  The first teardown finishes and `rm -f`s the marker. The marker was the
+#                 second's, and the second is still running.
 #   02:07:32.691  `ndt up p4 4` -- NOT refused, rc 0, reached [3/3] with `data plane forwards`.
 #
 # i.e. H3's guard is switched off by an overlap, which is the one thing it exists for. Two
@@ -1192,7 +1192,7 @@ check "  and stop_one's stop-window KILL line, the only other one" "1 2" \
 # ==========================================================================================
 section "16. 'ndt clean' refuses while a teardown is in flight"
 # ==========================================================================================
-# 02:08:24.569 on 2026-09-12, with the marker present and D1 alive and tearing down ten P4
+# 02:08:24.569 on 2026-09-12, with the marker present and a teardown alive and tearing down ten P4
 # switches: `ndt clean` was NOT refused. It exited 1, printed `not clean`, and listed the
 # operator's own fabric -- the one being destroyed -- as residue: 10 bmv2, 14 host/switch
 # processes, the topo session, the manifest, `ndtwin_kernel pid 2460143 holding :8000`,
@@ -1643,7 +1643,7 @@ check "  and up_ovs's"                                    "5" "$(rc_of_out "$OUT
 # The refusal wins, because the actionable sentence is "wait for that teardown" -- and the port
 # it would otherwise send the operator hunting is very likely one that teardown is releasing.
 reset_fix; rm -f "$DM"
-printf 'pid=%s\nat=2026-09-12T11:00:00+0800\nby=fix-ndt-8\n' "$$" > "$DM"
+printf 'pid=%s\nat=2026-09-12T11:00:00+0800\nby=other-owner\n' "$$" > "$DM"
 OUT="$(FX_HELD="8000:992261" drive 'preflight p4')"
 check "🔴 a refusal and a dirty reading together: the refusal wins" "5" "$(rc_of_out "$OUT")"
 has   "  and the dirty reading is still PRINTED, not hidden" "not part of this checkout" "$OUT"
@@ -1732,7 +1732,7 @@ has   "  and it is still named as a stranger"        "this stack did not start i
 # The refusal, and its precedence: an empty machine plus somebody else's teardown is 5. A
 # command that refused did not measure the machine at all, so it cannot report 3 about it.
 reset_fix; rm -f "$DM" "$FIX/manifest.json"
-printf 'pid=%s\nat=2026-09-12T12:00:00+0800\nby=fix-ndt-8\n' "$$" > "$DM"
+printf 'pid=%s\nat=2026-09-12T12:00:00+0800\nby=other-owner\n' "$$" > "$DM"
 OUT="$(drive 'cmd_clean')"
 check "🔴 a refusal outranks 'nothing to judge'"     "5" "$(rc_of_out "$OUT")"
 has   "  and says what it is refusing on"            "an 'ndt down' from this checkout is still running" "$OUT"

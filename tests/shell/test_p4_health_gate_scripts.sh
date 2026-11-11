@@ -146,7 +146,7 @@ for f in tests/shell/mutate_p4_health.sh tests/shell/sum_p4_health_gate_shards.s
 done
 check "an uncommitted edit to tools/p4_exercise/common.py is marked" edit_is_marked tools/p4_exercise/common.py
 check "an uncommitted edit to p4_proxy/mininet/grpc_ports.py is marked" edit_is_marked p4_proxy/mininet/grpc_ports.py
-# (Cut A + D) the collect suite's fake proxy shapes entries with the writer's own match_shape.py
+# The collect suite's fake proxy shapes entries with the writer's own match_shape.py
 check "an uncommitted edit to p4_proxy/proxy_agent/match_shape.py is marked" edit_is_marked p4_proxy/proxy_agent/match_shape.py
 new_file_is_marked() {
     echo "# new" > "$WORK/g1/tools/p4_exercise/new_helper.py"

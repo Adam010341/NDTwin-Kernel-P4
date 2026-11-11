@@ -734,8 +734,8 @@ class TheCookieDecidesTest(ReplayCase):
         self.assert_set_aside_and_nothing_back(before, "is not the journal's")
         self.assertNotEqual(self.switches[1].cookie, 0xDEAD)
 
-    def test_a_cut_b_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed(self):
-        # Exactly what Cut B wrote: a header whose fabric_cookie is null, written by an earlier
+    def test_a_file_with_no_cookie_in_its_header_is_set_aside_and_not_replayed(self):
+        # A file from before headers carried a cookie: a header whose fabric_cookie is null, written by an earlier
         # boot, and records under it. The switch even holds a cookie -- that does not help: the
         # file names none, so nothing confirms it.
         os.makedirs(self.dir)

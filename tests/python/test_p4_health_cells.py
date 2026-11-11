@@ -818,7 +818,7 @@ class TestNamedFixtures(unittest.TestCase):
                          V.PROBE_BROKEN)
 
     def test_pft_refused_in_any_words_is_red_and_never_green(self):
-        """(Cut A + D) The writer took "G5 not done" out of pre-flight; a pre-flight that refuses the ternary entry
+        """The writer took "G5 not done" out of pre-flight; a pre-flight that refuses the ternary entry
         again, with a sentence of its own (here the V3 refusal, captured), is RED, not GREEN and not PROBE-BROKEN."""
         from p4_health import s0
         with open(os.path.join(REPO, "tests", "python", "fixtures", "p4_health", "preflight_pft_refused.txt")) as fh:
@@ -1217,7 +1217,7 @@ class TestExpectedFile(unittest.TestCase):
 
     def test_the_prediction_comes_from_the_file_not_from_the_run(self):
         exp = E.load(EXPECTED_TSV)
-        self.assertEqual(exp["C2"]["expected"], "RED")      # (Cut C) T8 predicts GREEN now; C2 is still RED
+        self.assertEqual(exp["C2"]["expected"], "RED")      # T8 predicts GREEN now; C2 is still RED
         ctx = V.Context()
         ctx.cells["C2"] = V.Verdict(V.GREEN, "fixed")
         ctx.cells["T1"] = V.Verdict(V.GREEN, "")
@@ -1391,7 +1391,7 @@ class TestS0Pieces(unittest.TestCase):
     """The parts of S0 that decide something from text (the rest is seen live, in the S0 log)."""
 
     def test_pft_is_the_ternary_answer_only_when_nothing_else_failed(self):
-        """(Cut A + D) A refusal of PF-T's ternary entry is any FAIL line that names the entry where pre-flight names
+        """A refusal of PF-T's ternary entry is any FAIL line that names the entry where pre-flight names
         it, whatever it says: the G5 sentence of the old pre-flight and the V3 one of today's both count, a PASS
         counts nothing, and a FAIL line about anything else -- another row, another entry, a continuation that does
         not name it -- is another refusal."""
@@ -1611,7 +1611,7 @@ class TestS0Cut2Checks(unittest.TestCase):
         return x, {c["name"]: c["ok"] for c in x.out["checks"] if "PF-T" in c["name"]}
 
     def test_pft_must_pass_with_its_ternary_entry_in(self):
-        """(Cut A + D) S0's PF-T checks: the package carries the one ternary boot entry, and pre-flight PASSes it."""
+        """S0's PF-T checks: the package carries the one ternary boot entry, and pre-flight PASSes it."""
         x, checks = self.pft_preflight("preflight_pft.txt", 0)
         self.assertEqual(checks, {"PF-T package carries one ternary boot entry": True,
                                   "pre-flight PF-T PASSes with the ternary entry in": True})

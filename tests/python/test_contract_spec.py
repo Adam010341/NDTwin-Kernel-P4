@@ -1284,7 +1284,7 @@ class SchemaDeclarationTest(unittest.TestCase):
 
 def split_node(dpid, admin_state="on", reachable=True, is_enabled=True, name=None):
     """
-    One node of get_graph_data AFTER Q12: `admin_state` and `reachable` are separate, and
+    One node of get_graph_data from a kernel that reports `admin_state` and `reachable` separately;
     `is_up` is the deprecated alias that still tracks `reachable`.
 
     [Co-developed with claude code -- Adam]
@@ -1298,7 +1298,7 @@ def split_node(dpid, admin_state="on", reachable=True, is_enabled=True, name=Non
 
 class SplitFieldsMakeTheThreeStateCheckAbleToFireTest(unittest.TestCase):
     """
-    Q12 / A-8: the three-state check compared a bit against itself.
+    A-8: the three-state check compared a bit against itself.
 
     [Co-developed with claude code -- Adam]
 
@@ -1379,11 +1379,11 @@ class SplitFieldsMakeTheThreeStateCheckAbleToFireTest(unittest.TestCase):
 class PowerStateReadingCarriesBothFieldsTest(unittest.TestCase):
     """
     /ndt/get_switches_power_state now answers with an object per switch, so classify_power_state
-    has two shapes to read: the old scalar (a kernel that predates Q12) and the new object.
+    has two shapes to read: the old scalar (an older kernel's answer) and the new object.
 
     [Co-developed with claude code -- Adam]
     Both, not one. This tool is pointed at whatever kernel is deployed, and refusing the old
-    shape would turn every pre-Q12 run into TOOL-PRECONDITION-FAILED.
+    shape would turn every run against an older kernel into TOOL-PRECONDITION-FAILED.
     """
 
     IP_TO_DPID = {"192.168.123.11": 1, "192.168.123.15": 5}
@@ -1432,7 +1432,7 @@ class PowerStateReadingCarriesBothFieldsTest(unittest.TestCase):
                 "mac": 1, "vertex_type": 0, "brand_name": "x", "device_layer": 1}
         # validate() returns a LIST OF FAILURES; empty means it conforms.
         self.assertEqual(validate(spec.GRAPH_NODE, base), [],
-                         "the pre-Q12 shape stopped validating")
+                         "the shape without admin_state and reachable stopped validating")
         self.assertEqual(validate(spec.GRAPH_NODE,
                                   {**base, "admin_state": "off", "reachable": False}), [])
 

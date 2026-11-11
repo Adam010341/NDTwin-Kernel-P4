@@ -2792,7 +2792,7 @@ HttpSession::handleInformSwitchEntered(http::response<http::string_body>& res)
     //
     // What it is NOT is evidence that anybody withdrew the power-off, and it must not touch that
     // flag -- setVertexUp is the observation writer and does not (asserted by
-    // InformSwitchEnteredTest and by the poll gate's M3). Since Q12 the twin no longer has to
+    // InformSwitchEnteredTest and by the poll gate's M3). The twin no longer has to
     // choose: it reports admin_state=off with reachable=true, which says out loud that a switch
     // came back without being asked to. The WARN is there because that state is worth seeing and
     // is otherwise inferable only by diffing two API reads.

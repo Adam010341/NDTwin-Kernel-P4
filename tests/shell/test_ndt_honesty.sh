@@ -1057,7 +1057,7 @@ check "  energy still has no evidence log (rc 1)"        "1" \
       "$(_f9 'app_evidence_log energy >/dev/null 2>&1; echo $?')"
 
 # ==========================================================================================
-# 6. T1: the claim is a check-then-write, and two sessions could both win it
+# 6. G-28: the claim is a check-then-write, and two sessions could both win it
 # ==========================================================================================
 # 🔴 Measured 2026-09-11 01:53:36 and 01:54:21 (a race sweep at offset 0.00 s, and its first
 # repetition). Two owners firing `ndt claim` in the same second
@@ -1093,7 +1093,7 @@ rm -f "$(claim_file).prev" "$(claim_file).lock"
 section "6A. a free lab: the claim is taken, and the five fields are in the documented order"
 no_claim
 rm -f "$(claim_file).prev"
-OUT="$(claim_run '' 'NDT_OWNER=fixture-owner NDT_MEASURING="cell 3/8" cmd_claim 5 "T1 A"')"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner NDT_MEASURING="cell 3/8" cmd_claim 5 "note A"')"
 check "claim on a free lab succeeds"                     "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 check "  and the file says we hold it"                   "fixture-owner" "$(cf owner)"
 check "  the header's field order, in the header's order" "owner expires note exclusive_cpu measuring" \
@@ -1105,7 +1105,7 @@ section "6B. 🔴 the claim an overwrite replaces is kept as .prev"
 mk_claim old-owner -60 "the round that ended"
 OLD_EXP="$(cf expires)"
 rm -f "$(claim_file).prev"
-OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "T1 B"')"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "note B"')"
 check "an expired claim is claimable"                    "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 check "🔴 and the claim it replaced is still readable"   "old-owner" "$(cprev owner)"
 check "  with the expires nothing else can reconstruct"  "$OLD_EXP" "$(cprev expires)"
@@ -1123,7 +1123,7 @@ foreign_claim() {
     (( n == 0 )) && return 0
     echo "other-session (until 03:00:00, their round)"
 }'
-OUT="$(claim_run "$RACE_STUB" 'NDT_OWNER=fixture-owner cmd_claim 5 "T1 C"')"
+OUT="$(claim_run "$RACE_STUB" 'NDT_OWNER=fixture-owner cmd_claim 5 "note C"')"
 check "🔴 the loser is refused"                          "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  told it was beaten, not that the lab was busy"  "beaten to it" "$OUT"
 has   "  and who took it"                                "other-session" "$OUT"
@@ -1133,7 +1133,7 @@ check "  the reading was taken twice, not once"          "2" "$(cat "$FIX/fc.n" 
 
 section "6D. the ordinary refusal keeps the ordinary sentence"
 mk_claim someone-else 3600 "their round"
-OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "T1 D"')"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "note D"')"
 check "a live foreign claim refuses"                     "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  and says it is already claimed"                 "already claimed by someone-else" "$OUT"
 hasnt "🔴 not 'beaten to it' -- that points the reader at the wrong minute" "beaten to it" "$OUT"
@@ -1144,7 +1144,7 @@ rm -f "$FIX/lock.taken"
 ( flock -x 9 && : > "$FIX/lock.taken" && sleep 5 ) 9>>"$(claim_file).lock" &
 LOCK_HOLDER=$!
 for _ in $(seq 1 100); do [[ -f "$FIX/lock.taken" ]] && break; sleep 0.05; done
-OUT="$(claim_run '' 'NDT_CLAIM_LOCK_WAIT=1 NDT_OWNER=fixture-owner cmd_claim 5 "T1 E"')"
+OUT="$(claim_run '' 'NDT_CLAIM_LOCK_WAIT=1 NDT_OWNER=fixture-owner cmd_claim 5 "note E"')"
 check "🔴 it gives up rather than writing"               "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 check "  and wrote nothing"                              "gone" \
       "$( [[ -f "$(claim_file)" ]] && echo present || echo gone )"
@@ -1154,7 +1154,7 @@ kill "$LOCK_HOLDER" 2>/dev/null; wait "$LOCK_HOLDER" 2>/dev/null
 section "6F. 🔴 the readback: the lock only reaches sessions that use this tool"
 no_claim
 OUT="$(claim_run 'claim_readback_owner() { echo direct-writer; }' \
-      'NDT_OWNER=fixture-owner cmd_claim 5 "T1 F"')"
+      'NDT_OWNER=fixture-owner cmd_claim 5 "note F"')"
 check "a claim that is not ours after the write is refused" "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  and says whose it is now"                       "direct-writer" "$OUT"
 hasnt "🔴 and does not report success"                   "lab claimed by fixture-owner" "$OUT"
@@ -1165,7 +1165,7 @@ section "6G. three real claims in one instant: exactly one is told it won"
 no_claim
 rm -f "$FIX"/race.*
 for i in 1 2 3; do
-    ( claim_run '' "NDT_OWNER=racer-$i cmd_claim 5 'T1 G'" > "$FIX/race.$i" 2>&1 ) &
+    ( claim_run '' "NDT_OWNER=racer-$i cmd_claim 5 'note G'" > "$FIX/race.$i" 2>&1 ) &
 done
 wait
 check "🔴 exactly one of the three is told it holds the lab" "1" \
@@ -1292,10 +1292,10 @@ no_claim
 rm -f "$(claim_file).prev"
 
 # ==========================================================================================
-# 7. T2 / T2d: measuring= was a declaration nothing enforced, and the refusal printed a
+# 7. measuring= was a declaration nothing enforced, and the refusal printed a
 #    command that could not be pasted
 # ==========================================================================================
-# 🔴 T2d, measured 2026-09-11 01:57:27-01:57:54. The claim
+# 🔴 The owner's own teardown, measured 2026-09-11 01:57:27-01:57:54. The claim
 # said `measuring=reader nsr, do not tear down` (a work label left out of this and the quote
 # below). The owner's own `ndt down` tore the fabric out, printed `clean`, exited 0, killed the
 # declared reader, and never mentioned the field -- which then OUTLIVED the teardown that had
@@ -1304,7 +1304,7 @@ rm -f "$(claim_file).prev"
 # else, so the one channel a session has for "you cannot see what I am measuring" was read by
 # `ndt check` alone.
 #
-# 🔴 T2, measured 2026-09-11 01:56:53. The refusal was right and its rescue line
+# 🔴 The foreign refusal, measured 2026-09-11 01:56:53. It was right and its rescue line
 # could not be used:
 #     NDT_OWNER=overnight-0905 (until 02:36:24, reader running) ndt down
 # `$held` is a DESCRIPTION, and bash reads `(until ...)` as a subshell. The same message never
@@ -1350,7 +1350,7 @@ in_flight() { :; }
 app_probe() { APP_STATE=not-running; }
 cmd_clean() { return 0; }
 wait_reaped() { return 0; }
-# 🔴 THE PREMISE, stubbed 2026-09-12 (FIX-NDT-8): cmd_down now reads what it is ABOUT before it
+# 🔴 THE PREMISE, stubbed 2026-09-12: cmd_down now reads what it is ABOUT before it
 # acts, and none of bmv2_count / mn_count / topo_session / MANIFEST / the port table is redirected
 # in this fixture -- so without this line these cells would ask THIS MACHINE whether a lab is up,
 # and every rc below would depend on what somebody else left running. This group is about claims
@@ -1365,8 +1365,8 @@ cmd_down $1
 echo \"RC=\$?\"" 2>&1
 }
 
-section "7A. 🔴 T2d: the owner's own teardown honours the declaration"
-mk_claim_m fixture-owner 3600 "T2d round" "reader nsr, do not tear down"
+section "7A. 🔴 the owner's own teardown honours the declaration"
+mk_claim_m fixture-owner 3600 "teardown round" "reader nsr, do not tear down"
 OUT="$(down_run '')"
 check "a declared measurement refuses the teardown, rc 5" "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  and the refusal reads the declaration back"     "reader nsr, do not tear down" "$OUT"
@@ -1378,7 +1378,7 @@ section "7B. 🔴 --deep is not an override; --force is"
 OUT="$(down_run '--deep')"
 check "🔴 --deep does not override a declaration"        "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 hasnt "  and no deep sweep ran"                          "the deep sweep ran" "$OUT"
-mk_claim_m fixture-owner 3600 "T2d round" "reader nsr, do not tear down"
+mk_claim_m fixture-owner 3600 "teardown round" "reader nsr, do not tear down"
 OUT="$(down_run '--force')"
 check "--force tears down anyway"                        "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  and says what it went through"                  "declared" "$OUT"
@@ -1392,7 +1392,7 @@ mk_claim_m fixture-owner -60 "expired" "a run that is over"
 OUT="$(down_run '')"
 check "🔴 an expired claim holds nothing, so it declares nothing" "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 
-section "7D. 🔴 T2: the rescue command the refusal prints has to parse"
+section "7D. 🔴 the rescue command the refusal prints has to parse"
 mk_claim_m other-session 3600 "their round" "their matrix, cell 3/8"
 OUT="$(down_run '')"
 check "a foreign claim refuses the teardown"             "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
@@ -1414,10 +1414,10 @@ check "🔴 an owner name with spaces and parens still parses" "0" \
       "$(bash -n -c "$RESCUE" 2>/dev/null; echo $?)"
 
 # ==========================================================================================
-# 8. T5: the note that failed silently, the declaration that outlived its teardown, and the
+# 8. the note that failed silently (G-31), the declaration that outlived its teardown, and the
 #    field that moved to the end of the file
 # ==========================================================================================
-# 🔴 T5, measured 2026-09-11 01:55:07 against 01:59:53 (an `ndt up ovs 4` run and the
+# 🔴 G-31, measured 2026-09-11 01:55:07 against 01:59:53 (an `ndt up ovs 4` run and the
 # claim's timeline). The same `ndt up ovs 4`, twice: run by the owner it rewrote the note
 # to "in use: ..."; run with NDT_OWNER UNSET it changed nothing and said nothing, because
 # set_claim_note returns 1 for a claim that is not yours and claim_note_up threw that away
@@ -1470,10 +1470,10 @@ no_claim
 rm -f "$(claim_file).prev" "$(claim_file).lock" "$FIX/fc.n" "$FIX"/race.*
 
 # ==========================================================================================
-# 9. T3 / T4: two sentences that describe the tool wrongly
+# 9. Two sentences that describe the tool wrongly
 # ==========================================================================================
 
-section "9A. T3: 'these survive ndt down' was disproved by the same round's ndt down"
+section "9A. 'these survive ndt down' was disproved by the same round's ndt down"
 # Measured 2026-09-11 01:56:27-01:57:54. Two `ndt apps nsr` in the same second left two processes and two
 # pidfiles naming different ones; `ndt status` printed "these survive 'ndt down'", and the
 # `ndt down` in that SAME round printed "nsr is running untracked (pid 2666802 2666801) --
@@ -1498,14 +1498,14 @@ has   "  and why to stop them now anyway"                "keep polling" "$OUT"
 check "  cmd_down still stops an untracked app by pid"   "1" \
       "$(grep -c 'warn "\$a is running untracked' "$NDT")"
 
-section "9B. T4: the help says what a claim does NOT cover"
-# 🔴 NOT FIXED, and now said rather than implied. Measured 2026-09-11 02:01:16-02:02:45:
+section "9B. the help says what a claim does NOT cover"
+# 🔴 NOT BLOCKED, and now said rather than implied. Measured 2026-09-11 02:01:16-02:02:45:
 # a loop calling install_flow_entry and
 # delete_flow_entry every 2 s got http 200 through its own claim's expiry (claim_left=-1s) and
 # through another owner taking the claim (owner=intruder-0911, claim_left=-3s), and stopped only
 # when that owner's `ndt down` SIGTERMed the kernel. The only signal that writer ever received
-# was curl printing 000. Whether the northbound API should read the claim is undecided;
-# what the help must not do is leave a reader believing it already does.
+# was curl printing 000. Whether the northbound API should read the claim was undecided on 2026-09-11;
+# what the help must not do is leave a reader believing a claim blocks the API.
 has   "  the help scopes the claim to this tool's own verbs" "claim only blocks the 'ndt'" "$HELP"
 has   "  and names the API as outside it"                "not the northbound API" "$HELP"
 has   "🔴 and says expiry and loss are silent"           "no signal" "$HELP"

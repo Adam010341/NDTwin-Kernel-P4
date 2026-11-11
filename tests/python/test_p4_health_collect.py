@@ -592,7 +592,7 @@ class TestWhereTheNumbersComeFrom(Sealed):
 
 
 class TestTheRegisterReadAgainstTheMarker(Sealed):
-    """(C2 thrift cut) R2 reads NDTwin's GET /p4/register -- itself a bmv2-thrift read -- and judges it against
+    """R2 reads NDTwin's GET /p4/register -- itself a bmv2-thrift read -- and judges it against
     the value the marker wrote (round_a.R2_CHOSEN), not against thrift: a thrift oracle would be thrift against
     thrift. Thrift's register_read stays in SC-reg, the probe's check that the marker landed.
     [Co-developed with claude code -- Adam]"""
@@ -1524,7 +1524,7 @@ TOP = 2 ** 31 - 1
 
 
 def load_match_shape():
-    """(Cut A + D) The proxy writer's own shape rules, p4_proxy/proxy_agent/match_shape.py (no gRPC, no protobuf).
+    """The proxy writer's own shape rules, p4_proxy/proxy_agent/match_shape.py (no gRPC, no protobuf).
     The fake proxy refuses, with a 400, what the real one refuses before the wire: a probe body only the fake
     would take (a ternary value with bits outside its mask, for one) is a red test here, not a RED in the lab."""
     import importlib.util
@@ -1599,12 +1599,12 @@ class FakeFabric(object):
         self.count_k1 = True
         self.proxy_k1_extra = 0
         self.thrift_down = set()          # dpids whose CLI cannot connect
-        # (Cut A + D) today's proxy writes ternary, range and optional entries; False is a proxy before that (501)
+        # today's proxy writes ternary, range and optional entries; False is a proxy before that (501)
         self.ndtwin_writes_ternary = True
-        # (Cut C) today's proxy replays its table-entry journal, so switch_state's `journaled` is true; False is a
+        # today's proxy replays its table-entry journal, so switch_state's `journaled` is true; False is a
         # proxy before that (journaled false everywhere)
         self.journal_replays = True
-        # (C2 thrift cut) today's proxy reads registers (GET /p4/register, through bmv2's thrift): served from s2's
+        # today's proxy reads registers (GET /p4/register, through bmv2's thrift): served from s2's
         # r_mark; False is a proxy before that (no such route in its openapi)
         self.proxy_reads_registers = True
         self.ndtwin_priority = None       # a writer that stores some other number than PI does, or None
@@ -1712,7 +1712,7 @@ class FakeFabric(object):
 
     @proxy_reads_registers.setter
     def proxy_reads_registers(self, on):
-        """(C2 thrift cut) The knob also edits the openapi document routes() published, so a test may turn
+        """The knob also edits the openapi document routes() published, so a test may turn
         it after the fabric is up. [Co-developed with claude code -- Adam]"""
         self._reads_registers = on
         paths = getattr(self, "_openapi_paths", None)
@@ -2327,7 +2327,7 @@ class TestOneObserverFailing(Cut2):
         self.assertIn("MT1", a.observations)                     # the last step still ran
         ctx = self.judge(a, self.all_confirmed())
         self.assertEqual(ctx.cells["TP1"].verdict, V.NOT_RUN)
-        self.assertEqual(ctx.cells["T8"].verdict, V.GREEN)          # (Cut C) its own observer was not the one that raised
+        self.assertEqual(ctx.cells["T8"].verdict, V.GREEN)          # its own observer was not the one that raised
 
     def test_a_signal_still_ends_the_round(self):
         def sig(*a, **kw):
@@ -2520,7 +2520,7 @@ class TestBringUpARedPaths(Cut2):
                          {c: V.GREEN for c in ("T4", "T5", "T6", "T7")})
 
     def test_t4_to_t7s_bodies_are_ones_the_writer_takes(self):
-        """(Cut A + D) Every write T4-T7 sends passes the writer's own shape and priority rules, so a refusal in the
+        """Every write T4-T7 sends passes the writer's own shape and priority rules, so a refusal in the
         lab is the writer's and never the probe's. T4's first body (10.0.4.4 under a /24) did not: V3 refuses it."""
         for body in (OA.T4_BODY, OA.T5_BODY, OA.T6_BODY) + tuple(OA.T7_BODIES):
             (field, v), = body["match"].items()
@@ -2531,7 +2531,7 @@ class TestBringUpARedPaths(Cut2):
             MS.shape_field("t.f", "TERNARY", 32, ["10.0.4.4", "255.255.255.0"])
 
     def test_a_proxy_that_replays_its_journal_is_t8_green_and_one_that_does_not_is_red(self):
-        """(Cut C) T8 reads switch_state's `journaled` for switch 2: true since the proxy replays its table-entry
+        """T8 reads switch_state's `journaled` for switch 2: true since the proxy replays its table-entry
         journal at startup and readopt, false before."""
         a, _r = self.a_round(only=["T8"])
         self.assertEqual(self.judge(a, None).cells["T8"].verdict, V.GREEN)
@@ -2788,7 +2788,7 @@ class TestTheLabRun(Cut2):
         self.assertEqual((h["gate_fingerprint"]["sha256"], h["system_under_test"]), ("f" * 64, "/r/code_identity.json"))
 
     def test_pft_observation_reads_a_refusal_in_s0s_record_as_red(self):
-        """(Cut A + D) pft_observation on an S0 record: a refusal of the ternary entry alone (any words; S0 counts the
+        """pft_observation on an S0 record: a refusal of the ternary entry alone (any words; S0 counts the
         lines that name it) decides RED with the static attribution, a pass GREEN. run_lab itself reads it only from
         a COMPLETE S0, which needs PF-T GREEN: the next test is what a refused PF-T does to a lab run."""
         refused = {"preflight": {"PF-T": {"rc": 1, "ternary_rows": 1, "other_fail_rows": 0}},
