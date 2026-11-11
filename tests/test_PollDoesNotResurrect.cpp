@@ -1489,11 +1489,15 @@ struct GapSamples
 {
     long reads = 0;
     long noteWithoutDeclaration = 0;
+    /// Reads that found the note and the declaration both standing: the write seen whole. At the
+    /// fixed code the gap count is zero by construction, so this is what shows the reader
+    /// overlapped the writes at all. [Co-developed with claude code -- Adam]
+    long noteWithDeclaration = 0;
 };
 
 /// Runs `write` and then clearEdgeDeclaredDown on @p e @p rounds times, while a second thread
 /// reads (`note`, `declaredDown`) of @p e under a shared lock as fast as it can. Counts the reads
-/// that found the note standing with no declaration.
+/// that found the note standing with no declaration, and those that found both.
 GapSamples
 sampleBetweenNoteAndDeclaration(Graph& graph,
                                 std::shared_mutex& mutex,
@@ -1504,24 +1508,52 @@ sampleBetweenNoteAndDeclaration(Graph& graph,
                                 int rounds)
 {
     std::atomic<bool> done{false};
+    // [Co-developed with claude code -- Adam]
+    // The writer waits for the reader's first read, and the reader says when it has seen one whole
+    // write. On a machine with a single CPU the reader can otherwise go unscheduled for the whole
+    // loop -- it is a few tens of milliseconds -- and a run that never overlapped the writes counts
+    // nothing in either direction.
+    std::atomic<bool> readerStarted{false};
+    std::atomic<bool> sawWhole{false};
     GapSamples seen;
     std::thread reader(
         [&]
         {
             while (!done.load(std::memory_order_acquire))
             {
-                std::shared_lock lock(mutex);
-                const auto& ep = graph[e];
-                ++seen.reads;
-                if (ep.*note && !ep.declaredDown)
                 {
-                    ++seen.noteWithoutDeclaration;
+                    std::shared_lock lock(mutex);
+                    const auto& ep = graph[e];
+                    ++seen.reads;
+                    if (ep.*note && !ep.declaredDown)
+                    {
+                        ++seen.noteWithoutDeclaration;
+                    }
+                    if (ep.*note && ep.declaredDown)
+                    {
+                        ++seen.noteWithDeclaration;
+                        sawWhole.store(true, std::memory_order_relaxed);
+                    }
                 }
+                readerStarted.store(true, std::memory_order_release);
             }
         });
+    const auto writeOnce = [&] { (monitor.*write)(e); };
+    while (!readerStarted.load(std::memory_order_acquire))
+    {
+        std::this_thread::yield();
+    }
     for (int i = 0; i < rounds; ++i)
     {
-        (monitor.*write)(e);
+        writeOnce();
+        monitor.clearEdgeDeclaredDown(e);
+    }
+    // Still no whole write seen: keep going, yielding between the write and its withdrawal so that
+    // a reader sharing the CPU gets a turn, for at most as many rounds again.
+    for (int i = 0; i < rounds && !sawWhole.load(std::memory_order_relaxed); ++i)
+    {
+        writeOnce();
+        std::this_thread::yield();
         monitor.clearEdgeDeclaredDown(e);
     }
     done.store(true, std::memory_order_release);
@@ -1547,7 +1579,13 @@ TEST_F(DeclaredLinkFailureTest, AnInjectionWritesItsNoteAndTheDeclarationUnderOn
                                                       &TopologyAndFlowMonitor::setEdgeDownByInjection,
                                                       kGapRounds);
 
-    ASSERT_GT(seen.reads, 0) << "the reader never took the lock, so this case read nothing";
+    RecordProperty("reads", static_cast<int>(seen.reads));
+    RecordProperty("note_without_declaration", static_cast<int>(seen.noteWithoutDeclaration));
+    RecordProperty("note_with_declaration", static_cast<int>(seen.noteWithDeclaration));
+    // seen.reads > 0 holds by construction: the writer starts only after the reader's first read.
+    ASSERT_GT(seen.noteWithDeclaration, 0)
+        << "the reader never saw the write, so it never overlapped the writes and the count below "
+           "is zero for a reason that says nothing";
     EXPECT_EQ(seen.noteWithoutDeclaration, 0)
         << seen.noteWithoutDeclaration << " of " << seen.reads
         << " reads found the edge injected and not declared down. The note and the declaration are "
@@ -1572,7 +1610,13 @@ TEST_F(DeclaredLinkFailureTest, AReportedFailureWritesItsNoteAndTheDeclarationUn
                                         &TopologyAndFlowMonitor::setEdgeDownByReportedFailure,
                                         kGapRounds);
 
-    ASSERT_GT(seen.reads, 0) << "the reader never took the lock, so this case read nothing";
+    RecordProperty("reads", static_cast<int>(seen.reads));
+    RecordProperty("note_without_declaration", static_cast<int>(seen.noteWithoutDeclaration));
+    RecordProperty("note_with_declaration", static_cast<int>(seen.noteWithDeclaration));
+    // seen.reads > 0 holds by construction: the writer starts only after the reader's first read.
+    ASSERT_GT(seen.noteWithDeclaration, 0)
+        << "the reader never saw the write, so it never overlapped the writes and the count below "
+           "is zero for a reason that says nothing";
     EXPECT_EQ(seen.noteWithoutDeclaration, 0)
         << seen.noteWithoutDeclaration << " of " << seen.reads
         << " reads found a failure report with no declaration. The note and the declaration are "

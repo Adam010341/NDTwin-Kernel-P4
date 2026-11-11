@@ -975,8 +975,8 @@ struct EdgeProperties
      * (applyReportedLinkRecovery) covers both; two writers each refusing half of the sequence
      * would not.
      *
-     * @note Set only by setEdgeDownByInjection, cleared only by clearEdgeDeclaredDown. Not read
-     *       back from a file, for the reason `declaredDown` is not.
+     * @note Set only by injectEdgeDownNoLock (setEdgeDownByInjection, setLinkDownByInjection);
+     *       cleared only by clearEdgeDeclaredDownNoLock. Not read from a file, like `declaredDown`.
      */
     bool injected = false;
 

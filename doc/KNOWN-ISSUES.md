@@ -165,7 +165,7 @@ lock, is refused with 412; that part is fixed.)
 back as `lease` is refused when the lock has moved on (`:526`, `:552`, `:687`, `:713`), but a call with
 no `lease` is acted on by name alone and only counted (`:564-570`, `:725-731`). The switch that would make
 the lease mandatory, `setRequireLeaseId`, is off by default and nothing calls it (`:73`, `:215`;
-`src/ndt_core/http/HttpSession.cpp:4016`, `:4127`).
+`src/ndt_core/http/HttpSession.cpp:4092`, `:4203`).
 
 **What to do.** Pass the `lease` value returned by `acquire_lock` to every `renew_lock` and
 `release_lock`, as a number in the JSON body: a query parameter or a string is silently ignored, as if
@@ -187,7 +187,7 @@ thread is not running or when every write to the output directory fails.
 
 **Why.** The recorder is not started in MININET mode, and says so in the kernel log
 (`src/ndt_core/data_management/HistoricalDataManager.cpp:63-72`). The endpoint reports this honestly
-(`src/ndt_core/http/HttpSession.cpp:3481-3508`). The reply is 200, so only the `recording` and `status`
+(`src/ndt_core/http/HttpSession.cpp:3551-3585`). The reply is 200, so only the `recording` and `status`
 fields tell the case apart from a working recorder.
 
 **What to do.** Read `recording` (and `reason`), not the status code. Use a deployment mode that records
@@ -233,7 +233,7 @@ only around 5 pps. `get_num_of_flows_passing_a_switch` was the narrowest: 21 of 
 
 **Why.** A flow is "active" only if a sample for it arrived in the last 3 seconds
 (`include/ndt_core/collection/FlowLinkUsageCollector.hpp:91`), and the per-edge flow sets used by the
-count are emptied after 2 seconds (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5920-5941`). At
+count are emptied after 2 seconds (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:6061-6108`). At
 1-in-256 sampling a slow flow produces too few samples. The behaviour is documented
 (`doc/2026-01-02_ndt_api.md`, section 4).
 
@@ -253,7 +253,7 @@ starts or on an edge nobody samples.
 
 **Why.** Deliberate sentinel: `-1.0` means "never", not "a long time ago"
 (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2001-2005`, serialised as is at
-`src/ndt_core/http/HttpSession.cpp:1565-1567`). The contract does not bound the value from below.
+`src/ndt_core/http/HttpSession.cpp:1642-1643`). The contract does not bound the value from below.
 
 **What to do.** Treat a negative value as "never sampled" before doing arithmetic on it. Do not use
 `telemetry_status` instead: it is decided per switch, so an edge that was never sampled on a switch that
@@ -274,8 +274,8 @@ documents the false positive as deliberate (`include/ndt_core/collection/FlowLin
 `include/ndt_core/collection/FlowLinkUsageCollector.hpp:305`), for as long as the edge stays in the
 graph.
 
-**Why.** The usage fields are always numeric (`src/ndt_core/http/HttpSession.cpp:1581-1582`); the
-silence is carried only by `telemetry_status` (`:1563-1564`;
+**Why.** The usage fields are always numeric (`src/ndt_core/http/HttpSession.cpp:1657-1658`); the
+silence is carried only by `telemetry_status` (`:1641`;
 `src/ndt_core/collection/FlowLinkUsageCollector.cpp:2007-2027`).
 
 **What to do.** Read `silent` as "cannot tell": it covers a broken telemetry path and a switch with
@@ -297,8 +297,8 @@ link has a reading at all.
 **When.** Always; the average has no idle links in it by construction.
 
 **Why.** Links with `linkBandwidthUsage` 0, links that are not usable, and edges to hosts are skipped,
-and 0 is returned when no link is left (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5642-5696`).
-The handler is `src/ndt_core/http/HttpSession.cpp:3521-3535`. The endpoint is part of the
+and 0 is returned when no link is left (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5783-5844`).
+The handler is `src/ndt_core/http/HttpSession.cpp:3597-3613`. The endpoint is part of the
 cross-repository `/ndt/` contract, so its meaning is not changed. The P4 energy-saving example uses it
 as a gate and stops its pass when the value is above its limit
 (`examples/p4_energy_saving/energy_saving.py:323-327`), so an overstated value makes it skip passes.
@@ -327,7 +327,7 @@ OVS strategy; the exemption mark is never read on that path
 (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:70-100`). It is deliberate:
 a documented state value is not answered with 4xx. In TESTBED mode the command goes through the
 smart-plug table instead, and a switch missing from that table is refused with 404
-(`:2044-2077`; `src/ndt_core/http/HttpSession.cpp:2020-2027`). It is documented in
+(`:2044-2077`; `src/ndt_core/http/HttpSession.cpp:2096-2103`). It is documented in
 `doc/2026-01-02_ndt_api.md` ("The exemption affects reads, not commands").
 
 **What to do.** To tell whether a switch is exempt, read its node in `/ndt/get_graph_data`:
@@ -470,7 +470,7 @@ or read, and is unknown (null) when the push itself failed.
 requests and not the reasons for them. The kernel reads the record on its regular poll of the proxy and logs it at
 ERROR (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:797-805`;
 `src/ndt_core/power_management/P4RulesLost.cpp:99-103`); `get_graph_data` serves it on the switch node
-(`src/ndt_core/http/HttpSession.cpp:1511-1517`).
+(`src/ndt_core/http/HttpSession.cpp:1591-1599`).
 
 **What to do.** After a proxy restart or readopt, read `ryu_rules_lost` in `get_graph_data` and have
 the application that installed those rules resend them. A record of 0 is not proof that nothing was

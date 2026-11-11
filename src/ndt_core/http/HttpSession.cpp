@@ -922,17 +922,20 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
     //
     // ...ByReportedFailure, not ...ByDeclaration. THIS endpoint is Ryu's notification, so a
     // call to it is the control plane saying it SAW the break -- and that note is what the matching
-    // /ndt/link_recovery_detected later pairs with. /ndt/inject_link_failure calls
-    // setEdgeDownByInjection instead, and the `injected` note that writes is what makes an
+    // /ndt/link_recovery_detected later pairs with. /ndt/inject_link_failure writes
+    // setEdgeDownByInjection's body instead, and the `injected` note that writes is what makes an
     // injection immune to a recovery report, a Ryu restart's included (B-23).
+    //
+    // The reverse edge is looked up before anything is written, so that both directions can be
+    // written under one lock (setLinkDownByReportedFailure). The reply to a missing reverse is
+    // unchanged: the reported direction is still marked down and its event emitted.
     // [Co-developed with claude code -- Adam]
-    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());
-    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
-                           .payload = LinkFailureEventData{fwdOpt.value()}});
-
     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
     if (!revOpt)
     {
+        m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());
+        m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                               .payload = LinkFailureEventData{fwdOpt.value()}});
         // [Co-developed with claude code -- Adam]
         // Answered 200 "link failure processed" here for months. Every loader and discovery
         // path inserts edges in pairs, so a graph holding s->d without d->s is the kernel's own
@@ -955,7 +958,9 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
             R"({"error":"reverse edge missing from the topology; the reported direction was marked down, its reverse was not"})";
         return;
     }
-    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(revOpt.value());
+    m_topologyAndFlowMonitor->setLinkDownByReportedFailure(fwdOpt.value(), revOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{revOpt.value()}});
     // [Co-developed with claude code -- Adam]
@@ -1132,12 +1137,15 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     // one second of Ryu coming back the kernel logged a recovery POST for every link, and the
     // declaration was gone in 9 of 9 samples). One call now, and it withdraws only when this
     // report pairs with a failure the control plane reported. See applyReportedLinkRecovery.
-    const auto fwdOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value());
+    //
+    // Both directions under one lock, so the reverse edge is looked up first. A missing reverse
+    // still applies the report to the forward direction alone and answers as it always did.
+    // [Co-developed with claude code -- Adam]
     // TODO: Emit LinkRecoveryDetected event
-
     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
     if (!revOpt)
     {
+        const auto fwdOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value());
         // Same shape and same reasoning as handleLinkFailure above: edges exist in pairs, so a
         // missing reverse is kernel-state inconsistency, and by now the forward direction has
         // already been acted on -- report the half that happened. [Co-developed with claude code -- Adam]
@@ -1160,7 +1168,8 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
             R"({"error":"reverse edge missing from the topology; the reported direction was applied, its reverse was not"})";
         return;
     }
-    const auto revOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(revOpt.value());
+    const auto [fwdOutcome, revOutcome] =
+        m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value(), revOpt.value());
 
     // [Co-developed with claude code -- Adam]
     // THE OUTCOME IS KNOWN HERE AND NOWHERE EARLIER, so this is where it is logged. One
@@ -1288,11 +1297,12 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     }
 
     // [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md B-23: ...ByInjection, so that no
-    // recovery report can end this, whatever the control plane reports about the link.
-    m_topologyAndFlowMonitor->setEdgeDownByInjection(fwdOpt.value());
+    // recovery report can end this, whatever the control plane reports about the link. Both
+    // directions under one lock: written apart, an /ndt/inject_link_recovery between them withdrew
+    // the first and left the second injected.
+    m_topologyAndFlowMonitor->setLinkDownByInjection(fwdOpt.value(), revOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{fwdOpt.value()}});
-    m_topologyAndFlowMonitor->setEdgeDownByInjection(revOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{revOpt.value()}});
 
@@ -1471,11 +1481,13 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     // withdraws a declaration only when it pairs with a reported break; this endpoint is the
     // operator taking their own injection back, so it needs no agreement from the control plane --
     // and it is the endpoint the caller is pointed at when the other one declines.
-    for (const auto& e : {fwdOpt.value(), revOpt.value()})
-    {
-        m_topologyAndFlowMonitor->clearEdgeDeclaredDown(e);
-        m_topologyAndFlowMonitor->setEdgeUp(e);
-    }
+    //
+    // One call, one lock, for both directions and for the withdrawal and the raise. It was
+    // `clearEdgeDeclaredDown(e); setEdgeUp(e);` per direction, and an /ndt/inject_link_failure
+    // landing between the two was undone by the raise: injected, declared down and `isUp` true,
+    // which no poll lowers. See withdrawLinkDeclarationAndRaise.
+    // [Co-developed with claude code -- Adam]
+    m_topologyAndFlowMonitor->withdrawLinkDeclarationAndRaise(fwdOpt.value(), revOpt.value());
 
     json body{{"status", "link recovery injected"}};
 
