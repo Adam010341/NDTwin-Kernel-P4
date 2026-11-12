@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .errors import (Busy, KernelUnreachable, NDTwinError, OutcomeUnknown, SwitchRefused,
-                     Unsettled, WriteNotVerified)
+                     TableFull, Unsettled, WriteNotVerified)
 
 TABLE_ENTRY = "/ndt/p4/table_entry"
 OPS = ("insert", "modify", "delete")
@@ -173,12 +173,63 @@ class P4:
                               method="GET", path=path, status=200, body=reply, nothing_written=True)
         return reply
 
-    def write(self, entry, op="insert"):
-        """Send one entry with `op` "insert", "modify" or "delete". No read-back."""
+    def write(self, entry, op="insert", table_size=None):
+        """Send one entry with `op` "insert", "modify" or "delete". No read-back.
+
+        An insert the switch refuses with `RESOURCE_EXHAUSTED` raises TableFull, without reading
+        the table. bmv2 answers a full table with `UNKNOWN` instead, whose text names no cause, so
+        an insert refused with `UNKNOWN` raises TableFull only when you pass `table_size`, the
+        size the P4 program declares for the table, and a read of the table straight afterwards
+        (one request) holds at least that many entries; otherwise it stays a SwitchRefused whose
+        `note` says what was found. The default entry is not counted, as bmv2 does not count it.
+        `table_size` must be a positive integer (ValueError otherwise).
+        [Co-developed with claude code -- Adam]
+        """
         if op not in OPS:
             raise ValueError(f"op must be insert, modify or delete, not {op!r}")
-        reply = self._http.call("POST", TABLE_ENTRY, body=dict(entry, op=op))
+        if table_size is not None and (isinstance(table_size, bool)
+                                       or not isinstance(table_size, int) or table_size < 1):
+            raise ValueError(f"table_size must be a positive integer, not {table_size!r}")
+        try:
+            reply = self._http.call("POST", TABLE_ENTRY, body=dict(entry, op=op))
+        except SwitchRefused as err:
+            full = self._table_full(TableEntry(entry), err, table_size) if op == "insert" else None
+            if full is None:
+                raise
+            raise full from err
         return WriteResult(body=reply.body, lab_claim=reply.lab_claim)
+
+    def _table_full(self, entry, err, size):
+        """A TableFull for the refused insert when the evidence says the table is full; else None,
+        after giving `err` a `note` when the switch's code was UNKNOWN."""
+        code = (err.p4rt_error or {}).get("code")
+        if code not in ("RESOURCE_EXHAUSTED", "UNKNOWN"):
+            return None
+        held, note = None, ("the switch's UNKNOWN names no cause; bmv2 answers a full table "
+                            "with it: pass table_size to have the table counted")
+        if size is not None and code == "UNKNOWN":
+            try:
+                table = self.read_table(entry.dpid, entry.table, strict=False, retries=0)
+                held = len(table.entries) + sum(
+                    1 for u in table.unrendered
+                    if not (isinstance(u, dict) and u.get("default_action")))
+                note = (f"the table held {held} entries of the {size} declared when read, so it "
+                        f"was not full then")
+            except NDTwinError as read_err:
+                note = f"the read that would tell whether the table is full failed: {read_err}"
+        if code == "RESOURCE_EXHAUSTED" or (held is not None and held >= size):
+            full = TableFull(f"s{entry.dpid} {entry.table}: the table is full ("
+                             + (f"{held} entries, {size} declared" if held is not None
+                                else "the switch says RESOURCE_EXHAUSTED")
+                             + f"): {err}", method=err.method, path=err.path, status=err.status,
+                             origin=err.origin, body=err.body)
+            full.grpc_status, full.p4rt_error, full.lab_claim = (
+                err.grpc_status, err.p4rt_error, err.lab_claim)
+            full.entries, full.size = held, size
+            return full
+        err.note = note
+        err.args = (f"{err}; {note}",)
+        return None
 
     def settle(self, entry, op="insert", budget_s=60.0, wait_s=None):
         """Find out whether a write that raised OutcomeUnknown is on the switch. Opt-in: the SDK

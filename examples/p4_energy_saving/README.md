@@ -2,7 +2,8 @@
 
 [Co-developed with claude code -- Adam]
 
-A small app that turns off one switch when the network is quiet. It uses only the NDTwin
+A small app that turns off one switch when the network is quiet, and turns it back on when the
+traffic returns. It uses only the NDTwin
 kernel's HTTP API on port 8000 and the Python standard library. It is written twice, with the same
 policy, options and exit codes, and the same rule for a write that may have landed (it is sent
 once, and the switch stays on):
@@ -100,12 +101,12 @@ powers s4 off. On 2026-10-31 an earlier version of both apps did that on a bmv2 
 that exercise, with pings through every switch, without losing a ping; the tests show the same
 against a fake kernel built from a recorded reply of that topology.
 
-Powering a bmv2 switch off needs the root helper `ndtwin-p4-power` (`doc/2026-01-02_ndt_api.md`
-§8). The User Manual does not install it: the steps are in the docstring of
-`tools/p4_power_helper.py`. Without it the power-off answers `500` and the app says the power-off
-may have taken effect, since the same `500` also comes back when the helper signalled the switch
-and it had not stopped 10 s later; the routes it moved still work, because the other spine carries
-them.
+Powering a bmv2 switch off or on needs the root helper `ndtwin-p4-power`
+(`doc/2026-01-02_ndt_api.md` §8). The User Manual does not install it: the steps are in the
+docstring of `tools/p4_power_helper.py`. Without it the power-off answers `500` and the app says
+the power-off may have taken effect, since the same `500` also comes back when the helper
+signalled the switch and it had not stopped 10 s later; the routes it moved still work, because
+the other spine carries them.
 
 ## Options
 
@@ -117,12 +118,71 @@ them.
 | `--max-avg-usage` | `0.4` | do nothing above this average link usage (a 0..1 fraction, §24) |
 | `--max-link-util` | `40` | never turn off a switch with a link above this utilisation (percent, §3) |
 | `--every` | `0` | repeat every N seconds; 0 runs once. Less than 15 s is refused (see "Closed-loop apps" in the API document) |
+| `--wake-factor` | `2` | wake a switch turned off above this times `--max-avg-usage` (above 1) |
+| `--wake-after` | `3` | passes in a row above the wake level before a wake |
+| `--stay-on` | `300` | seconds after a power-on is sent or tried during which the app turns nothing off |
 | `--dry-run` | | read and plan, write nothing |
 
 Exit status: 0 done or nothing to do, 1 an error or a step that did not take, 3 another app holds
 `routing_lock`.
 
-Neither app ever powers a switch back on. The tests run against a fake kernel:
+## Waking the switch when the traffic returns
+
+Run with `--every N` and the app remembers, in memory, the switches it turned off, in order, and
+the routes it moved. If the app stops, nothing remembers them: a switch it turned off stays off
+until someone powers it on. After `--wake-after` passes in a row (3 by default) with the average
+link usage above `--wake-factor` (2 by default) times `--max-avg-usage`, a pass does not look for
+another switch to turn off; it takes the switch it turned off last and
+
+1. renews the lock, powers that switch on (§8) and reads its state back; a `500`, or a state
+   that is not `on`, stops the pass;
+2. reads the switch's forwarding table: a power-on starts the switch's bmv2 again and pushes its
+   pipeline afresh, which empties its tables, and on a fabric brought up with `--app` the
+   package's entries go back on (see "Powering a switch back on" in `sdk/python/README.md` for
+   what else does and does not). It checks that the table is not empty, then reads the tables of
+   the switches that are on and follows every pair of hosts through them as they will be with
+   the routes moved back (`route_walk.py`, over the links as they were when the switch was turned
+   off). An empty table, or a packet that would be dropped or loop, leaves the routes where they
+   are and the switch on, still listed as one to wake;
+3. renews the lock again and writes back the entries it had rewritten, as they were, and reads
+   the tables back.
+
+A failure before the writes leaves the routes around the switch, which keep working; a failed write
+can leave some of them back on it, and a later wake of that switch writes them all again. The reason
+line names the step that stopped. A switch whose wake fails goes to the back of the line, so the
+next wake tries the one turned off before it; the links each switch remembers learn the ports of
+every switch woken since, and a route may then come back onto a different switch than the one it
+started on (every route is still checked first). A switch that is no longer in the topology is
+forgotten, and its routes stay where they were moved. With two switches asleep, a wake takes the one
+turned off last, and the next wake, after another `--wake-after` busy passes, the other: the switch
+still off has no table to read, so a route that would need it reads as broken and the wake stops
+there. For `--stay-on` seconds (300 by default) after a power-on is sent or tried, the app turns
+nothing off, so a power-on that fails, and may still have taken effect, holds too.
+
+Why these three: the kernel's average counts only the links that carry a reading (KNOWN-ISSUES
+F-17), so it moves with the switches that are on, and it is noisy. On a bmv2 fabric one steady 52
+Mbit/s flow read, at 2 s intervals, from 0.0290 to 0.0749 with one switch off (2.6 times from lowest
+to highest) and from 0.0165 to 0.0681 with every switch on (4.1 times; 2026-11-11 UTC); in another
+run of the same flow, with one switch off, from 0.0243 to 0.0707 (2.9 times). A wake level only
+twice the limit is therefore not enough on its own to keep a switch from being turned off and on by
+turns, when the limit sits inside such a range; and one reading 2 s after a power-on fell to 0.0021,
+a quiet network's. Several passes in a row above the wake level filter single high readings, and
+`--stay-on` bounds what is left: **no power-off comes less than `--stay-on` seconds after a power-on
+is sent or tried, whatever the readings**, so the app turns switches off and on by turns at most
+once per `--stay-on` seconds, across the whole fabric, and it cannot tell noise from a real change.
+Pick the limit and the factor from your own fabric's readings: each pass prints the average it read,
+and while a switch is asleep the reason line says what a wake needs.
+
+With `--max-avg-usage 0.015` (wake level 0.03) on that fabric, the app turned a spine off on a quiet
+network; once the flow started, the busy passes went 0, 1, 0, 1, 2, 3 and the sixth pass woke the
+spine (the power-on took 1.24 s), checked the routes and moved two back; the 16 passes under load
+after it turned nothing off, and four ping streams lost no packet (2026-11-11 UTC). A single hot
+link is not a trigger: the switch it would wake may not relieve that link, and a later pass would
+find that switch quiet and turn it off again (seen on that fabric, 16 s after a wake on a hot link).
+A one-shot run (`--every 0`) knows of no switch it turned off, so it never powers one on. With
+`--dry-run` it says what it would do.
+
+The tests run against a fake kernel:
 `tests/python/test_p4_energy_saving_example.py` for `energy_saving.py` and
 `tests/python/test_p4_energy_saving_sdk_example.py` for `energy_saving_sdk.py`; the SDK's own tests
 are `tests/python/test_ndtwin_sdk.py`.

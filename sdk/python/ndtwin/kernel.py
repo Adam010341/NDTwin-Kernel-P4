@@ -1,4 +1,4 @@
-"""The client: topology, link usage, power, locks, and the `p4` namespace.
+"""The client: topology, link usage, power (off and on), locks, and the `p4` namespace.
 
 [Co-developed with claude code -- Adam]
 
@@ -110,17 +110,54 @@ class Kernel:
         broke after the command went out. A PowerError always has `may_have_landed` True: the
         kernel's 500 does not tell a power helper that never touched the switch from one that
         signalled it and gave up waiting, nor a plug that was switched before the kernel gave up.
-        `reachable` in the state returned lags behind the command (§7).
+        On a P4 (bmv2) switch `reachable` in the state returned is already False: the kernel marks
+        the switch down when it records the command.
         """
+        return self._set_power(dpid, "off")
+
+    def power_on(self, dpid):
+        """POST /ndt/set_switches_power_state (§8) with action=on, then read the state back (§7).
+
+        The twin of `power_off`, with the same errors: it returns the state, which is "on", or
+        raises PowerError (`may_have_landed` True) when the kernel failed the command or the
+        state read afterwards is not "on". A switch the twin already knows to be on, and that it
+        has not been told to power off, is left alone and reported on.
+
+        On a P4 (bmv2) switch the kernel starts the switch's bmv2 again (the root helper
+        `ndtwin-p4-power`, as for a power-off) and has the P4 proxy re-adopt it, and answers only
+        after both: the switch then runs its pipeline again, pushed afresh, which empties every
+        table. What goes back into the tables: on a fabric brought up with an app package
+        (`ndt up p4 --app`), the package's own entries and then the writes made through
+        `p4.write`, `p4.modify` and `p4.modify_all` since the proxy started (the proxy's
+        table-entry journal, when it is on, which is the default), before `power_on` returns.
+        On NDTwin's own pipeline the proxy refuses those writes (409, "owned by NDTwin"), and
+        NDTwin's routes are put back by the re-adoption while the proxy still has paths through
+        the switch, or else by its link watchdog once the switch's links are seen again, after
+        `power_on` has returned (seen on bmv2 1.15.5: back at the return after 12 s off, about
+        2 s after it after 90 s off; with no link watchdog on the fabric, never): do not write
+        them yourself. Rules installed through
+        `/ndt/install_flow_entry` are never put back. So read the switch's tables after a
+        power-on (`p4.read_table`) and send again what your app wrote and does not find.
+
+        A PowerError here can also mean bmv2 is running again but its re-adoption did not finish:
+        the switch may not forward, and sending the power-on again does not retry the re-adoption
+        (the kernel log names the step that failed and the recovery). The kernel gives the
+        re-adoption up to 30 s, longer than the client's default `timeout` of 20 s: a slow one
+        then raises OutcomeUnknown, and the switch may still come up.
+        [Co-developed with claude code -- Adam]
+        """
+        return self._set_power(dpid, "on")
+
+    def _set_power(self, dpid, action):
         ip = self._mgmt_ip(dpid)
-        self._http.call("POST", "/ndt/set_switches_power_state", {"ip": ip, "action": "off"})
+        self._http.call("POST", "/ndt/set_switches_power_state", {"ip": ip, "action": action})
         try:
             state = self.power_state(dpid)
         except NDTwinError as err:
-            raise PowerError(f"s{dpid} ({ip}) was told to power off; reading its state failed: "
-                             f"{err}", nothing_written=None) from err
-        if state.admin_state != "off":
-            raise PowerError(f"s{dpid} ({ip}) was told to power off and reports "
+            raise PowerError(f"s{dpid} ({ip}) was told to power {action}; reading its state "
+                             f"failed: {err}", nothing_written=None) from err
+        if state.admin_state != action:
+            raise PowerError(f"s{dpid} ({ip}) was told to power {action} and reports "
                              f"admin_state {state.admin_state!r}", nothing_written=None)
         return state
 
