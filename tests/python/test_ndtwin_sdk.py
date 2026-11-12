@@ -29,7 +29,7 @@ from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from p4_fake_kernel import (FIELD, MGMT_IP, POWER_MW, REPO, TABLE, FakeKernel, calls,  # noqa: E402
-                            grpc_502, serve)
+                            grpc_502, refused_502, serve)
 
 SDK_DIR = os.environ.get("NDTWIN_SDK_UNDER_TEST") or os.path.join(REPO, "sdk", "python")
 sys.path.insert(0, SDK_DIR)
@@ -607,7 +607,7 @@ class WriteAndReadBackTest(SdkTest):
 class PowerTest(SdkTest):
     def test_power_off_addresses_the_switch_by_its_decoded_management_ip(self):
         state = self.k.power_off(4)
-        self.assertEqual(state, ndtwin.PowerState("off", True))  # `reachable` lags (§7)
+        self.assertEqual(state, ndtwin.PowerState("off", False))  # a bmv2 switch reads down at once
         post = next(q for m, p, q, b in self.fake.requests if p == "/ndt/set_switches_power_state")
         self.assertEqual(post, {"ip": "192.168.123.14", "action": "off"})
         self.assertEqual(calls(self.fake), ["GET get_graph_data", "POST power 192.168.123.14 off",
@@ -685,6 +685,157 @@ class PowerTest(SdkTest):
         with self.assertRaises(ndtwin.OutcomeUnknown):
             self.k.power_off(4)
         self.assertEqual(self.count("POST", "/ndt/set_switches_power_state"), 1)
+
+
+class PowerOnTest(SdkTest):
+    """`power_on` against the fake's copy of the kernel's action=on (HttpSession.cpp:2064-2102).
+    [Co-developed with claude code -- Adam]"""
+
+    def test_power_on_sends_action_on_and_reads_the_state_back(self):
+        self.k.power_off(4)
+        self.fake.requests.clear()
+        state = self.k.power_on(4)
+        self.assertEqual(state, ndtwin.PowerState("on", True))
+        self.assertEqual(calls(self.fake), ["POST power 192.168.123.14 on",
+                                            "GET get_switches_power_state"])
+        self.assertEqual(self.fake.power_state["192.168.123.14"]["admin_state"], "on")
+
+    def test_a_failed_power_on_may_have_switched_and_is_sent_once(self):
+        # The same 500 for a helper that could not start bmv2 and for a bmv2 that runs again
+        # whose re-adoption did not finish.
+        self.fake.fault("POST", "/ndt/set_switches_power_state", 500,
+                        {"error": "Failed to change switch power state"}, times=3)
+        with self.assertRaises(ndtwin.PowerError) as ctx:
+            self.k.power_on(4)
+        self.assertIsNone(ctx.exception.nothing_written)
+        self.assertEqual(self.count("POST", "/ndt/set_switches_power_state"), 1)
+        self.assertEqual(self.count("GET", "/ndt/get_switches_power_state"), 0)
+
+    def test_a_state_that_does_not_show_on_is_a_power_error(self):
+        self.fake.fault("GET", "/ndt/get_switches_power_state", 200,
+                        {"192.168.123.14": {"admin_state": "off", "reachable": False}})
+        with self.assertRaises(ndtwin.PowerError) as ctx:
+            self.k.power_on(4)
+        self.assertIsNone(ctx.exception.nothing_written)
+        self.assertIn("told to power on and reports admin_state 'off'", str(ctx.exception))
+
+    def test_an_unknown_switch_is_not_found_and_nothing_is_sent(self):
+        with self.assertRaises(ndtwin.NotFound):
+            self.k.power_on(99)
+        self.assertEqual(calls(self.fake), ["GET get_graph_data"])
+
+    def test_the_fake_refuses_an_action_the_kernel_refuses(self):
+        # The fake's 400 is the kernel's; the SDK never sends another action.
+        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_address[1], timeout=5)
+        conn.request("POST", "/ndt/set_switches_power_state?ip=192.168.123.14&action=reboot")
+        self.assertEqual(conn.getresponse().status, 400)
+        conn.close()
+
+
+class TableFullTest(SdkTest):
+    """An insert into a full table: TableFull only on evidence, never on a bare UNKNOWN.
+    [Co-developed with claude code -- Adam]"""
+
+    @staticmethod
+    def new_entry(n):
+        """A route of s1 that is not in its table, built without reading it."""
+        return ndtwin.TableEntry({"dpid": 1, "table": TABLE, "match": {FIELD: [f"10.9.0.{n}", 32]},
+                                  "action_name": "MyIngress.ipv4_forward",
+                                  "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}})
+
+    def fill(self, size=6):
+        self.fake.table_size[1] = size
+        for n in range(size - 4):          # s1 holds four routes already
+            self.k.p4.write(self.new_entry(n))
+        self.fake.requests.clear()
+
+    def test_a_full_table_with_its_declared_size_is_table_full(self):
+        self.fill()
+        with self.assertRaises(ndtwin.TableFull) as ctx:
+            self.k.p4.write(self.new_entry(50), table_size=6)
+        err = ctx.exception
+        self.assertIsInstance(err, ndtwin.SwitchRefused)
+        self.assertIs(err.nothing_written, True)
+        self.assertEqual((err.entries, err.size, err.status, err.origin), (6, 6, 502, "proxy"))
+        self.assertEqual(err.p4rt_error["code"], "UNKNOWN")
+        self.assertIsInstance(err.__cause__, ndtwin.SwitchRefused)
+        self.assertEqual(calls(self.fake), ["POST table s1", "GET table s1"])
+        self.assertEqual(self.count("POST", ENTRY), 1)
+
+    def test_a_bare_unknown_is_not_called_full(self):
+        self.fill()
+        with self.assertRaises(ndtwin.SwitchRefused) as ctx:
+            self.k.p4.write(self.new_entry(50))
+        self.assertNotIsInstance(ctx.exception, ndtwin.TableFull)
+        self.assertIn("pass table_size", ctx.exception.note)
+        self.assertIn("pass table_size", str(ctx.exception))
+        self.assertEqual(calls(self.fake), ["POST table s1"])
+
+    def test_an_unknown_with_room_left_is_not_full(self):
+        self.fake.fault("POST", ENTRY, 502, refused_502(1, "UNKNOWN", "Error when adding match "
+                                                           "entry to target"), origin="proxy")
+        with self.assertRaises(ndtwin.SwitchRefused) as ctx:
+            self.k.p4.write(self.new_entry(50), table_size=1024)
+        self.assertNotIsInstance(ctx.exception, ndtwin.TableFull)
+        self.assertIn("held 4 entries of the 1024 declared when read", ctx.exception.note)
+
+    def test_a_read_that_fails_leaves_it_a_switch_refusal_that_says_so(self):
+        self.fill()
+        self.fake.fault("GET", ENTRY, 503, proxy_detail("switch busy"), origin="proxy")
+        with self.assertRaises(ndtwin.SwitchRefused) as ctx:
+            self.k.p4.write(self.new_entry(50), table_size=6)
+        self.assertNotIsInstance(ctx.exception, ndtwin.TableFull)
+        self.assertIn("read that would tell", ctx.exception.note)
+        self.assertEqual(self.count("GET", ENTRY), 1)  # one request, no retry
+
+    def test_resource_exhausted_is_table_full_without_a_size(self):
+        self.fake.fault("POST", ENTRY, 502, refused_502(1, "RESOURCE_EXHAUSTED", "full"),
+                        origin="proxy")
+        with self.assertRaises(ndtwin.TableFull) as ctx:
+            self.k.p4.write(self.new_entry(50))
+        self.assertEqual((ctx.exception.entries, ctx.exception.size), (None, None))
+        self.assertEqual(calls(self.fake), ["POST table s1"])
+
+    def test_resource_exhausted_with_a_size_is_table_full_without_a_read(self):
+        self.fake.fault("POST", ENTRY, 502, refused_502(1, "RESOURCE_EXHAUSTED", "full"),
+                        origin="proxy")
+        with self.assertRaises(ndtwin.TableFull) as ctx:
+            self.k.p4.write(self.new_entry(50), table_size=6)
+        self.assertEqual((ctx.exception.entries, ctx.exception.size), (None, 6))
+        self.assertEqual(calls(self.fake), ["POST table s1"])
+
+    def test_entries_the_api_cannot_show_are_counted_but_not_the_default(self):
+        self.fake.unrendered[1] = [{"default_action": False, "priority": None, "reason": "r"},
+                                   {"default_action": False, "priority": None, "reason": "r"},
+                                   {"default_action": True, "priority": None, "reason": "r"}]
+        self.fake.fault("POST", ENTRY, 502, refused_502(1, "UNKNOWN", "Error when adding match "
+                                                           "entry to target"), origin="proxy")
+        with self.assertRaises(ndtwin.TableFull) as ctx:   # 4 shown + 2 not shown = 6
+            self.k.p4.write(self.new_entry(50), table_size=6)
+        self.assertEqual(ctx.exception.entries, 6)
+
+    def test_a_table_size_that_is_not_a_positive_integer_is_refused_before_sending(self):
+        for bad in (0, -1, 1.5, "16", True):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.k.p4.write(self.new_entry(50), table_size=bad)
+        self.assertEqual(self.fake.requests, [])
+
+    def test_a_duplicate_into_a_full_table_stays_already_exists(self):
+        self.fill()
+        with self.assertRaises(ndtwin.SwitchRefused) as ctx:
+            self.k.p4.write(self.new_entry(0), table_size=6)
+        self.assertNotIsInstance(ctx.exception, ndtwin.TableFull)
+        self.assertEqual(ctx.exception.p4rt_error["code"], "ALREADY_EXISTS")
+        self.assertIsNone(ctx.exception.note)
+
+    def test_a_modify_refused_unknown_is_not_checked(self):
+        entry = self.route_entry()
+        self.fake.requests.clear()
+        self.fake.fault("POST", ENTRY, 502, refused_502(1, "UNKNOWN", "x"), origin="proxy")
+        with self.assertRaises(ndtwin.SwitchRefused) as ctx:
+            self.k.p4.write(entry, "modify", table_size=6)
+        self.assertNotIsInstance(ctx.exception, ndtwin.TableFull)
+        self.assertEqual(self.count("GET", ENTRY), 0)
 
 
 class LockTest(SdkTest):
@@ -1523,6 +1674,7 @@ class PackageTest(unittest.TestCase):
                     ndtwin.OutcomeUnknown, ndtwin.WriteNotVerified, ndtwin.PowerError):
             self.assertTrue(issubclass(cls, ndtwin.NDTwinError), cls)
         self.assertTrue(issubclass(ndtwin.Unsettled, ndtwin.OutcomeUnknown))
+        self.assertTrue(issubclass(ndtwin.TableFull, ndtwin.SwitchRefused))
         self.assertTrue(issubclass(ndtwin.NotFound, ndtwin.Refused))
         self.assertTrue(issubclass(ndtwin.LockBusy, ndtwin.Refused))
         self.assertEqual(

@@ -78,6 +78,25 @@ class SwitchRefused(NDTwinError):
     default_nothing_written = True
     grpc_status = None
     p4rt_error = None
+    note = None         # what the SDK found out about the refusal (see `P4.write`), or None
+
+
+class TableFull(SwitchRefused):
+    """An insert the switch refused because the table is full, as far as the evidence shows.
+
+    `P4.write` raises it for an insert only when the switch answered `RESOURCE_EXHAUSTED`
+    (P4Runtime's code for a full table; not observed on bmv2), or answered `UNKNOWN` and the
+    table read straight afterwards held at least `size` entries, the declared size the caller
+    passed as `table_size`. bmv2 1.15.5 answers a full table with `UNKNOWN` "Error when adding
+    match entry to target", a text that names no cause, so a bare `UNKNOWN` stays a
+    `SwitchRefused` (with a `note`). `entries` is the count
+    that read found (the entries the API cannot show included; None when not read) and `size`
+    the declared size passed (None when none was). Nothing was written.
+    [Co-developed with claude code -- Adam]
+    """
+
+    entries = None
+    size = None
 
 
 class Busy(NDTwinError):
@@ -105,7 +124,9 @@ class OutcomeUnknown(NDTwinError):
 class Unsettled(OutcomeUnknown):
     """`P4.settle` could not tell whether the write landed: its budget ran out, or the re-sent
     write was refused in a way that does not say (a 4xx, a reply that is not JSON, a switch's
-    code that does not decide it).
+    code that does not decide it). Unsettled means unknown: the write may be on the switch
+    already, or land later, so read the entry back before acting on either answer
+    (sdk/python/README.md shows how).
 
     `last` is that error of the re-sent write (its `status`, `origin`, `body` and `grpc_status`
     are copied here) and `attempts` the number of writes `settle` sent. Any copy of the write may
@@ -135,13 +156,17 @@ class WriteNotVerified(NDTwinError):
 
 
 class PowerError(NDTwinError):
-    """A power command that failed, or whose read-back does not show admin_state "off".
+    """A power command that failed, or whose read-back does not show the admin_state commanded.
 
     `nothing_written` is always None: the command may have taken effect. The kernel answers the
     same 500 "Failed to change switch power state" whatever went wrong. For a P4 (BMv2) switch that
     covers a power helper that is missing or has no record of the switch, and also a switch that
-    was sent SIGTERM and was still running 10 s later, which may still exit; for another switch,
-    a plug that was switched before the kernel gave up.
+    was sent SIGTERM and was still running 10 s later, which may still exit; on a power-on also a
+    bmv2 that was started again but whose re-adoption by the P4 proxy did not finish, which then
+    runs and may not forward (the kernel log names the step and the recovery; sending the
+    power-on again does not retry the re-adoption). For another switch, a plug that was switched
+    before the kernel gave up.
+    [Co-developed with claude code -- Adam]
     """
 
 

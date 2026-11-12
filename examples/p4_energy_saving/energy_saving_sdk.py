@@ -29,10 +29,17 @@ One pass:
   6. renew the lock again, power the switch off (§8) and read its power state (§7); a lock that
      cannot be renewed means no write, or no power-off;
   7. release the lock.
+After --wake-after passes in a row with the average link usage above --wake-factor times
+--max-avg-usage, a pass instead powers on the switch this run turned off last (after a failed
+wake, the one before it) (§8), checks that its table is not empty and that every host still
+reaches every other host once the routes are back, and moves them back. For --stay-on seconds
+after it sends or tries a power-on, it turns nothing off.
+Only a run with --every remembers, in memory, what it turned off, so only that run wakes it.
 
 Run:  python3 examples/p4_energy_saving/energy_saving_sdk.py [--dry-run] [--every 30]
 """
 import argparse
+import json
 import sys
 import time
 from collections import deque
@@ -138,15 +145,22 @@ def rewrite_line(a, old, new):
     return line
 
 
-def run_once(k, a, log=print):
-    """One pass. Returns {"switch", "rewrites", "powered_off", "reason"}.
+def run_once(k, a, log=print, memory=None):
+    """One pass. Returns {"switch", "rewrites", "powered_off", "powered_on", "reason"}.
 
-    When the lock's release fails after the pass, the reason is logged before the error is
-    raised, so what the pass did is not lost."""
-    result = {"switch": None, "rewrites": [], "powered_off": False, "reason": ""}
+    `memory` carries what one pass leaves the next: "asleep" {dpid: ([(entry as it was, entry
+    as rewritten)], {dpid: {port: neighbour}} as the links were)} of the switches this app turned
+    off, in that order; "busy", the passes in a row above the wake level; "woken" {dpid: when it
+    was powered on}. When the lock's release fails after the pass, the reason is logged before
+    the error is raised, so what the pass did is not lost."""
+    result = {"switch": None, "rewrites": [], "powered_off": False, "powered_on": False,
+              "reason": ""}
+    memory = {} if memory is None else memory
+    for name, empty in (("asleep", {}), ("busy", 0), ("woken", {})):
+        memory.setdefault(name, empty)
     try:
         with k.lock("routing_lock", ttl=a.lock_ttl) as lease:
-            one_pass(k, a, lease, result, log)
+            one_pass(k, a, lease, result, log, memory)
     except ndtwin.NDTwinError:
         if result["reason"]:
             log(result["reason"])
@@ -154,11 +168,91 @@ def run_once(k, a, log=print):
     return result
 
 
-def one_pass(k, a, lease, result, log):
+def key(entry):
+    return entry.dpid, json.dumps(entry.match, sort_keys=True), entry.priority
+
+
+def restored(k, a, moves, on):
+    """{dpid: the table as it will be once `moves` are undone}, for the switches `on`; a switch
+    that is off has no table, so a route through it reads as broken."""
+    back = {key(old): old for old, _new in moves}
+    return {dpid: [back.get(key(e), e) for e in k.p4.read_table(dpid, a.table).entries]
+            for dpid in on}
+
+
+def to_the_back(memory, dpid):
+    """After a failed wake: the next wake tries the switch turned off before this one."""
+    memory["asleep"] = {dpid: memory["asleep"].pop(dpid), **memory["asleep"]}
+
+
+def wake(k, a, lease, result, memory, topo):
+    """Power on the switch this app turned off last, check its table is not empty and every route
+    holds with its routes moved back, then move them back.
+    [Co-developed with claude code -- Adam]"""
+    asleep = memory["asleep"]
+    dpid, (moves, links) = next(reversed(asleep.items()))  # undo in the reverse order
+    result["switch"] = dpid
+    if a.dry_run:
+        result["reason"] = f"dry run: would power s{dpid} on and move {len(moves)} routes back"
+        return
+    memory["busy"] = 0
+    if dpid not in topo.switches:
+        del asleep[dpid]
+        result["reason"] = f"s{dpid} is no longer in the topology: forgotten, its routes stay moved"
+        return
+    step = "power-on"
+    try:
+        lease.renew(a.lock_ttl)
+        memory["woken"][dpid] = time.monotonic()  # before sending: one that errs may have landed
+        k.power_on(dpid)  # PowerError unless the state reads "on"
+        result["powered_on"], step = True, "check"
+        # The pipeline is pushed again on power-on, and the package's entries go back on.
+        held = k.p4.read_table(dpid, a.table).entries
+        on = ({sw.dpid for sw in topo.switches.values() if sw.usable} | {dpid}) & set(links)
+        hosts = {h.ip: (h.switch, h.port) for h in topo.attached_hosts.values() if h.switch in on}
+        broken = held and route_walk.first_broken_route(
+            restored(k, a, moves, on), links, hosts, None, a.match_field, a.port_param)
+        if not held or broken:
+            result["reason"] = (f"s{dpid} is on, but {broken or f'its {a.table} is empty'}"
+                                f": routes stay moved")
+            return to_the_back(memory, dpid)
+        lease.renew(a.lock_ttl)
+        step = "routes moved back (some may be)"
+        k.p4.modify_all([old for old, _new in moves], verify=True)
+    except ndtwin.NDTwinError as err:
+        result["reason"] = f"waking s{dpid} stopped at the {step}: {err}"
+        return to_the_back(memory, dpid)
+    del asleep[dpid]
+    for _moved, saved in asleep.values():  # links saved while this switch was off now know it
+        for d, ports in links.items():
+            saved.setdefault(d, {}).update(ports)
+    result["rewrites"] = [old for old, _new in moves]
+    result["reason"] = (f"s{dpid} powered on with {len(held)} entries in {a.table}; "
+                        f"{len(moves)} routes moved back onto it")
+
+
+def one_pass(k, a, lease, result, log, memory):
     """The pass inside the lock; fills `result`."""
     topo, avg, power = k.topology(), k.average_link_usage(), k.power_report()
+    log(f"average link usage {avg:.4f}")
+    # The wake level sits above the power-off limit, and must be passed several times in a row:
+    # the average is noisy and moves with the switches that are on (it counts only links with a
+    # reading), so one reading against one limit would turn a switch off and on by turns.
+    wake_level, asleep = a.wake_factor * a.max_avg_usage, memory["asleep"]
+    memory["busy"] = memory["busy"] + 1 if avg > wake_level else 0
+    if asleep and memory["busy"] >= a.wake_after:
+        return wake(k, a, lease, result, memory, topo)
     if avg > a.max_avg_usage:
-        result["reason"] = f"average link usage {avg:.2f} is above {a.max_avg_usage}"
+        result["reason"] = f"average link usage {avg:.4f} is above {a.max_avg_usage:g}" + (
+            f"; a wake needs above {wake_level:.4f} on {a.wake_after} passes in a row "
+            f"({memory['busy']} so far)" if asleep else "")
+        return
+    # Right after a power-on the average can read as low as on a quiet network.
+    recent = [d for d, at in memory["woken"].items() if time.monotonic() - at < a.stay_on]
+    if recent:
+        latest = max(recent, key=memory["woken"].get)
+        result["reason"] = (f"a power-on of s{latest} was sent or tried less than "
+                            f"{a.stay_on:g} s ago (--stay-on): nothing is turned off")
         return
     links = {sw.dpid: topo.neighbours(sw.dpid) for sw in topo.switches.values() if sw.usable}
     # Every host of a usable switch, also behind a link that is down: its route must hold when
@@ -233,6 +327,10 @@ def one_pass(k, a, lease, result, log):
         result["reason"] = f"power-off of s{victim} ({ip}) {took}, routes already moved: {err}"
         return
     result["powered_off"] = True
+    # A switch woken in vain and turned off again keeps the routes it had first.
+    moved, _ = asleep.setdefault(victim, ([], links))
+    known = {key(old) for old, _new in moved}
+    moved += [c for c in changes if key(c[0]) not in known]
     result["reason"] = f"s{victim} ({ip}) power state {state}"
 
 
@@ -248,19 +346,28 @@ def parse_args(argv=None):
     p.add_argument("--lock-ttl", type=int, default=60)
     p.add_argument("--settle", type=float, default=1.0, help="seconds between rewrite and power-off")
     p.add_argument("--every", type=float, default=0, help="repeat every N s (0: once; >= 15 s)")
+    p.add_argument("--wake-factor", type=float, default=2.0,
+                   help="wake above this times --max-avg-usage (> 1)")
+    p.add_argument("--wake-after", type=int, default=3,
+                   help="passes in a row above the wake level before a wake")
+    p.add_argument("--stay-on", type=float, default=300.0,
+                   help="seconds after a power-on is sent or tried in which nothing is turned off")
     p.add_argument("--dry-run", action="store_true")
     a = p.parse_args(argv)
     if a.every != 0 and a.every < 15:
         p.error("--every is 0 (one pass) or 15 seconds or more")
+    if a.wake_factor <= 1 or a.wake_after < 1 or a.stay_on < 0:
+        p.error("--wake-factor is above 1, --wake-after 1 or more, --stay-on 0 or more")
     return a
 
 
 def main(argv=None, kernel=None, log=print):
     a = parse_args(argv)
     kernel = kernel or ndtwin.Kernel(a.kernel)
+    memory = {}
     while True:
         try:
-            result = run_once(kernel, a, log)
+            result = run_once(kernel, a, log, memory)
         except ndtwin.LockBusy as err:
             log(f"routing_lock is held by another app, free in about {err.retry_after_s} s")
             return 3
@@ -269,7 +376,8 @@ def main(argv=None, kernel=None, log=print):
             return 1
         log(result["reason"])
         if a.every <= 0:
-            return 0 if result["powered_off"] or not result["switch"] or a.dry_run else 1
+            return 0 if (result["powered_off"] or result["powered_on"] or not result["switch"]
+                         or a.dry_run) else 1
         time.sleep(a.every)
 
 

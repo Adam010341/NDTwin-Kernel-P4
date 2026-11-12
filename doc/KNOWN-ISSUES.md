@@ -301,7 +301,11 @@ and 0 is returned when no link is left (`src/ndt_core/collection/TopologyAndFlow
 The handler is `src/ndt_core/http/HttpSession.cpp:3597-3613`. The endpoint is part of the
 cross-repository `/ndt/` contract, so its meaning is not changed. The P4 energy-saving example uses it
 as a gate and stops its pass when the value is above its limit
-(`examples/p4_energy_saving/energy_saving.py:323-327`), so an overstated value makes it skip passes.
+(`examples/p4_energy_saving/energy_saving.py:416-420`), so an overstated value makes it skip passes.
+The example also wakes a switch it turned off when the value is above `--wake-factor` times that limit
+(default 2) on `--wake-after` passes in a row (default 3)
+(`examples/p4_energy_saving/energy_saving.py:411-415`), so an overstated value can wake one early;
+the gap between the two limits is there because the value moves with the switches that are on.
 
 **What to do.** Compute the average yourself from `get_graph_data` (`link_bandwidth_usage_bps` over
 `link_bandwidth_bps` per edge), counting the links you want in the denominator.
@@ -454,19 +458,25 @@ a `ryu_rules_lost` record on that switch's node (an `id`, `cause`, `count`, the 
 `replayed: false`).
 
 **When.** Proxy restart or readopt, which includes the P4 power-on of a switch (it restarts bmv2 and then
-calls readopt, `src/ndt_core/power_management/P4PowerStrategy.cpp:155-157`). A fresh bmv2 holds no cookie and
-reports nothing, so in those cases the record says 0 (`p4_proxy/proxy_agent/main.py:2339-2341`,
-`p4_proxy/proxy_agent/topology_manager.py:1471-1472`): the 0 is right only when the kernel and the apps were
-restarted together with bmv2. After a P4 power cycle, or when bmv2 restarted by itself while the kernel and
-the apps kept running, the rules the apps installed are gone and the record still says 0. Rules written
-with `POST /p4/table_entry` are kept in a
-journal and replayed. The record keeps only the latest entry per switch, so a second restart before
+calls readopt, `src/ndt_core/power_management/P4PowerStrategy.cpp:155-157`). A readopt counts and lists the
+lost rules: besides the cookie the switch reported before the push, it counts the generation of the
+switch's old client, which a fresh bmv2 does not need to report
+(`p4_proxy/proxy_agent/topology_manager.py:2088-2090`, described at `:1501-1505`); on bmv2 1.15.5
+(2026-11-11 UTC) two power-ons through the kernel each recorded the one rule installed through
+`/ndt/install_flow_entry`. A proxy restart has no old client: a fresh bmv2 holds no cookie and reports
+nothing, so the record says 0 (`p4_proxy/proxy_agent/main.py:2339-2341`). That 0 is right only when the
+kernel and the apps were restarted together with bmv2. Nothing re-adopts a bmv2 that restarted by itself:
+a readopt by hand (`POST /p4/readopt/{dpid}`, the only other caller of the readopt) counts and lists the
+rules as a power-on does, while a proxy restart says 0 although the apps' rules are gone. Rules written
+with `POST /p4/table_entry` are kept in a journal and replayed at a proxy restart on every switch it
+pushes a pipeline to, and at a re-adoption (which a P4 power-on does) only on a switch running an app
+package's pipeline. The record keeps only the latest entry per switch, so a second restart before
 the kernel has read the first hides it; the count may be short when the journal could not be written
 or read, and is unknown (null) when the push itself failed.
 
 **Why.** The proxy pushes the pipeline to each switch at startup and readopt, which empties its tables
 (`p4_proxy/proxy_agent/main.py:2336-2345`, `p4_proxy/proxy_agent/topology_manager.py:1453-1494`,
-`:2071`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
+`:2092`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
 requests and not the reasons for them. The kernel reads the record on its regular poll of the proxy and logs it at
 ERROR (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:797-805`;
 `src/ndt_core/power_management/P4RulesLost.cpp:99-103`); `get_graph_data` serves it on the switch node
@@ -474,8 +484,8 @@ ERROR (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:797
 
 **What to do.** After a proxy restart or readopt, read `ryu_rules_lost` in `get_graph_data` and have
 the application that installed those rules resend them. A record of 0 is not proof that nothing was
-lost: also resend after any P4 power-on of the switch and after any restart of bmv2, because "resend when
-the record says so" misses those two cases. Do not restart the proxy while apps are running if you can
+lost: also resend after a proxy restart that followed a restart of bmv2 the kernel did not make, because
+"resend when the record says so" misses that case. Do not restart the proxy while apps are running if you can
 avoid it.
 
 Failure direction: silent before the record existed; now loud, but the rules are still gone.

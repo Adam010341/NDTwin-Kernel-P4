@@ -14,6 +14,7 @@ import copy
 import http.client
 import importlib.util
 import io
+import random
 import os
 import sys
 import unittest
@@ -27,7 +28,7 @@ APP_PATH = os.environ.get("ENERGY_SAVING_SDK_UNDER_TEST") or os.path.join(
 sys.path.insert(0, os.path.dirname(os.path.abspath(APP_PATH)))
 sys.path.insert(0, HERE)
 from p4_fake_kernel import (FIELD, MGMT_IP, TABLE, FakeKernel, calls,  # noqa: E402
-                            chain_fabric, grpc_502, ring_fabric, serve)
+                            chain_fabric, grpc_502, ring_fabric, serve, spine3_fabric)
 
 sys.path.insert(0, SDK_DIR)
 import ndtwin  # noqa: E402
@@ -702,6 +703,351 @@ class EnergySavingSdkTest(unittest.TestCase):
                       log=lambda s: self.out.write(s + "\n"))
         self.assertEqual(rc, 0)
         self.assert_no_writes()
+
+    # --- waking the switch when the traffic comes back -------------------------------------
+    # [Co-developed with claude code -- Adam]
+
+    def wake_pass(self, memory, **overrides):
+        """One pass with `memory` kept by the caller; a wake needs one busy pass here unless the
+        test says otherwise."""
+        args = copy.copy(self.args)
+        for key, value in dict({"wake_after": 1}, **overrides).items():
+            setattr(args, key, value)
+        return app.run_once(self.kernel, args, log=lambda s: self.out.write(s + "\n"),
+                            memory=memory)
+
+    def sleep_s4(self):
+        """Turn s4 off as a first pass does, and show it as the kernel does a little later."""
+        asleep = {}
+        self.assertTrue(self.wake_pass(asleep)["powered_off"])
+        self.assertEqual(list(asleep["asleep"]), [4])
+        for node in self.fake.graph["nodes"]:
+            if node["dpid"] == 4 and node["vertex_type"] == 0:
+                node.update(reachable=False, is_up=False)
+        for edge in self.fake.graph["edges"]:
+            if 4 in (edge["src_dpid"], edge["dst_dpid"]):
+                edge["is_up"] = False
+        self.fake.requests.clear()
+        return asleep
+
+    def test_busy_again_powers_the_switch_on_and_moves_its_routes_back(self):
+        before = copy.deepcopy(self.fake.tables)
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85  # above twice the limit of 0.4
+        result = self.wake_pass(asleep)
+        self.assertTrue(result["powered_on"], result)
+        self.assertEqual((result["switch"], asleep["asleep"]), (4, {}))
+        self.assertEqual(calls(self.fake), [
+            "POST acquire_lock", "GET get_graph_data", "GET get_average_link_usage",
+            "GET get_power_report", "POST renew_lock", "POST power 192.168.123.14 on",
+            "GET get_switches_power_state", "GET table s4", "GET table s1", "GET table s2",
+            "GET table s3", "GET table s4", "POST renew_lock", "POST table s1",
+            "POST table s2", "GET table s1", "GET table s2", "POST release_lock"])
+        self.assertEqual(self.fake.tables, before)
+        self.assertEqual(self.fake.power_state["192.168.123.14"]["admin_state"], "on")
+        self.assertIn(4, self.fake.walk(1, "10.0.4.4")[0])
+        self.assert_all_hosts_reach_each_other()
+        self.assertIn("s4 powered on with 4 entries", result["reason"])
+
+    def test_a_hot_link_alone_does_not_wake_it(self):
+        # On a bmv2 fabric a wake on one hot link (s1->s3, which s4 does not relieve) was followed
+        # 16 s later by a pass that found s4 quiet and turned it off again.
+        asleep = self.sleep_s4()
+        for edge in self.fake.graph["edges"]:
+            if (edge["src_dpid"], edge["dst_dpid"]) == (1, 3):
+                edge["link_bandwidth_utilization_percent"] = 85.0
+        result = self.wake_pass(asleep)
+        self.assertFalse(result["powered_on"], result)
+        self.assertEqual(list(asleep["asleep"]), [4])
+        self.assert_no_writes()
+
+    def test_a_busy_pass_after_the_wake_turns_nothing_off(self):
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85  # above twice the limit of 0.4
+        self.assertTrue(self.wake_pass(asleep)["powered_on"])
+        for node in self.fake.graph["nodes"]:
+            if node["dpid"] == 4 and node["vertex_type"] == 0:
+                node.update(reachable=True, is_up=True)
+        for edge in self.fake.graph["edges"]:
+            if 4 in (edge["src_dpid"], edge["dst_dpid"]):
+                edge["is_up"] = True
+        self.fake.requests.clear()
+        result = self.wake_pass(asleep)
+        self.assertFalse(result["powered_off"], result)
+        self.assert_no_writes()
+        self.assertEqual(self.fake.power_state["192.168.123.14"]["admin_state"], "on")
+
+    def test_a_quiet_network_leaves_it_off(self):
+        asleep = self.sleep_s4()
+        result = self.wake_pass(asleep)
+        self.assertFalse(result["powered_on"])
+        self.assertEqual(list(asleep["asleep"]), [4])
+        self.assert_no_writes()
+
+    def test_a_run_that_did_not_turn_it_off_does_not_wake_it(self):
+        self.sleep_s4()
+        self.fake.avg = 0.85  # above twice the limit of 0.4
+        result = self.wake_pass(None)
+        self.assertIn("average link usage", result["reason"])
+        self.assert_no_writes()
+
+    def test_a_failed_power_on_moves_no_route_and_keeps_it_asleep(self):
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85  # above twice the limit of 0.4
+        self.fake.fault("POST", "/ndt/set_switches_power_state", 500,
+                        {"error": "Failed to change switch power state"})
+        result = self.wake_pass(asleep)
+        self.assertIn("waking s4 stopped", result["reason"])
+        self.assertEqual(self.posts("/ndt/p4/table_entry"), [])
+        self.assertEqual(len(self.posts("/ndt/set_switches_power_state")), 1)
+        self.assertEqual(list(asleep["asleep"]), [4])
+        self.assert_lock_released()
+
+    def test_a_table_that_did_not_come_back_moves_no_route(self):
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85  # above twice the limit of 0.4
+        self.fake.tables[4] = self.fake.tables[4][-1:]  # the default entry alone
+        result = self.wake_pass(asleep)
+        self.assertIn("routes stay moved", result["reason"])
+        self.assertEqual(self.posts("/ndt/p4/table_entry"), [])
+        self.assertEqual(list(asleep["asleep"]), [4])
+
+    def test_a_dry_run_says_it_would_wake_it_and_does_nothing(self):
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85  # above twice the limit of 0.4
+        result = self.wake_pass(asleep, dry_run=True)
+        self.assertIn("would power s4 on and move 2 routes back", result["reason"])
+        self.assert_no_writes()
+        self.assertEqual(list(asleep["asleep"]), [4])
+
+    def test_an_average_that_rises_with_the_switch_off_does_not_turn_it_off_and_on(self):
+        # The kernel's average counts only links with a reading: with s4 off the traffic and the
+        # links left carry more of it, so the average rises (0.3 -> 0.5, limit 0.4).
+        s4 = "192.168.123.14"
+        self.fake.avg_of = lambda f: 0.5 if f.power_state[s4]["admin_state"] == "off" else 0.3
+        asleep = {}
+        reasons = [self.wake_pass(asleep)["reason"] for _ in range(5)]
+        actions = [q["action"] for q, _ in self.posts("/ndt/set_switches_power_state")]
+        self.assertEqual(actions, ["off"], reasons)
+        self.assertEqual(reasons[1:], ["average link usage 0.5000 is above 0.4; a wake needs above "
+                                       "0.8000 on 1 passes in a row (0 so far)"] * 4)
+
+    def test_a_woken_table_that_misses_a_route_moves_no_route(self):
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85
+        self.fake.tables[4] = [e for e in self.fake.tables[4]
+                               if e["match"].get(FIELD, [None])[0] != "10.0.2.2"]
+        result = self.wake_pass(asleep)
+        self.assertIn("routes stay moved", result["reason"])
+        self.assertIn("10.0.2.2 stops", result["reason"])
+        self.assertEqual(self.posts("/ndt/p4/table_entry"), [])
+        self.assertEqual(list(asleep["asleep"]), [4])
+
+    def test_a_switch_turned_off_again_after_a_wake_in_vain_keeps_its_first_routes(self):
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85
+        self.fake.tables[4] = self.fake.tables[4][-1:]  # the default entry alone: wake in vain
+        self.wake_pass(asleep)
+        self.fake.avg = 0.05
+        self.assertTrue(self.wake_pass(asleep, stay_on=0)["powered_off"])  # nothing to move
+        self.assertEqual(len(asleep["asleep"][4][0]), 2)
+
+    def use_spines(self, power_mw=None):
+        self.tearDown()
+        self.fake = FakeKernel(*spine3_fabric(power_mw))
+        self.server = serve(self.fake)
+        self.url = "http://127.0.0.1:%d" % self.server.server_address[1]
+        self.kernel = type(self.kernel)(self.url, timeout=5, retry_wait=0)
+
+    def test_with_two_switches_asleep_the_last_turned_off_wakes_first_and_both_wake(self):
+        # A switch that is off answers a table read with 503: the wake reads only those that are on.
+        self.use_spines()
+        before = copy.deepcopy(self.fake.tables)
+        memory = {}
+        self.assertEqual([self.wake_pass(memory)["switch"] for _ in range(2)], [5, 4])
+        self.assertEqual(list(memory["asleep"]), [5, 4])
+        self.fake.avg = 0.85
+        first, second = self.wake_pass(memory), self.wake_pass(memory)
+        self.assertEqual((first["switch"], first["powered_on"]), (4, True), first["reason"])
+        self.assertEqual((second["switch"], second["powered_on"]), (5, True), second["reason"])
+        self.assertEqual(memory["asleep"], {})
+        self.assertEqual(self.fake.tables, before)
+        for src, dst in ((1, "10.0.2.2"), (2, "10.0.1.1")):
+            self.assertTrue(self.fake.walk(src, dst)[1])
+
+    def test_a_wake_does_not_read_the_table_of_a_switch_that_is_off(self):
+        # s4 is turned off by someone else after the app turned off s5: its table answers 503.
+        self.use_spines()
+        memory = {}
+        self.assertEqual(self.wake_pass(memory)["switch"], 5)
+        self.fake.power_state[self.fake.mgmt_ip[4]].update(admin_state="off", reachable=False)
+        for node in self.fake.graph["nodes"]:
+            if node["vertex_type"] == 0 and node["dpid"] == 4:
+                node.update(admin_state="off", reachable=False)
+        self.fake.avg = 0.85
+        self.fake.requests.clear()
+        result = self.wake_pass(memory)
+        self.assertNotIn("GET table s4", calls(self.fake))
+        self.assertIn("routes stay moved", result["reason"])
+        self.assertEqual(list(memory["asleep"]), [5])
+
+    def test_nothing_is_turned_off_for_stay_on_seconds_after_a_power_on(self):
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85
+        self.assertTrue(self.wake_pass(asleep)["powered_on"])
+        for node in self.fake.graph["nodes"]:
+            if node["dpid"] == 4 and node["vertex_type"] == 0:
+                node.update(reachable=True, is_up=True)
+        for edge in self.fake.graph["edges"]:
+            if 4 in (edge["src_dpid"], edge["dst_dpid"]):
+                edge["is_up"] = True
+        self.fake.avg = 0.05  # on bmv2 a reading this low came 2 s after a power-on, under load
+        self.fake.requests.clear()
+        result = self.wake_pass(asleep)
+        self.assertFalse(result["powered_off"])
+        self.assertEqual(result["reason"],
+                         "a power-on of s4 was sent or tried less than 300 s ago (--stay-on): "
+                         "nothing is turned off")
+        self.assert_no_writes()
+        self.assertTrue(self.wake_pass(asleep, stay_on=0)["powered_off"])
+
+    def test_a_wake_needs_its_passes_in_a_row(self):
+        asleep = self.sleep_s4()
+        readings = iter([0.85, 0.85, 0.5, 0.85, 0.85, 0.85])
+        self.fake.avg_of = lambda f: next(readings)
+        woke = [self.wake_pass(asleep, wake_after=3)["powered_on"] for _ in range(6)]
+        self.assertEqual(woke, [False] * 5 + [True])
+
+    def test_a_noisy_average_spanning_three_times_the_limit_does_not_turn_it_off_and_on(self):
+        # Readings from 0.3 to 0.9 around the limit of 0.4 (wake level 0.8): the measured
+        # average swung 2.9x under one steady flow (bmv2, 2026-11-11 UTC).
+        noise = random.Random(7)
+        self.fake.avg_of = lambda f: noise.uniform(0.3, 0.9)
+        memory = {}
+        for _ in range(40):
+            self.wake_pass(memory, wake_after=3)
+        actions = [q["action"] for q, _ in self.posts("/ndt/set_switches_power_state")]
+        self.assertIn(actions, (["off"], ["off", "on"]))
+
+    def power_on_errs_then_quiet(self, method, path, status, body=None, apply=False):
+        """A wake whose power-on errs (it may have landed), then a quiet pass: nothing is turned
+        off within --stay-on of it. [Co-developed with claude code -- Adam]"""
+        asleep = self.sleep_s4()
+        self.fake.avg = 0.85
+        self.fake.fault(method, path, status, body, apply=apply)
+        self.assertIn("waking s4 stopped at the power-on", self.wake_pass(asleep)["reason"])
+        self.fake.avg = 0.05
+        self.fake.requests.clear()
+        result = self.wake_pass(asleep)
+        self.assertEqual(result["reason"],
+                         "a power-on of s4 was sent or tried less than 300 s ago (--stay-on): "
+                         "nothing is turned off")
+        self.assertEqual(self.posts("/ndt/set_switches_power_state"), [])
+
+    def test_a_power_on_answered_500_still_holds_power_offs_back(self):
+        self.power_on_errs_then_quiet("POST", "/ndt/set_switches_power_state", 500,
+                                      {"error": "Failed to change switch power state"}, apply=True)
+
+    def test_a_power_on_whose_answer_was_lost_still_holds_power_offs_back(self):
+        self.power_on_errs_then_quiet("POST", "/ndt/set_switches_power_state", None, apply=True)
+
+    def test_a_power_on_whose_state_read_fails_still_holds_power_offs_back(self):
+        self.power_on_errs_then_quiet("GET", "/ndt/get_switches_power_state", 500,
+                                      {"error": "Internal server error"})
+
+    def test_a_leaf_that_comes_back_while_asleep_does_not_block_the_wake(self):
+        # s5 (with h5) is unreachable when s4 is turned off and reachable at the wake; the wake's
+        # check walks only the switches that were on at the power-off, as both apps must.
+        self.add_unreachable_leaf()
+        memory = {}
+        self.assertTrue(self.wake_pass(memory)["powered_off"])
+        for node in self.fake.graph["nodes"]:
+            if node["vertex_type"] == 0 and node["dpid"] == 5:
+                node["reachable"] = True
+        self.fake.avg = 0.85
+        result = self.wake_pass(memory)
+        self.assertTrue(result["reason"].startswith("s4 powered on"), result["reason"])
+        self.assertEqual(memory["asleep"], {})
+
+    def test_chained_rewrites_are_undone_in_the_reverse_order(self):
+        # s5 goes first and s1's route to h2 moves onto s3; then s3 goes and it moves onto s4.
+        # Waking s5 first would put the route back on s5 and then on s3: s3 must wake first.
+        self.use_spines({1: 60000, 2: 60000, 3: 92000, 4: 80000, 5: 95000})
+        before = copy.deepcopy(self.fake.tables)
+        memory = {}
+        self.assertEqual([self.wake_pass(memory)["switch"] for _ in range(2)], [5, 3])
+        self.fake.avg = 0.85
+        woke = [self.wake_pass(memory)["switch"] for _ in range(2)]
+        self.assertEqual(self.fake.tables, before)
+        self.assertEqual(woke, [3, 5])
+
+    def test_after_a_failed_wake_out_of_order_the_later_switch_still_wakes(self):
+        # s3's wake fails once, so s5 wakes before it; s3's links, saved while s5 was off, must
+        # learn s5's ports, or every later wake of s3 stops at s1. The route to h2 then ends on
+        # s3, not on s5 where it started: every route is checked, not the original layout.
+        self.use_spines({1: 60000, 2: 60000, 3: 92000, 4: 80000, 5: 95000})
+        memory = {}
+        self.assertEqual([self.wake_pass(memory)["switch"] for _ in range(2)], [5, 3])
+        table3 = self.fake.tables[3]
+        self.fake.tables[3] = table3[-1:]  # s3 comes back with an empty table once
+        self.fake.avg = 0.85
+        self.assertEqual([self.wake_pass(memory)["switch"] for _ in range(2)], [3, 5])
+        self.fake.tables[3] = table3
+        self.assertEqual(self.wake_pass(memory)["switch"], 3)
+        self.assertEqual(memory["asleep"], {})
+        for src, dst in ((1, "10.0.2.2"), (2, "10.0.1.1")):
+            self.assertTrue(self.fake.walk(src, dst)[1])
+
+    def test_a_switch_whose_wake_fails_lets_the_one_before_it_wake(self):
+        self.use_spines()
+        memory = {}
+        self.assertEqual([self.wake_pass(memory)["switch"] for _ in range(2)], [5, 4])
+        table4 = self.fake.tables[4]
+        self.fake.tables[4] = table4[-1:]  # s4 comes back with an empty table
+        self.fake.avg = 0.85
+        first, second = self.wake_pass(memory), self.wake_pass(memory)
+        self.assertEqual(first["switch"], 4)
+        self.assertIn("routes stay moved", first["reason"])
+        self.assertEqual((second["switch"], second["powered_on"]), (5, True), second["reason"])
+        self.assertEqual(list(memory["asleep"]), [4])
+        self.fake.tables[4] = table4  # and the next wake of s4 succeeds
+        self.assertEqual(self.wake_pass(memory)["switch"], 4)
+        self.assertEqual(memory["asleep"], {})
+        for src, dst in ((1, "10.0.2.2"), (2, "10.0.1.1")):
+            self.assertTrue(self.fake.walk(src, dst)[1])
+
+    def test_a_switch_that_left_the_topology_is_forgotten(self):
+        asleep = self.sleep_s4()
+        self.fake.graph["nodes"] = [n for n in self.fake.graph["nodes"]
+                                    if not (n["vertex_type"] == 0 and n["dpid"] == 4)]
+        self.fake.graph["edges"] = [e for e in self.fake.graph["edges"]
+                                    if 4 not in (e["src_dpid"], e["dst_dpid"])]
+        self.fake.avg = 0.85
+        result = self.wake_pass(asleep)
+        self.assertEqual(result["reason"],
+                         "s4 is no longer in the topology: forgotten, its routes stay moved")
+        self.assertEqual((asleep["asleep"], asleep["busy"]), ({}, 0))
+        self.assertEqual(self.posts("/ndt/set_switches_power_state"), [])
+
+    def test_the_wake_options_and_their_defaults(self):
+        a = app.parse_args([])
+        self.assertEqual((a.wake_factor, a.wake_after, a.stay_on), (2.0, 3, 300.0))
+        for bad in (["--wake-factor", "1"], ["--wake-after", "0"], ["--stay-on", "-1"]):
+            with self.subTest(bad=bad), self.assertRaises(SystemExit), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                app.parse_args(bad)
+
+    def test_a_noisy_average_that_wakes_the_switch_does_not_turn_it_off_again(self):
+        # Readings from 0.3 to 1.2 (limit 0.4, wake level 0.8): three in a row above 0.8 come,
+        # and the hold keeps every later quiet reading from turning a switch off.
+        noise = random.Random(3)
+        self.fake.avg_of = lambda f: noise.uniform(0.3, 1.2)
+        memory = {}
+        reasons = [self.wake_pass(memory, wake_after=3)["reason"] for _ in range(40)]
+        actions = [q["action"] for q, _ in self.posts("/ndt/set_switches_power_state")]
+        self.assertEqual(actions, ["off", "on"])
+        woke = next(i for i, r in enumerate(reasons) if "powered on" in r)
+        self.assertTrue(any("(--stay-on)" in r for r in reasons[woke:]), reasons[woke:])
 
 
 if __name__ == "__main__":

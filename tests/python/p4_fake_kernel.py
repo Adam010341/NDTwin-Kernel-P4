@@ -16,6 +16,9 @@ examples use:
     observed on bmv2); an insert of a default entry is a modify, as the proxy sends it;
   * the lock (§27, §28, §29), average link usage (§24), power report (§6, MININET's synthetic
     figures for dpids 1..4) and power state (§7, §8) routes, in the shapes the API document gives.
+    A switch that is off answers a table read with the proxy's 503 `table not read`.
+    `table_size` gives a switch's table a declared size: an insert into it when it is full is
+    refused with UNKNOWN "Error when adding match entry to target", as bmv2 1.15.5 does.
 Any other route answers 404 and is recorded, and the tests check the exact sequence of calls.
 A fault can be queued for the next matching request (`fault`); `apply` says whether the write still
 lands, a status of None closes the connection without a reply, a bytes body is sent as is, and a
@@ -25,8 +28,11 @@ The MAC address of a written entry is stored in lower case, as the switch shows 
 The lock has a lease that runs out: `now` is a clock in seconds that moves by
 `seconds_per_request` at every request (0 by default, so a lease never runs out unless a test
 asks), and an acquire, renew or release after the lease ran out answers as the kernel does.
-A power command changes the switch's commanded state in the graph and in §7 at once; `reachable`
-and the links are left as they were, since the kernel sees those change only later (§7).
+A power command changes the switch's commanded state and `reachable` in the graph and in §7 at
+once, as the kernel does for a bmv2 switch: a power-off marks it down
+(src/ndt_core/power_management/P4PowerStrategy.cpp:282, TopologyAndFlowMonitor.cpp:5171) and a
+power-on that succeeded marks it up (P4PowerStrategy.cpp:221). The links are left as they were,
+since the kernel sees those change only later.
 
 `FakeKernel(graph, routes, power_mw)` serves another fabric (`ring_fabric` and `chain_fabric`
 below); the defaults are the pod topology above. `walk` follows the tables with the route check of
@@ -130,6 +136,7 @@ class FakeKernel:
                         if n["vertex_type"] == 0}
         self.tables = {d: table_of(d, self.routes) for d in self.routes}
         self.avg = 0.05
+        self.avg_of = None                 # a function of the fake giving the average, when set
         self.telemetry_health = copy.deepcopy(TELEMETRY_HEALTH)
         self.power_state = {self.mgmt_ip[d]: {"admin_state": "on", "reachable": True}
                             for d in self.routes}
@@ -139,6 +146,7 @@ class FakeKernel:
         self.seconds_per_request = 0.0
         self.unrendered = {}
         self.unrendered_after_write = {}   # dpid -> list shown from the first landed write on
+        self.table_size = {}               # dpid -> the declared size; an insert past it is refused
         self.lab_claim = LAB_CLAIM
         self.faults = []
         self.requests = []
@@ -201,7 +209,8 @@ class FakeKernel:
         if (method, path) == ("GET", "/ndt/get_graph_data"):
             return 200, None, self.graph
         if (method, path) == ("GET", "/ndt/get_average_link_usage"):
-            return 200, None, {"status": "success", "avg_link_usage": self.avg,
+            avg = self.avg_of(self) if self.avg_of else self.avg
+            return 200, None, {"status": "success", "avg_link_usage": avg,
                                "telemetry_health": self.telemetry_health}
         if (method, path) == ("GET", "/ndt/get_power_report"):
             return 200, None, [{"dpid": d, "power_consumed": mw, "power_path": "synthetic"}
@@ -211,13 +220,19 @@ class FakeKernel:
         if method == "GET" and path.startswith(STATEFUL):
             return self.stateful(path, query)
         if (method, path) == ("POST", "/ndt/set_switches_power_state"):
+            # As src/ndt_core/http/HttpSession.cpp:2064-2102 answers: 400 for a missing ip or an
+            # action other than on/off, 404 for an address it does not know, 200 {ip: "Success"}.
+            # `reachable` follows at once (see the module docstring).
+            # [Co-developed with claude code -- Adam]
             ip, action = query.get("ip"), query.get("action")
+            if not ip or action not in ("on", "off"):
+                return 400, None, {"error": "Missing or invalid ip/action"}
             if ip not in self.power_state:
                 return 404, None, {"error": "Unknown switch IP"}
-            self.power_state[ip]["admin_state"] = action
+            self.power_state[ip].update(admin_state=action, reachable=action == "on")
             for node in self.graph["nodes"]:
                 if node["vertex_type"] == 0 and self.mgmt_ip.get(node["dpid"]) == ip:
-                    node["admin_state"] = action
+                    node.update(admin_state=action, reachable=action == "on")
             return 200, None, {ip: "Success"}
         if (method, path) == ("GET", "/ndt/get_switches_power_state"):
             ip = query.get("ip")
@@ -266,6 +281,15 @@ class FakeKernel:
             return 404, "proxy", {"detail": {"error": "not in this pipeline", "dpid": dpid,
                                              "table": table,
                                              "message": f"no table named {table!r}"}}
+        if method == "GET" and self.power_state[self.mgmt_ip[dpid]]["admin_state"] == "off":
+            # The proxy's answer for a switch whose bmv2 is gone (p4_proxy/proxy_agent/
+            # api_routes.py:1602-1604; seen on bmv2 1.15.5, 2026-11-11 UTC).
+            # [Co-developed with claude code -- Adam]
+            return 503, "proxy", {"detail": {
+                "error": "table not read", "dpid": dpid, "table": TABLE,
+                "grpc_status": "UNAVAILABLE",
+                "message": f"reading {TABLE} from switch {dpid} failed: UNAVAILABLE. This is NOT "
+                           f"an empty table"}}
         if method == "GET":
             return 200, "proxy", {"dpid": dpid, "table": TABLE,
                                   "entries": copy.deepcopy(self.tables[dpid]),
@@ -281,6 +305,11 @@ class FakeKernel:
         if op == "delete" and same:
             self.tables[dpid].remove(same[0])
             return 200, "proxy", self.write_reply(dpid, op)
+        if op == "insert" and len([e for e in self.tables[dpid] if not e["default_action"]]) >= (
+                self.table_size.get(dpid, 1 << 30)):
+            # bmv2 1.15.5's answer to a new key into a full table (2026-11-05).
+            return 502, "proxy", refused_502(dpid, "UNKNOWN", "Error when adding match entry to "
+                                                              "target")
         if op == "insert":
             same = [{k: copy.deepcopy(body.get(k)) for k in ("dpid", "match", "priority")}]
             same[0].update(table=TABLE, default_action=False)
@@ -388,6 +417,25 @@ def ring_fabric(hot=()):
     }
     power_mw = {1: 90000, 2: 80000, 3: 95000, 4: 90000, 5: 70000, 6: 60000, 7: 50000}
     return fabric_graph(switch_links, host_links, hot), routes, power_mw
+
+
+def spine3_fabric(power_mw=None):
+    r"""(graph, routes, power_mw) of a pod with three spines, two of which can be turned off.
+
+        h1 - s1 ==== s3, s4, s5 ==== s2 - h2      each spine joined to s1 and s2; s5 draws the
+                                                  most power, then s4, s3
+    s1 sends h2's packets over s5 and s2 sends h1's over s4.
+    [Co-developed with claude code -- Adam]"""
+    switch_links = [(1, 3, 3, 1), (1, 4, 4, 1), (1, 5, 5, 1), (2, 3, 3, 2), (2, 4, 4, 2),
+                    (2, 5, 5, 2)]
+    host_links = [(1, 1, "10.0.1.1"), (2, 1, "10.0.2.2")]
+    mac = "08:00:00:00:0{}:00".format
+    spine = [("10.0.1.1", mac(1), 1), ("10.0.2.2", mac(2), 2)]
+    routes = {1: [("10.0.1.1", "08:00:00:00:01:11", 1), ("10.0.2.2", mac(5), 5)],
+              2: [("10.0.2.2", "08:00:00:00:02:22", 1), ("10.0.1.1", mac(4), 4)],
+              3: list(spine), 4: list(spine), 5: list(spine)}
+    power_mw = power_mw or {1: 60000, 2: 60000, 3: 70000, 4: 90000, 5: 95000}
+    return fabric_graph(switch_links, host_links), routes, power_mw
 
 
 def chain_fabric():
