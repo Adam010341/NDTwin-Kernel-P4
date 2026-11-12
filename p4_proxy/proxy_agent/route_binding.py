@@ -166,8 +166,11 @@ def describe_refusal(reason, device_id, what):
         why = ("the app package declares roles.ipv4_route with owner 'package': the author "
                "owns that table, and NDTwin reads it but does not write it")
     elif reason == REASON_NO_FIVE_TUPLE_ROLE:
-        why = ("this switch runs the app package's own pipeline, which has no 5-tuple role "
-               "(in this cut only a destination route can be bound)")
+        # [Co-developed with claude code -- Adam]
+        why = ("this switch runs the app package's own pipeline, where NDTwin's flow-entry API "
+               "writes at most destination routes (roles.ipv4_route), so a rule that matches on "
+               "more than the destination address (source address, protocol or port) is not "
+               "supported on it")
     else:
         why = f"no route binding ({reason})"
     return f"switch {device_id}: refusing {what} -- {why}"

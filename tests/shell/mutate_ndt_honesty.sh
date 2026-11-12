@@ -636,13 +636,29 @@ report 'MC15: status says untracked apps survive a teardown again' "$m" \
        '🔴 the sentence that round'"'"'s teardown disproved is gone'
 
 
-# Whether the API should read the claim was an open question (2026-09-11), so the help
-# saying so is the whole of the deliverable, and a paragraph with no test could drift unnoticed.
+# [Co-developed with claude code -- Adam] G-32: the help says a claim blocks only the `ndt` verbs, and
+# that the API does not refuse because of it but reports it in a lab_claim object. A paragraph with
+# no test could drift unnoticed, so each half has a mutant (MC16 to MC18).
 m=$(mutant mc16 "$NDT" \
-    '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not the northbound API and it is not' \
+    '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not a lock: the northbound API does not' \
     '    a claim is how sessions keep out of each other'"'"'s way.')
-report 'MC16: the help stops saying what a claim does not cover' "$m" \
+report 'MC16: the help stops saying what a claim blocks' "$m" \
        '  the help scopes the claim to this tool'"'"'s own verbs'
+
+m=$(mutant mc17 "$NDT" \
+    '    reply of each flow, group, meter and link-injection write carries a lab_claim object' \
+    '    is nothing: there is no signal at all, and nothing will tell you')
+report 'MC17: the help stops saying the API reports the claim' "$m" \
+       '🔴 and that the API reports the claim in a lab_claim object'
+
+# MC18: the help says the API DOES refuse a write because of the claim -- one word, at the end of a
+# wrapped line. A cell that reads the help line by line cannot see it; the cell that reads it
+# flattened must.
+m=$(mutant mc18 "$NDT" \
+    '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not a lock: the northbound API does not' \
+    '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not a lock: the northbound API does')
+report 'MC18: the help says the API refuses a write because of the claim' "$m" \
+       '🔴 and says the API does not refuse because of it'
 
 
 # --- 09-12: the three paragraphs added to the rc tables -------------------------------------------

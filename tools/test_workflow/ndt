@@ -12431,14 +12431,14 @@ usage: ndt <command>
   'ndt up' refuses over somebody else's claim on both planes (rc 5); 'ndt up ... --force'
   goes past it, and every use is appended to .test_run/lab.claim.overrides.
 
-  WHAT A CLAIM DOES NOT COVER, measured 2026-09-11:
-    a claim only blocks the 'ndt' verbs. It is not the northbound API and it is not
-    a lock. A loop calling /ndt/install_flow_entry and /ndt/delete_flow_entry every
-    2 s kept getting http 200 through its own claim's expiry, and kept getting 200
-    after another owner had taken the claim; it stopped only when that owner's
-    'ndt down' killed the kernel. There is no signal at all when a claim lapses or
-    changes hands -- not to the API caller, not to the previous holder. Re-read
-    'ndt status'; nothing will tell you.
+  WHAT A CLAIM BLOCKS, AND WHAT THE API DOES WITH IT:
+    a claim only blocks the 'ndt' verbs. It is not a lock: the northbound API does not
+    refuse a write because of it, so a loop calling /ndt/install_flow_entry still gets
+    http 200 after its claim expires or changes hands. What the API does is report: the
+    reply of each flow, group, meter and link-injection write carries a lab_claim object
+    (state, owner, expires_at, note; POST /ndt/p4/table_entry: header X-NDTwin-Lab-Claim),
+    and the kernel logs a line when a write finds it changed. Reading it is the caller's
+    job: unless it says active and names you, do not count the lab as yours.
 
   On P4, 'ndt up' derives the kernel's topology model from
   p4_proxy/mininet/host_count_override, so model and fabric cannot disagree
