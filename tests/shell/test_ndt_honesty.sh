@@ -1498,23 +1498,45 @@ has   "  and why to stop them now anyway"                "keep polling" "$OUT"
 check "  cmd_down still stops an untracked app by pid"   "1" \
       "$(grep -c 'warn "\$a is running untracked' "$NDT")"
 
-section "9B. the help says what a claim does NOT cover"
-# 🔴 NOT BLOCKED, and now said rather than implied. Measured 2026-09-11 02:01:16-02:02:45:
-# a loop calling install_flow_entry and
-# delete_flow_entry every 2 s got http 200 through its own claim's expiry (claim_left=-1s) and
-# through another owner taking the claim (owner=intruder-0911, claim_left=-3s), and stopped only
-# when that owner's `ndt down` SIGTERMed the kernel. The only signal that writer ever received
-# was curl printing 000. Whether the northbound API should read the claim was undecided on 2026-09-11;
-# what the help must not do is leave a reader believing a claim blocks the API.
+section "9B. G-32: the help says what a claim blocks, and that the API reports it"
+# [Co-developed with claude code -- Adam] G-32. A claim blocks only the `ndt` verbs; the northbound API
+# does not refuse a write because of it (a loop calling install_flow_entry got http 200 through its
+# own claim's expiry and through another owner taking the claim, measured 2026-09-11). Since G-32
+# the API does report it: the reply of each flow, group, meter and link-injection write carries a
+# lab_claim object, and POST /ndt/p4/table_entry carries it in the X-NDTwin-Lab-Claim header. The help used to say the API
+# caller gets no signal at all; what it must not do now is say that, or leave a reader believing
+# a claim blocks the API.
 has   "  the help scopes the claim to this tool's own verbs" "claim only blocks the 'ndt'" "$HELP"
-has   "  and names the API as outside it"                "not the northbound API" "$HELP"
-has   "🔴 and says expiry and loss are silent"           "no signal" "$HELP"
+# The help wraps its lines, so the claim about refusing is read from the help flattened to one
+# line: read line by line, a needle that starts after the "not" cannot see the "not".
+HELP_FLAT="$(tr -s ' \n' '  ' <<<"$HELP")"
+has   "🔴 and says the API does not refuse because of it"  "the northbound API does not refuse a write because of it" "$HELP_FLAT"
+has   "🔴 and that the API reports the claim in a lab_claim object" "carries a lab_claim object" "$HELP"
+has   "  with the header the P4 write carries it in"      "X-NDTwin-Lab-Claim" "$HELP"
+has   "  and that reading it is the caller's job"          "Reading it is the caller's job" "$HELP_FLAT"
+has   "🔴 and that only an active claim naming the caller is a lab it holds" "unless it says active and names you, do not count the lab as yours" "$HELP_FLAT"
+hasnt "🔴 the help no longer says the API caller gets no signal" "no signal at all" "$HELP_FLAT"
+hasnt "🔴 nor that nothing will tell the reader"           "nothing will tell you" "$HELP_FLAT"
 # The user guide carries the same fact. Asserted here rather than nowhere; note that the mutation
-# gate copies only ndt, so this cell is not mutation-protected.
+# gate copies only ndt, so these cells are not mutation-protected.
 GUIDE="$HERE/../../doc/2026-11-05_user-guide.md"
 check "  the user guide is readable from here"          "yes" \
       "$( [[ -r "$GUIDE" ]] && echo yes || echo no )"
-has   "🔴 and the user guide's claim section says it too" "It is not the northbound API" "$(cat "$GUIDE" 2>/dev/null)"
+has   "🔴 and the user guide's claim section says the API reports it" "carries a \`lab_claim\` object" "$(cat "$GUIDE" 2>/dev/null)"
+has   "  and that it does not refuse a write"             "does not refuse a write because of it" "$(cat "$GUIDE" 2>/dev/null)"
+has   "🔴 and the guide's reading rule names the state too" "Unless the object says \`active\` and names you" "$(cat "$GUIDE" 2>/dev/null)"
+hasnt "🔴 and the guide no longer says nothing signals a lapse" "Nothing signals a lapse" "$(cat "$GUIDE" 2>/dev/null)"
+# Text checks against the kernel source, not behaviour checks: they catch a rename of the two names
+# the help quotes (the header and the reply key). That the kernel really adds the key to a write
+# reply is tests/test_HttpSessionRouting.cpp's and mutate_lab_claim_on_writes.sh's to show.
+# SRC can be pointed at a copy by a caller that wants to see these cells red.
+SRC="${HTTPSESSION_UNDER_TEST:-$HERE/../../src/ndt_core/http/HttpSession.cpp}"
+check "  the kernel source is readable from here"        "yes" \
+      "$( [[ -r "$SRC" ]] && echo yes || echo no )"
+check "  (text check) the kernel source still names the key the help quotes, lab_claim" "yes" \
+      "$( (( $(grep -cF '["lab_claim"]' "$SRC" 2>/dev/null) >= 1 )) && echo yes || echo no )"
+check "  (text check) and still names the header the help quotes, X-NDTwin-Lab-Claim" "yes" \
+      "$( (( $(grep -cF '"X-NDTwin-Lab-Claim"' "$SRC" 2>/dev/null) >= 1 )) && echo yes || echo no )"
 
 # [Co-developed with claude code -- Adam] the stub's closing check (lib_probe_stub.sh)
 check "🔴 every sudo went to this suite's stub and was an allow-listed read-only probe" "" "$(probe_stub_outside 2>&1 | sort | uniq -c | sed 's/^ *//' | paste -sd';' -)"

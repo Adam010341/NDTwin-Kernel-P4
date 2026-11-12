@@ -304,9 +304,16 @@ NDT_OWNER=my-name ndt release
   `NDT_MEASURING='...'` declares a measurement in progress (below).
 
 A claim is an agreement between `ndt` commands, not a lock. It blocks only the `ndt` verbs.
-It is not the northbound API, and a program that calls `/ndt/install_flow_entry` keeps getting http 200
-through its own claim's expiry and after another owner has taken the claim. Nothing signals a lapse
-or a change of hands, to the API caller or to the previous holder. Re-read `ndt status`.
+The northbound API does not refuse a write because of it: a program that calls
+`/ndt/install_flow_entry` keeps getting http 200 through its own claim's expiry and after another
+owner has taken the claim. What the API does is report. The reply of each flow, group, meter and
+link-injection write (the twelve writes of section 0 of the [API document](2026-01-02_ndt_api.md);
+`set_switches_power_state` carries none) carries a `lab_claim` object (`state`, `owner`, `expires_at`,
+`note`; `POST /ndt/p4/table_entry` carries it in the `X-NDTwin-Lab-Claim` header), and the kernel logs
+one line when a write finds the claim has changed. Unless the object says `active` and names you, do
+not count the lab as yours; what to do about that is the caller's job. `ndt status` shows
+the same claim for a kernel started by `ndt up`; a kernel started by hand, or in physical mode,
+answers `none`.
 
 What the claim and a declared measurement block:
 

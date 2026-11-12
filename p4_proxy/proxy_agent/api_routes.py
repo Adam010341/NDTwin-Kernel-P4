@@ -243,7 +243,7 @@ def _route_write_unsupported(err, dpid):
         route_binding.REASON_OWNED_BY_PACKAGE:
             "the package owns this table: use POST /p4/table_entry",
         route_binding.REASON_NO_FIVE_TUPLE_ROLE:
-            "match on the destination only",
+            "use POST /p4/table_entry; a bound route takes the destination only",
     }.get(err.reason, "use POST /p4/table_entry")
     return HTTPException(
         status_code=501,

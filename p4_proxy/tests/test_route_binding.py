@@ -634,6 +634,43 @@ class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
         err = self.post(api_routes.add_flow_entry, body)
         self.assertEqual((err.status_code, err.detail["reason"]), (501, "no_five_tuple_role"))
         self.assertEqual(client.stub.requests, [])
+        # [Co-developed with claude code -- Adam] What the caller reads says what is not
+        # supported, in words, and names no phase of the work.
+        self.assertIn("matches on more than the destination address", err.detail["message"])
+        self.assertIn("flow-entry API writes at most destination routes", err.detail["message"])
+        self.assertIn("is not supported on it", err.detail["message"])
+        self.assertNotIn("this cut", err.detail["message"])
+
+    def test_the_five_tuple_501_text_is_true_of_an_unbound_and_a_package_owned_switch_too(self):
+        # [Co-developed with claude code -- Adam] The same reason word comes out for all three
+        # foreign bindings, so the sentence must not claim NDTwin writes routes to all of them:
+        # on these two it writes none, and the text says "at most" destination routes. The handler
+        # is awaited directly with a fake request, as the neighbouring tests do. Each binding gets
+        # its own topology: add_switch keeps the first client it is given for a dpid, so a shared
+        # topology would send the second iteration to the first one's client.
+        body = dict(self.ROUTE, match={"dl_type": 2048, "nw_dst": "10.0.1.1", "ip_proto": 6,
+                                       "nw_src": "10.0.2.2"})
+        for name, binding in (("unbound", None),
+                              ("package-owned",
+                               route_binding.resolve(role(owner="package"),
+                                                     a_p4info(RENAMED_P4INFO)))):
+            with self.subTest(binding=name):
+                self.topo = TopologyManager()
+                api_routes.topology = self.topo
+                client = self.switch(binding)
+                self.assertIs(api_routes.topology.switches[1], client)
+                err = self.post(api_routes.add_flow_entry, dict(body))
+                self.assertEqual((err.status_code, err.detail["reason"]),
+                                 (501, "no_five_tuple_role"))
+                self.assertIn("flow-entry API writes at most destination routes",
+                              err.detail["message"])
+                self.assertNotIn("writes only", err.detail["message"])
+                self.assertNotIn("this cut", err.detail["message"])
+                self.assertEqual(client.stub.requests, [])
+                # the remedy is ahead of the prose and inside the 200 bytes the kernel keeps
+                wire = json.dumps({"detail": err.detail}, separators=(",", ":"))
+                self.assertLess(wire.index(err.detail["remedy"]) + len(err.detail["remedy"]), 200)
+                self.assertNotIn("match on the destination only", err.detail["remedy"])
 
     #: A 5-tuple match (source + protocol beside the destination) -- flow_5tuple, not a route.
     FIVE_TUPLE = dict(ROUTE, priority=101, match={"dl_type": 2048, "nw_dst": "10.0.1.1",
