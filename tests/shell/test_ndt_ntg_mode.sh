@@ -429,7 +429,11 @@ F="$FIX/foot"
 mk_ntg "$F" cli
 out="$(FX_DEFAULT_NTG_DIR="$F" inner 'lab_entry_points p4 fresh')"
 has   "  cli -> Mininet CLI, as before"             "proxy :8081   kernel :8000   Mininet CLI: $ATT" "$out"
-check "  and nothing more"                          "1" "$(grep -c . <<<"$out")"
+# [Co-developed with claude code -- Adam] The attach needs root; the last line says what works
+# with ndt's sudo grants alone, on every footer, and is the only line under a Mininet CLI one.
+NOROOT="attach needs root; with ndt's sudo grants only: sudo ndtwin-lab topo-out, sudo ndtwin-lab topo-cmd '<line>'"
+check "  and nothing more than the no-root line"    "2" "$(grep -c . <<<"$out")"
+check "🔴 the last line names the helper's pane verbs" "$NOROOT" "$(tail -n 1 <<<"$out" | sed 's/^ *//')"
 mk_ntg "$F" custom_command
 out="$(FX_DEFAULT_NTG_DIR="$F" inner 'lab_entry_points p4 fresh')"
 hasnt "🔴 custom_command -> the footer does not say Mininet CLI" "Mininet CLI" "$out"
@@ -463,12 +467,15 @@ check "🔴 the ready line passes on whether up_p4 started the fabric" "1" \
       "$(grep -c 'lab_entry_points p4 "${UP_P4_FABRIC:-}"' "$NDT")"
 out="$(FX_DEFAULT_NTG_DIR="$F" inner 'lab_entry_points ovs')"
 has   "  the OVS line is unchanged (no NTG there)"  "Ryu :8080   kernel :8000   Mininet CLI: $ATT" "$out"
+check "🔴 and the OVS footer ends on the no-root line too" "$NOROOT" "$(tail -n 1 <<<"$out" | sed 's/^ *//')"
 
 # 🔴 EVERY label but `Mininet CLI` has a second line that says why, state by state -- the P4 app
 # guide tells the reader that line is there.
 RS="$FIX/reasons"
-reason_of() {   # <ntg_dir> [fresh|reused] -- the second line, trimmed
-    FX_DEFAULT_NTG_DIR="$1" inner "lab_entry_points p4 ${2:-fresh}" | sed -n '2s/^ *//p'
+# The no-root line that ends every footer is not a reason: a footer whose reason line went missing
+# would otherwise show it as its second line.
+reason_of() {   # <ntg_dir> [fresh|reused] -- the second line, trimmed, unless it is the no-root line
+    FX_DEFAULT_NTG_DIR="$1" inner "lab_entry_points p4 ${2:-fresh}" | sed -n '2s/^ *//p' | grep -vxF -- "$NOROOT"
 }
 for st in custom_command unknown hardware nomininet badmode unresolved nohostfile reused; do
     rm -rf "$RS"; mk_ntg "$RS" custom_command
@@ -486,7 +493,7 @@ for st in custom_command unknown hardware nomininet badmode unresolved nohostfil
 done
 # The default: which NTG checkout the lab uses is not known (a trusted config this user cannot read).
 printf 'NTG_DIR=%s\n' "$FIX/ntg" > "$FIX/conf/unreadable2.conf"; chmod 000 "$FIX/conf/unreadable2.conf"
-r="$(FX_TRUST=1 FX_CONF="$FIX/conf/unreadable2.conf" inner 'lab_entry_points p4 fresh' | sed -n '2s/^ *//p')"
+r="$(FX_TRUST=1 FX_CONF="$FIX/conf/unreadable2.conf" inner 'lab_entry_points p4 fresh' | sed -n '2s/^ *//p' | grep -vxF -- "$NOROOT")"
 if [[ "$(id -u)" == 0 ]]; then echo "  skipped: running as root, so the config is readable"
 else check "🔴 (no NTG checkout known) the footer has a reason line" "yes" "$([[ -n "$r" ]] && echo yes || echo "no (empty)")"; fi
 chmod 644 "$FIX/conf/unreadable2.conf"
@@ -921,7 +928,8 @@ print("NONE" if h is None else h.data.get("mode", "cli"), "Hardware_Testbed" in 
     out="$(FX_DEFAULT_NTG_DIR="$SH" inner 'lab_entry_points p4 fresh')"
     check "🔴 shipped files: the ready line the P4 app guide quotes" \
           "  proxy :8081   kernel :8000   NTG prompt, no mininet>: sudo tmux -L ndtwinlab attach -t topo
-    for Mininet's CLI: 'ndt ntg cli', then 'ndt down' and up again" "$out"
+    for Mininet's CLI: 'ndt ntg cli', then 'ndt down' and up again
+    attach needs root; with ndt's sudo grants only: sudo ndtwin-lab topo-out, sudo ndtwin-lab topo-cmd '<line>'" "$out"
 fi
 
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"

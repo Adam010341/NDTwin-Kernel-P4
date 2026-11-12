@@ -646,8 +646,11 @@ report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
 # [Co-developed with claude code -- Adam] 2026-11-08: `ndt down`'s note on a component killed after the stop
 # window (+2 in cmd_down, above these rows) moves it 11408 -> 11410, and M63's and G62h's rows by the same 2
 # (9926, 9466; 7707, 7645), each found by text and function.
+# [Co-developed with claude code -- Adam] 2026-11-13: the footer's line on reaching the pane without root
+# (+10, all above these rows) moves it 11410 -> 11420, and M63's and G62h's rows by the same 10
+# (9936, 9476; 7717, 7655), each found by text and function.
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(11410, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(11420, 0, "return 0", "cmd_apps")]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -858,8 +861,8 @@ report "M63b: up's rc 5 sentence drops the refusals it gained" "$m" \
        RcProvenance.test_up_refused_names_the_refusals_help_names
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(9926, 1, "return 1", "app_start")' \
-    '(9466, 1, "return 1", "app_start")')
+    '(9936, 1, "return 1", "app_start")' \
+    '(9476, 1, "return 1", "app_start")')
 report "M63: apps.start rc 1 cites proc_checkout's return 1" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
@@ -1628,8 +1631,8 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(7707, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(7645, 0, "return 0", "cmd_status")]},')
+    '                         "code": [(7717, 0, "return 0", "cmd_status")]},' \
+    '                         "code": [(7655, 0, "return 0", "cmd_status")]},')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 

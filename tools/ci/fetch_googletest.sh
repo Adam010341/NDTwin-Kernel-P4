@@ -10,7 +10,9 @@
 # lives), downloads it with retries unless the tree is already in place (for example restored
 # from the workflow cache), and prints the directory. Configure then passes
 #   -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=<that directory>
-# and FetchContent downloads nothing. Local builds do not use this script.
+# and FetchContent downloads nothing. A local build does not need this script; on a machine
+# without network access, run it where there is one and point the configure step at its output
+# the same way (README.md, "Build").
 #
 # Usage:
 #   fetch_googletest.sh [--cmakelists FILE] --print-commit

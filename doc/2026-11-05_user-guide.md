@@ -44,8 +44,8 @@ checkout. It also writes three one-line files in `p4_proxy/mininet/` (`host_coun
    python3 -m venv p4_proxy/venv
    p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt
    p4_proxy/venv/bin/python p4_proxy/regen_p4runtime_pb2.py
-   cd p4_proxy/p4_src && mkdir -p build && p4c-bm2-ss --arch v1model \
-       -o build/ndtwin_switch.json --p4runtime-files build/ndtwin_switch.p4info.txt ndtwin_switch.p4
+   (cd p4_proxy/p4_src && mkdir -p build && p4c-bm2-ss --arch v1model \
+       -o build/ndtwin_switch.json --p4runtime-files build/ndtwin_switch.p4info.txt ndtwin_switch.p4)
    ```
 
    Without them `ndt up p4` stops at its pre-flight with `proxy venv missing: p4_proxy/venv/bin/python`
@@ -54,7 +54,26 @@ checkout. It also writes three one-line files in `p4_proxy/mininet/` (`host_coun
    stale p4info in `build/` is a hazard (the proxy loads it if pointed at it, and constructs missing from
    it fail silently).
    After you recompile, take the fabric down and bring it up again; a running switch keeps the old
-   pipeline.
+   pipeline. The parentheses around the last command keep its `cd` inside them, so the shell stays
+   at the root of the checkout, where every later command of this guide runs.
+4. NTG's Python environment. The helper runs every topology script with the interpreter its
+   `NTG_PY` names (3.3), and the P4 topology hands the fabric to NTG in that same process, so that
+   interpreter needs NTG's packages. Use Python 3.10 or newer: CI compiles this repository's Python
+   files, the topology scripts among them, with 3.10, and nothing older is checked. This repository
+   has no pin list for them; NTG's own installation guide (`installation_guide/README.md` in the NTG
+   checkout) lists `loguru`, `prompt_toolkit`, `nornir`, `nornir-utils`, `pyyaml`, `numpy`,
+   `pandas`, `paramiko`, `requests` and `pydantic`. Mininet comes from the system: the topology
+   scripts add `/usr/lib/python3/dist-packages` to their path.
+   For example, in a virtual environment of the system Python:
+
+   ```bash
+   python3 -m venv ~/ntg-venv
+   ~/ntg-venv/bin/pip install loguru prompt_toolkit nornir nornir-utils pyyaml numpy pandas \
+       paramiko requests pydantic
+   ```
+
+   Then name `/home/<user>/ntg-venv/bin/python` as `NTG_PY` in `/etc/ndtwin-lab.conf` (3.3). An
+   interpreter without `nornir` stops the P4 bring-up with `this interpreter has no 'nornir'`.
 
 ### Building bmv2 for realistic throughput
 
@@ -112,7 +131,8 @@ Starting Mininet and bmv2 needs root. `ndt` does not run as root; it calls one r
 `/usr/local/sbin/ndtwin-lab`, through `sudo -n`, and that script accepts a fixed list of verbs
 (`topo-start`, `ovs-topo-start`, `ovs-topo-4host`, `topo-cmd`, `topo-out`, `topo-stop`, `cleanup`,
 `energy-start`, `energy-stop`, `energy-out`, `sim-start`, `sim-stop`, `sim-out`, `heartbeat`,
-`status`, `config`). Install it from the checkout, once, and again after you update the checkout:
+`status`, `config`; `topo-cmd` and `topo-out` are the way into the topology pane without root,
+4.7). Install it from the checkout, once, and again after you update the checkout:
 
 ```bash
 sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
@@ -142,7 +162,7 @@ for a password, and a missing grant makes the feature below fail:
 | `/usr/bin/ovs-vsctl` | listing bridges for switch liveness, reading and restoring sFlow records and interface lists, creating and deleting bridges on power control | OVS switch liveness stays frozen at its last known state (the kernel logs `OVS switch liveness is frozen`); sFlow samples cannot be mapped to ports; power control fails |
 | `/usr/sbin/ifconfig` (package `net-tools`) | only OVS power control: bringing a switch's ports up on power-on and down on power-off, and re-addressing the sFlow agent | power-on answers HTTP 500 and the switch stays down in the twin; power-off also answers 500, after the bridge has already been deleted |
 | `/usr/sbin/tc` | only the link-fault API (`sudo -n tc qdisc show\|add\|del`) | the injection is refused |
-| `/usr/local/sbin/ndtwin-p4-power` | only P4 power control: powering a bmv2 switch on or off; install it from `tools/p4_power_helper.py` (steps in that file's header) | P4 power control fails |
+| `/usr/local/sbin/ndtwin-p4-power` | only P4 power control: powering a bmv2 switch on or off; install it as "P4 power control" below says | P4 power control fails |
 
 Grant only what you use. The default file below holds the three `ndt` grants. Add the optional lines
 that follow it only for the feature they name; they are scoped to what the kernel actually runs, so
@@ -181,6 +201,25 @@ $USER ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power
 A glob in sudoers also matches spaces, so these lines pin the interface, not the whole command line.
 Never grant bare `ifconfig`, bare `tc`, `sed` or `exportfs`: each of them is root on the machine.
 
+P4 power control. Every power-off of a bmv2 switch, and every power-on of one that is off,
+through the API (§8 of the [API document](2026-01-02_ndt_api.md)) or the Python client's
+`power_off` and `power_on`, makes the kernel run
+`sudo -n /usr/local/sbin/ndtwin-p4-power off|on <switch>`. That program is a root-owned
+copy of `tools/p4_power_helper.py`; nothing installs it for you. Install it once, and again when
+that file changes in a checkout you update:
+
+```bash
+sudo install -o root -g root -m 755 tools/p4_power_helper.py /usr/local/sbin/ndtwin-p4-power
+```
+
+and add the `P4 power control only` line above to the rule file, for the account that runs the
+kernel (under `ndt up`, you). Never name the file in the checkout in that rule: whoever can edit a
+file that sudo runs without a password is root. Without the program or the grant the power
+command answers `500` and the switch is not touched; a caller cannot tell that `500` from the one
+that comes back when the helper signalled the switch and it had not stopped 10 s later, so read
+the state back. OVS switches do not use it; they need the `OVS power control only` line and
+`ovs-vsctl`.
+
 Per-app NFS exports. When an application is deployed through the API, the kernel appends a line to
 `/etc/exports` and reloads the NFS server, which needs root. A kernel started by `ndt` runs as you, so
 it does not create the export: it logs `Per-app export line for <dir> is not active (writing
@@ -214,6 +253,26 @@ tested; the kernel's own grants are not.
 sudo -n mnexec -a <host-pid> ping -c 2 10.0.0.2
 ```
 
+`<host-pid>` is the pid of the host's shell, the process whose last argument is `mininet:<host>`
+(the same test `ndt up` uses for its own ping):
+
+```bash
+ps -eo pid=,args= | awk '$NF == "mininet:h1" {print $1; exit}'
+```
+
+Mininet's host names do not resolve outside its CLI, so give the address. To keep pings running in
+the background while an application works, and read their loss afterwards (here from `h1`, of the
+tutorials' `basic` exercise, to `h3` at `10.0.3.3`, five a second for a minute):
+
+```bash
+pid=$(ps -eo pid=,args= | awk '$NF == "mininet:h1" {print $1; exit}')
+setsid -f sudo -n mnexec -a "$pid" ping -q -c 300 -i 0.2 10.0.3.3 > ~/h1-h3.txt 2>&1 < /dev/null
+# ... run the application ...
+tail -n 2 ~/h1-h3.txt      # after the minute: "300 packets transmitted, ... % packet loss"
+```
+
+The same can be typed at the `mininet>` prompt (4.7).
+
 ### 3.3 The helper's config file `/etc/ndtwin-lab.conf` (optional)
 
 The helper's built-in defaults point at paths under one developer's home directory. On any other
@@ -223,8 +282,8 @@ file. The helper reads it as root and uses it only if root owns it; `ndt` reads 
 
 ```bash
 sudo install -o root -g root -m 644 /dev/stdin /etc/ndtwin-lab.conf <<'EOF'
-KERNEL_DIR=/home/<user>/NDTwin-Kernel
-NTG_PY=/home/<user>/miniconda3/envs/ntg-env/bin/python
+KERNEL_DIR=/home/<user>/NDTwin-Kernel-P4
+NTG_PY=/home/<user>/ntg-venv/bin/python
 NTG_DIR=/home/<user>/Network-Traffic-Generator
 EOF
 sudo ndtwin-lab config      # shows what took effect
@@ -233,7 +292,7 @@ sudo ndtwin-lab config      # shows what took effect
 | Key | Meaning |
 |---|---|
 | `KERNEL_DIR` | the one checkout the helper acts in; it must contain `p4_proxy/mininet/ntg_bmv2_topo.py` |
-| `NTG_PY` | the Python interpreter that runs the topology scripts |
+| `NTG_PY` | the Python interpreter that runs the topology scripts (section 2, step 4) |
 | `NTG_DIR` | the Network-Traffic-Generator checkout the P4 bridge imports its CLI from; it must contain `network_traffic_generator.py` |
 | `ENERGY_DIR` | where `energy-start` runs the Energy-Saving-App |
 | `SIM_DIR` | where `sim-start` runs the Simulation-Platform-Manager |
@@ -311,7 +370,7 @@ link-injection write (the twelve writes of section 0 of the [API document](2026-
 `set_switches_power_state` carries none) carries a `lab_claim` object (`state`, `owner`, `expires_at`,
 `note`; `POST /ndt/p4/table_entry` carries it in the `X-NDTwin-Lab-Claim` header), and the kernel logs
 one line when a write finds the claim has changed. Unless the object says `active` and names you, do
-not count the lab as yours; what to do about that is the caller's job. `ndt status` shows
+not count the lab as yours. What to do then is the caller's job. `ndt status` shows
 the same claim for a kernel started by `ndt up`; a kernel started by hand, or in physical mode,
 answers `none`.
 
@@ -493,11 +552,10 @@ and `--check` is red. Take the fabric down and up again.
 
 ### 4.7 Talking to the fabric: Mininet CLI or the NTG prompt
 
-When the topology starts, its terminal (the tmux session `topo` of the helper; attach with
-`sudo tmux -L ndtwinlab attach -t topo`) either drops into the Mininet CLI or hands control to NTG's
-own prompt. The choice is made at bring-up and cannot change while the fabric runs. The choice exists
-only on the P4 plane (NTG's P4 bridge reads it); the OVS topologies always end in Mininet's CLI, so
-`ndt ntg` changes nothing there.
+When the topology starts, its terminal (the tmux session `topo` of the helper) either drops into
+the Mininet CLI or hands control to NTG's own prompt. The choice is made at bring-up and cannot
+change while the fabric runs. The choice exists only on the P4 plane (NTG's P4 bridge reads it); the
+OVS topologies always end in Mininet's CLI, so `ndt ntg` changes nothing there.
 
 ```bash
 ndt ntg                  # which is selected
@@ -523,6 +581,34 @@ Handy Mininet CLI commands: `nodes`, `net`, `h1 ping -c 3 h2`, `h1 ifconfig`, `i
 fabric). `pingall` over 128 hosts takes a long time. In NTG's prompt, `flow --config <file>` generates
 traffic; NTG cannot interrupt an experiment (interrupting stops NTG), so wait for the finite flows to
 end. Before the kernel is up NTG repeats `Failed to get hosts, retrying`; that is expected.
+
+There are two ways into the topology's terminal:
+
+- As root: `sudo tmux -L ndtwinlab attach -t topo`. The session is root's, and none of the three
+  grants of 3.2 covers `tmux`, so for an account that holds only those, sudo asks for a password
+  (or, without a terminal, answers `a password is required`).
+- With the grants of 3.2 only, through the helper:
+  - `sudo ndtwin-lab topo-out` prints what the pane shows, plus the 60 lines above it; a number
+    after it (`sudo ndtwin-lab topo-out 200`) changes the 60.
+  - `sudo ndtwin-lab topo-cmd '<line>'` types the line into the pane, exactly as written, and
+    presses Enter. It returns at once, without waiting for the command; read the result with
+    `topo-out`. It types text, not key names: `C-c` arrives as three characters.
+
+  Both answer `ndtwin-lab: no topo session` and exit 1 when no topology is running.
+
+At the `mininet>` prompt, a command that runs in the foreground holds the prompt until it ends; do not
+type another line meanwhile, because it would go to that host's shell. To keep traffic running while
+an application works, start it in the background and send its output to a file you read
+afterwards, for example steady pings for a minute from `h1` to `h3` (Mininet resolves host names here):
+
+```bash
+sudo ndtwin-lab topo-cmd 'h1 ping -c 300 -i 0.2 h3 > /tmp/h1-h3.txt 2>&1 &'
+# ... run the application ...
+tail -n 2 /tmp/h1-h3.txt      # after the minute: "300 packets transmitted, ... % packet loss"
+```
+
+The hosts share the machine's file system, so the file is in the machine's `/tmp`. Without a
+`mininet>` prompt (under NTG's prompt), the `mnexec` form of 3.2 does the same.
 
 ### 4.8 Applications: `ndt apps`
 
@@ -562,6 +648,11 @@ process answer wins whenever it is non-zero. Do not read this rc as a gate: read
 
 Two things outside `ndt`: the Web-GUI is a Docker container on `:3000` that you start and stop with
 docker, and NTG is not a process but the prompt of 4.7.
+
+To write an application of your own, start from the Python client
+([sdk/python/README.md](../sdk/python/README.md)) and the energy-saving example on a P4 fabric
+([examples/p4_energy_saving/README.md](../examples/p4_energy_saving/README.md)), which uses only the
+kernel's API.
 
 ### 4.9 Taking it down: `ndt down` and `ndt clean`
 

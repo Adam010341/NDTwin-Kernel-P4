@@ -8,16 +8,16 @@ This is the privileged half of P4PowerStrategy (P4 power control).
 The kernel runs as an unprivileged user and simple_switch_grpc runs as root, so the kill and the
 relaunch both need root; rather than putting `kill` into NOPASSWD -- which would let the invoking
 user kill any root process on the machine -- this script is the one command its NOPASSWD sudoers
-rule names (a rule the User Manual does not set up; the install steps are below), and it refuses
-everything except managing one named bmv2 switch.
+rule names, and it refuses everything except managing one named bmv2 switch. This repository's
+user guide (doc/2026-11-05_user-guide.md, section 3.2, "P4 power control") gives the install step
+and the rule; the website's User Manual does not set either up.
 
-Install (one-time, as root -- the sudoers line must point at a root-owned copy, never at the
-repo checkout, because NOPASSWD on a user-writable file is root for whoever can edit it):
+Install (one-time, as root, and again when this file changes -- the sudoers line must point at a
+root-owned copy, never at the repo checkout, because NOPASSWD on a user-writable file is root for
+whoever can edit it), from the root of the checkout:
 
-    sudo cp tools/p4_power_helper.py /usr/local/sbin/ndtwin-p4-power
-    sudo chown root:root /usr/local/sbin/ndtwin-p4-power
-    sudo chmod 755 /usr/local/sbin/ndtwin-p4-power
-    # visudo:
+    sudo install -o root -g root -m 755 tools/p4_power_helper.py /usr/local/sbin/ndtwin-p4-power
+    # and in the rule file of the user guide's section 3.2, for the user that runs the kernel:
     # <user> ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power
 
 Hard rules, which the tests assert and reviewers should hold this file to:

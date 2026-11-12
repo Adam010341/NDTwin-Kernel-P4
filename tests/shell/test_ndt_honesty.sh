@@ -1519,12 +1519,16 @@ hasnt "🔴 the help no longer says the API caller gets no signal" "no signal at
 hasnt "🔴 nor that nothing will tell the reader"           "nothing will tell you" "$HELP_FLAT"
 # The user guide carries the same fact. Asserted here rather than nowhere; note that the mutation
 # gate copies only ndt, so these cells are not mutation-protected.
-GUIDE="$HERE/../../doc/2026-11-05_user-guide.md"
+GUIDE="${GUIDE_UNDER_TEST:-$HERE/../../doc/2026-11-05_user-guide.md}"
 check "  the user guide is readable from here"          "yes" \
       "$( [[ -r "$GUIDE" ]] && echo yes || echo no )"
+# The guide wraps its lines too; the reading rule is read from it flattened, as the help is above.
+GUIDE_FLAT="$(tr -s ' \n' '  ' < "$GUIDE" 2>/dev/null)"
 has   "🔴 and the user guide's claim section says the API reports it" "carries a \`lab_claim\` object" "$(cat "$GUIDE" 2>/dev/null)"
 has   "  and that it does not refuse a write"             "does not refuse a write because of it" "$(cat "$GUIDE" 2>/dev/null)"
-has   "🔴 and the guide's reading rule names the state too" "Unless the object says \`active\` and names you" "$(cat "$GUIDE" 2>/dev/null)"
+has   "🔴 and the guide's reading rule names the state, and what not to assume" \
+      "Unless the object says \`active\` and names you, do not count the lab as yours" "$GUIDE_FLAT"
+has   "  and leaves what to do then to the caller"       "do not count the lab as yours. What to do then is the caller's job." "$GUIDE_FLAT"
 hasnt "🔴 and the guide no longer says nothing signals a lapse" "Nothing signals a lapse" "$(cat "$GUIDE" 2>/dev/null)"
 # Text checks against the kernel source, not behaviour checks: they catch a rename of the two names
 # the help quotes (the header and the reply key). That the kernel really adds the key to a write
