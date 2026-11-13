@@ -15,6 +15,8 @@ README_UNDER_TEST points at another copy of the README.
 
     python3 tests/python/test_ndtwin_sdk_readme_example.py -v
 """
+import contextlib
+import io
 import os
 import re
 import sys
@@ -52,10 +54,27 @@ class ReadmeExampleTest(unittest.TestCase):
         self.server.server_close()
 
     def run_example(self):
+        """Runs the example and returns what it printed."""
         code = readme_example()
         self.assertEqual(code.count(URL_IN_README), 1, "the example names the kernel once")
-        exec(compile(code.replace(URL_IN_README, repr(self.url)), README, "exec"),
-             {"__name__": "readme_example", "ndtwin": ndtwin})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            exec(compile(code.replace(URL_IN_README, repr(self.url)), README, "exec"),
+                 {"__name__": "readme_example", "ndtwin": ndtwin})
+        return out.getvalue()
+
+    def test_it_prints_the_routes_it_moved_and_the_power_state(self):
+        # [Co-developed with claude code -- Adam]
+        # Run as shown, the example must tell the user what it did: each moved route with its
+        # new port, and the state power_off read back.
+        lines = self.run_example().splitlines()
+        for dpid, address, port in ((1, "10.0.4.4", 3), (2, "10.0.2.2", 4)):
+            with self.subTest(dpid=dpid):
+                self.assertTrue([ln for ln in lines if ln.startswith(f"s{dpid} ")
+                                 and address in ln and ln.endswith(f" {port}")],
+                                f"no line says s{dpid}'s route to {address} moved to port {port}")
+        self.assertTrue([ln for ln in lines if "admin_state='off'" in ln],
+                        "no line shows the power state read back after power_off")
 
     def test_it_moves_every_route_that_leaves_towards_s4_and_no_other(self):
         self.run_example()

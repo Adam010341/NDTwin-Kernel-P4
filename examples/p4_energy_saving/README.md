@@ -65,9 +65,20 @@ no switch can be turned off; s3, s4 stayed on only because their links have no t
 ```
 
 On the `basic` pod topology, steady pings from h1 to h3 and to h4, and from h3 and h4 to h1, go
-over both spines; then wait until every switch-to-switch edge in `GET /ndt/get_graph_data` reads
-`live` or `idle`. The pings may keep running while the app runs: they are far below its limits on
+over both spines. The pings may keep running while the app runs: they are far below its limits on
 link usage.
+
+An edge leaves `silent` when the switch it leads to samples a packet, and reads `silent` again once
+that switch has sampled none for 5 s (the kernel's window). A switch samples each packet it
+receives with a chance of 1 in 256, so under light steady traffic an edge goes back and forth
+between `silent` and `live` or `idle` instead of settling. The pings below bring s3 about 30 packets
+a second and s4 about 10, so s3 is sampled about every 8 s on average and s4 about every 25 s, both
+longer than the window: much of the time their edges read `silent`, and the app keeps them on and
+says so. Do not wait for every edge to read `live` or `idle` at once: run step 2 again (each run
+reads the links afresh, and one that names no switch writes nothing) until it names one, or send
+the pings faster (a smaller `-i`, with `-c` raised to match so they still last a minute). In
+`GET /ndt/get_graph_data`, each switch-to-switch edge's `agent_last_sample_age_seconds` is how many
+seconds ago the switch it leads to last sampled a packet (`-1` for never).
 
 These pings are typed at Mininet's `mininet>` prompt, which NTG as it ships does not give: select
 it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.7,
@@ -122,8 +133,9 @@ it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.
    `export PYTHONPATH="$PWD/sdk/python"` as that README describes.
 
 On `basic`'s pod topology (h1 and h2 on s1, h3 and h4 on s2, s3 and s4 each joined to s1 and s2)
-it picks s4, moves s1's route to h4 and s2's route to h2 onto s3, reads both tables back, and
-powers s4 off. On 2026-10-31 an earlier version of both apps did that on a bmv2 1.15.5 fabric of
+it picks s4 when s4's links read `live` or `idle` (s4 draws more power), and s3 when only s3's
+do; for s4 it moves s1's route to h4 and s2's route to h2 onto s3, reads both tables
+back, and powers s4 off. On 2026-10-31 an earlier version of both apps did that on a bmv2 1.15.5 fabric of
 that exercise, with pings through every switch, without losing a ping; the tests show the same
 against a fake kernel built from a recorded reply of that topology.
 
@@ -133,7 +145,10 @@ install command and the grant line, under "P4 power control" in section 3.2
 (`doc/2026-11-05_user-guide.md`); nothing installs them for you. Without them the power-off
 answers `500` and the app says the power-off may have taken effect, since the same `500` also
 comes back when the helper signalled the switch and it had not stopped 10 s later; the routes it
-moved still work, because the other spine carries them.
+moved still work, because the other spine carries them. To see which it was, read the line above
+the kernel's `command failed` line in `.test_run/logs/kernel.log`: `sudo: ...: command not found`
+means the helper is not installed, `sudo: a password is required` means the grant is missing, and
+a line starting `ndtwin-p4-power:` is the helper's own reason.
 
 ## Options
 

@@ -108,8 +108,12 @@ git clone https://github.com/ndtwin-lab/NDTwin-Kernel-P4
 cd NDTwin-Kernel-P4
 sudo apt-get install g++ cmake ninja-build libboost-system-dev libboost-url-dev libssl-dev libssh-dev
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+cmake --build build -j"$(nproc)"
 ```
+
+`-j` sets how many files compile at once; without it the default generator (Make) compiles one at
+a time. Some of the kernel's source files take much memory to compile, so on a machine with little
+memory for its number of cores give a smaller number, for example `-j2`.
 
 The configure step downloads googletest, which the unit tests use (`FetchContent` in
 `CMakeLists.txt`, pinned to one commit). On a machine without network access, put that commit's
