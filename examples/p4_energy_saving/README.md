@@ -71,12 +71,13 @@ link usage.
 An edge leaves `silent` when the switch it leads to samples a packet, and reads `silent` again once
 that switch has sampled none for 5 s (the kernel's window). A switch samples each packet it
 receives with a chance of 1 in 256, so under light steady traffic an edge goes back and forth
-between `silent` and `live` or `idle` instead of settling. The pings below bring s3 about 30 packets
-a second and s4 about 10, so s3 is sampled about every 8 s on average and s4 about every 25 s, both
-longer than the window: much of the time their edges read `silent`, and the app keeps them on and
-says so. Do not wait for every edge to read `live` or `idle` at once: run step 2 again (each run
-reads the links afresh, and one that names no switch writes nothing) until it names one, or send
-the pings faster (a smaller `-i`, with `-c` raised to match so they still last a minute). In
+between `silent` and `live` or `idle` instead of settling. The pings below bring s3 about 290
+packets a second and s4 about 97, so s3 is sampled about once a second and s4 every few seconds. In
+a measured minute (2026-11-13) s3's edges never read `silent`, and s4's read `silent` about one
+read in five; the app keeps a switch whose edges read `silent` on, and says so. Do not wait for
+every edge to read `live` or `idle` at once: run step 2 again, a few seconds apart and while the
+pings last (each run reads the links afresh, and one that names no switch writes nothing), until it
+names one. In
 `GET /ndt/get_graph_data`, each switch-to-switch edge's `agent_last_sample_age_seconds` is how many
 seconds ago the switch it leads to last sampled a packet (`-1` for never).
 
@@ -93,23 +94,26 @@ it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.
    ndt up p4 --app ~/tutorials/exercises/basic
    ```
 
-   Then start the pings, a minute of them at five a second, in the background, each into its own
-   file. `sudo ndtwin-lab topo-cmd` types a line at the `mininet>` prompt and needs only the user
-   guide's sudo grants (section 4.7 says what it does; as root you can attach to the pane and type
-   the same lines):
+   Then start the pings, a minute of them at about fifty a second, in the background, each into
+   its own file. `sudo ndtwin-lab topo-cmd` types a line at the `mininet>` prompt and needs only the
+   user guide's sudo grants (section 4.7 says what it does; as root you can attach to the pane and
+   type the same lines):
 
    ```bash
-   sudo ndtwin-lab topo-cmd 'h1 ping -c 300 -i 0.2 h3 > /tmp/h1-h3.txt 2>&1 &'
-   sudo ndtwin-lab topo-cmd 'h1 ping -c 300 -i 0.2 h4 > /tmp/h1-h4.txt 2>&1 &'
-   sudo ndtwin-lab topo-cmd 'h3 ping -c 300 -i 0.2 h1 > /tmp/h3-h1.txt 2>&1 &'
-   sudo ndtwin-lab topo-cmd 'h4 ping -c 300 -i 0.2 h1 > /tmp/h4-h1.txt 2>&1 &'
+   sudo ndtwin-lab topo-cmd 'h1 ping -c 3000 -i 0.02 h3 > /tmp/h1-h3.txt 2>&1 &'
+   sudo ndtwin-lab topo-cmd 'h1 ping -c 3000 -i 0.02 h4 > /tmp/h1-h4.txt 2>&1 &'
+   sudo ndtwin-lab topo-cmd 'h3 ping -c 3000 -i 0.02 h1 > /tmp/h3-h1.txt 2>&1 &'
+   sudo ndtwin-lab topo-cmd 'h4 ping -c 3000 -i 0.02 h1 > /tmp/h4-h1.txt 2>&1 &'
    ```
 
    When they have ended, `tail -n 2 /tmp/h1-h3.txt /tmp/h1-h4.txt /tmp/h3-h1.txt /tmp/h4-h1.txt`
-   shows each one's loss. Without a `mininet>` prompt, the user guide's section 3.2 runs the same
-   pings with `mnexec`.
+   shows each one's loss. Without a `mininet>` prompt, the user guide's section 3.2 shows the
+   `mnexec` form, which pings the destination's address, not its name; give it the same
+   `-c 3000 -i 0.02`.
 
-2. See what it would do, then do it:
+2. Start the app about 10 s after the pings (no earlier start was measured), while they last. See
+   what it would do, then do it. The real run reads the links again, so it can choose differently
+   from the dry run before it:
 
    ```bash
    python3 examples/p4_energy_saving/energy_saving.py --dry-run
@@ -117,7 +121,8 @@ it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.
    ```
 
    The SDK version needs the SDK installed first, into a virtual environment (Python 3.10 or
-   newer, no other package), then takes the same options:
+   newer, no other package); install it before step 1, so the minute of pings is not spent on the
+   install. It then takes the same options:
 
    ```bash
    python3 -m venv .venv && . .venv/bin/activate
@@ -133,11 +138,22 @@ it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.
    `export PYTHONPATH="$PWD/sdk/python"` as that README describes.
 
 On `basic`'s pod topology (h1 and h2 on s1, h3 and h4 on s2, s3 and s4 each joined to s1 and s2)
-it picks s4 when s4's links read `live` or `idle` (s4 draws more power), and s3 when only s3's
-do; for s4 it moves s1's route to h4 and s2's route to h2 onto s3, reads both tables
-back, and powers s4 off. On 2026-10-31 an earlier version of both apps did that on a bmv2 1.15.5 fabric of
-that exercise, with pings through every switch, without losing a ping; the tests show the same
-against a fake kernel built from a recorded reply of that topology.
+it usually picks s4 (the kernel's power figure for it is higher: 74.0 W against 49.1 W, synthetic
+and fixed per switch under Mininet, in the fake kernel and in a live one), and picks s3 when s4's
+own links read `silent` at that moment, saying so on a `s4 stays on` line. For s4 it moves s1's
+route to h4 and s2's route to h2 onto s3, reads both tables back, and powers s4 off; for s3 it
+moves s1's route to h3 and s2's route to h1 onto s4. On 2026-11-13, with `energy_saving_sdk.py` and
+pings at the rate of step 1, it powered a switch off in 20 of 20 runs: s4 in 14 and s3 in 6. In 5
+of those 6 it said s4 stays on, its links reading `silent`; in the other one, started about 8 s
+after s4 had been powered back on, it gave no reason. So s4 is not certain. `energy_saving.py` was
+not run in those measurements.
+
+On 2026-10-31 an earlier version of both apps did that for s4 on a bmv2 1.15.5 fabric of that
+exercise, with pings through every switch, without losing a ping; the tests show the same against a
+fake kernel built from a recorded reply of that topology. On 2026-11-13 `energy_saving_sdk.py`
+powered a switch off 29 times on that fabric (9 under pings at five a second, 20 at fifty a second)
+with no ping lost; a control that powered s4 off without moving any route first, at fifty a
+second, lost 568 pings on each of the two streams that cross s4.
 
 Powering a bmv2 switch off or on needs the root helper `/usr/local/sbin/ndtwin-p4-power` and a
 sudo grant for it (`doc/2026-01-02_ndt_api.md` §8). This repository's user guide gives the one
