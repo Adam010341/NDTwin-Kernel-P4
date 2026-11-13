@@ -33,7 +33,10 @@ checkout. It also writes three one-line files in `p4_proxy/mininet/` (`host_coun
    - for the OVS plane: Open vSwitch and Ryu in its own Python environment;
    - for the P4 plane: bmv2 (`simple_switch_grpc`), the P4 compiler `p4c-bm2-ss`, and the proxy's
      Python environment (below);
-   - for `ndt ntg` and the NTG prompt: a checkout of Network-Traffic-Generator (NTG).
+   - for the P4 plane (its topology does not start without it), `ndt ntg` and the NTG prompt: a
+     checkout of Network-Traffic-Generator (NTG), for example in your home directory, where the
+     example of 3.3 names it:
+     `git clone https://github.com/ndtwin-lab/Network-Traffic-Generator.git ~/Network-Traffic-Generator`.
    Where each lives is declared once in `tools/test_workflow/components.env`; set the variable in
    your environment before running `ndt` to override a default (for example `NTG_PY`, `RYU_PY`,
    `CONDA_ROOT`). The sibling applications used by `ndt apps` are looked up next to the kernel
@@ -217,8 +220,13 @@ kernel (under `ndt up`, you). Never name the file in the checkout in that rule: 
 file that sudo runs without a password is root. Without the program or the grant the power
 command answers `500` and the switch is not touched; a caller cannot tell that `500` from the one
 that comes back when the helper signalled the switch and it had not stopped 10 s later, so read
-the state back. OVS switches do not use it; they need the `OVS power control only` line and
-`ovs-vsctl`.
+the state back. The kernel's log (`.test_run/logs/kernel.log` under `ndt`) says which, though not
+in its own line: `command failed (exit code 1 (ndtwin-p4-power refused; a sudo password prompt does
+this ...))` is the same whatever the cause, so read the line just above it, sudo's or the helper's:
+`sudo: /usr/local/sbin/ndtwin-p4-power: command not found` means the program is not installed,
+`sudo: a password is required` means the grant is missing, and a line that starts `ndtwin-p4-power:`
+is the helper's own reason. OVS switches do not use it; they need the `OVS power control only` line
+and `ovs-vsctl`.
 
 Per-app NFS exports. When an application is deployed through the API, the kernel appends a line to
 `/etc/exports` and reloads the NFS server, which needs root. A kernel started by `ndt` runs as you, so
@@ -597,9 +605,16 @@ There are two ways into the topology's terminal:
   Both answer `ndtwin-lab: no topo session` and exit 1 when no topology is running.
 
 At the `mininet>` prompt, a command that runs in the foreground holds the prompt until it ends; do not
-type another line meanwhile, because it would go to that host's shell. To keep traffic running while
-an application works, start it in the background and send its output to a file you read
-afterwards, for example steady pings for a minute from `h1` to `h3` (Mininet resolves host names here):
+type another line meanwhile, because it would go to that host's shell. `topo-cmd` returns before the
+command ends, so before the next `topo-cmd`, wait until `topo-out` shows `mininet>` as its last line.
+A line typed too early can also upset that host's next command: in one run (2026-11-13), after a
+line was typed during `h2 ping -c 10 -i 0.5 h1`, the pane showed the next `h2 ping -c 2 h1` back
+at `mininet>` with only its `PING` line and no replies. If that has happened, do not trust what the pane shows for
+that host; `ndt down` and `ndt up` start the topology again with fresh host shells.
+
+To keep traffic running while an application works, start it in the background and send its output
+to a file you read afterwards, for example steady pings for a minute from `h1` to `h3` (Mininet
+resolves host names here):
 
 ```bash
 sudo ndtwin-lab topo-cmd 'h1 ping -c 300 -i 0.2 h3 > /tmp/h1-h3.txt 2>&1 &'
@@ -824,6 +839,7 @@ Logs are in `.test_run/logs/` of the checkout: `kernel.log`, `p4_proxy.log`, `ry
 | `refusing to build: NTG does not know mode ...` or `refusing to build: the hosts file ... is not a file NTG can load` (rc 5) | NTG's config would stop the fabric after it came up (4.7): `ndt ntg custom_command` (or `cli`), or create the hosts file, then the same `ndt up` again |
 | `--app is a P4 flag` / `--telemetry is a P4 flag` | you named the OVS plane (rc 2) |
 | `ndt up` ends `forwarding NOT tested` | the `mnexec` grant is missing (3.2) |
+| a power command on a bmv2 switch answers `500` | read the line above the kernel's `command failed` line in `kernel.log`; "P4 power control" in 3.2 says what each line means (program missing, grant missing, or the helper's own reason) |
 | `[2/4]` or the topology never converges, and no log mentions a port | Ryu was not listening when Mininet started: start through `ndt up`, which starts Ryu first and waits for it. `ndt up` starts Ryu with its default listeners, 6653 and 6633. If you run your own Ryu, let it listen on both 6653 and 6633 (Ryu's default when `--ofp-tcp-listen-port` is not given): the 4-host layout connects to 6653 explicitly, only the 128-host layout probes 6653 then 6633, and OVS power-on reattaches a rebuilt bridge to `tcp:127.0.0.1:6633` |
 | hosts cannot reach each other although everything looks right | Ryu loaded a model of another size (4.4); use `ndt up ovs4` (or `ndt up ovs`), which sets Ryu's model, instead of starting Ryu yourself |
 | flows have no paths, or fewer destination paths than hosts imply | the kernel reads the controller's topology and destination paths once at start, with no retry, so anything not yet discovered stays invisible for the whole run. Bring the lab down and up through `ndt up`, which waits for convergence before it starts the kernel |

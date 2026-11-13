@@ -56,8 +56,10 @@ with k.lock("routing_lock", ttl=60) as lease:       # LockBusy if another app ho
         changed += [e.with_params(port=spare[0]) for e in table.entries
                     if ports.get(e.params["port"]) == 4]   # ... sends its routes via s4 elsewhere
     k.p4.modify_all(changed, verify=True)           # writes, then reads each table back
+    for e in changed:
+        print(f"s{e.dpid}", e.match, "now leaves on port", e.params["port"])
     lease.renew(60)                                 # before a step that must still hold the lock
-    k.power_off(4)                                  # by dpid; raises PowerError unless it reads "off"
+    print("s4:", k.power_off(4))                    # by dpid; raises PowerError unless it reads "off"
     # ... later, when the traffic is back:
     k.power_on(4)                                   # raises PowerError unless it reads "on"
 ```
@@ -86,8 +88,9 @@ another fabric, use a route check such as the one of `examples/p4_energy_saving/
 
 The power API takes a switch's management address, not its dpid. The SDK maps the dpid to the
 address from the topology (the kernel serialises the address as a little-endian integer, which the
-SDK decodes). A table entry is a `dict` in the exact JSON shape of the API, with `.match`,
-`.params`, `.priority` and `with_params(**changes)`; values the API gives go back unchanged.
+SDK decodes). A table entry is a `dict` in the exact JSON shape of the API, with `.dpid`,
+`.match`, `.params`, `.priority` and `with_params(**changes)`; values the API gives go back
+unchanged.
 
 `verify=True` reads each table back after the writes, as strictly as `read_table`: a table with
 entries the API cannot show raises `WriteNotVerified`, and the check compares values in the form
@@ -133,8 +136,9 @@ either: the install command and the grant line are under "P4 power control" in s
 repository's user guide (`doc/2026-11-05_user-guide.md`). Without them the kernel answers `500`
 and the call raises `PowerError`, with `nothing_written` `None`. In that case the switch is not
 touched, but the same `500` also comes back when the helper signalled the switch and it had not
-stopped 10 s later, so the SDK cannot tell the two apart: read the state back. On an OVS fabric the
-kernel uses `ovs-vsctl` and `ifconfig` instead (the same section).
+stopped 10 s later, so the SDK cannot tell the two apart: read the state back, and read the line
+above the kernel's `command failed` line in its log (section 3.2 says what each one means). On an
+OVS fabric the kernel uses `ovs-vsctl` and `ifconfig` instead (the same section).
 
 ## Powering a switch back on
 
