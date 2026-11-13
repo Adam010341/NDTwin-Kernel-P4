@@ -46,8 +46,15 @@ import ndtwin
 k = ndtwin.Kernel("http://localhost:8000")          # timeout=20.0, retries=2, retry_wait=1.0
 with k.lock("routing_lock", ttl=60) as lease:       # LockBusy if another app holds it
     topo = k.topology()                             # switches, hosts, links
-    table = k.p4.read_table(1, "MyIngress.ipv4_lpm")
-    changed = [e.with_params(port=3) for e in table.entries if e.params["port"] == 4]
+    changed = []
+    for dpid in topo.switches:                      # every switch with a link to s4 ...
+        ports = topo.neighbours(dpid)               # {port: neighbouring switch}
+        if 4 not in ports.values():
+            continue
+        spare = [p for p, n in ports.items() if n != 4]
+        table = k.p4.read_table(dpid, "MyIngress.ipv4_lpm")
+        changed += [e.with_params(port=spare[0]) for e in table.entries
+                    if ports.get(e.params["port"]) == 4]   # ... sends its routes via s4 elsewhere
     k.p4.modify_all(changed, verify=True)           # writes, then reads each table back
     lease.renew(60)                                 # before a step that must still hold the lock
     k.power_off(4)                                  # by dpid; raises PowerError unless it reads "off"
@@ -55,14 +62,20 @@ with k.lock("routing_lock", ttl=60) as lease:       # LockBusy if another app ho
     k.power_on(4)                                   # raises PowerError unless it reads "on"
 ```
 
+This is for the tutorials' `basic` exercise (pod topology: h1, h2 on s1; h3, h4 on s2; s3 and s4
+each joined to s1 and s2), where s4 has no host and s3 already routes every host, so moving the
+routes of s1 and s2 that leave towards s4 onto their other spine keeps every host reachable. It
+keeps each entry's next-hop MAC address, which `basic` does not check, and checks no route: on
+another fabric, use a route check such as the one of `examples/p4_energy_saving/` (below).
+
 ## What it offers
 
 | call | route |
 |---|---|
-| `k.topology()` | `GET /ndt/get_graph_data` (§3): `switches`, `hosts`, `attached_hosts`, `links`, `edge_switches` |
+| `k.topology()` | `GET /ndt/get_graph_data` (§3): `switches`, `hosts`, `attached_hosts`, `links`, `edge_switches`; see "The topology" |
 | `k.average_link_usage()` | `GET /ndt/get_average_link_usage` (§24), a 0..1 fraction (a `float`) with `.telemetry_health` |
 | `k.power_report()` | `GET /ndt/get_power_report` (§6), `{dpid: mW}` |
-| `k.power_state(dpid)`, `k.power_off(dpid)`, `k.power_on(dpid)` | `GET`/`POST /ndt/(get\|set)_switches_power_state` (§7, §8): see "Powering a switch back on" |
+| `k.power_state(dpid)`, `k.power_off(dpid)`, `k.power_on(dpid)` | `GET`/`POST /ndt/(get\|set)_switches_power_state` (§7, §8): see "What powering a P4 switch needs" and "Powering a switch back on" |
 | `k.lock(name, ttl)`, `lease.renew(ttl)` | `POST /ndt/acquire_lock`, `/ndt/renew_lock`, `/ndt/release_lock` (§27, §28, §29) |
 | `k.p4.read_table(dpid, table)` | `GET /ndt/p4/table_entry` (§43) |
 | `k.p4.write(entry, op, table_size=None)`, `k.p4.modify(entry)`, `k.p4.modify_all(entries)` | `POST /ndt/p4/table_entry` (§43); `table_size`: see "A full table" |
@@ -85,6 +98,43 @@ The counter and register reads return the proxy's reply as plain objects; they a
 the same rule as any read. Not covered: path finding over the topology (an app that reroutes
 brings its own, as `examples/p4_energy_saving/energy_saving_sdk.py` does), and reading a table's
 declared size (the kernel does not serve it for every table: pass it, see "A full table").
+
+A complete app on this SDK, which turns a switch off when the network is quiet and on again when
+the traffic returns, with a route check, is described in
+[examples/p4_energy_saving/README.md](../../examples/p4_energy_saving/README.md).
+
+## The topology
+
+`k.topology()` returns a `Topology` (`ndtwin/topology.py`). Its fields: `switches`
+(`{dpid: Switch}`), `hosts` (`{ip: Host}`, the hosts behind a usable switch through a link that is
+up), `attached_hosts` (every host with a link to a switch, up or not), `links` (a list of `Link`,
+one per direction; a host end has dpid 0) and `edge_switches` (the set of dpids with a link to a
+host, up or down). "Usable" means on and reachable. To map ports to switches:
+
+| method | returns |
+|---|---|
+| `topo.neighbours(dpid)` | `{port: neighbouring switch dpid}`, over links that are up between usable switches |
+| `topo.neighbour(dpid, port)` | the switch on the other side of `dpid`'s `port`, or `None` (a host, a link that is down) |
+| `topo.busiest(dpid)` | the highest utilisation (percent, 0..100) of a link that touches `dpid` and is up between usable ends; `0.0` if none |
+| `topo.hosts_in(match_value)` | the `Host`s of `hosts` a destination match holds: `[value, prefix_len]` (lpm) or the value (exact) |
+| `Switch.usable` (a property) | `True` when the switch's `admin_state` is `"on"` and it is reachable |
+
+A `Switch` also has `dpid`, `name`, `mgmt_ip`, `admin_state`, `reachable` and `brand`; a `Host` has
+`name`, `ip`, `mac`, `switch` and `port` (the switch's port towards it); a `Link` has `src`,
+`src_port`, `dst`, `dst_port`, `up`, `utilization_percent`, `usage_bps`, `bandwidth_bps` and
+`telemetry_status`.
+
+## What powering a P4 switch needs
+
+On a P4 (bmv2) fabric, `k.power_off(dpid)` and `k.power_on(dpid)` work only on a machine where the
+root helper `/usr/local/sbin/ndtwin-p4-power` is installed and the account that runs the kernel
+(under `ndt up`, the one that ran it) may run it through `sudo` without a password. Nothing installs
+either: the install command and the grant line are under "P4 power control" in section 3.2 of this
+repository's user guide (`doc/2026-11-05_user-guide.md`). Without them the kernel answers `500`
+and the call raises `PowerError`, with `nothing_written` `None`. In that case the switch is not
+touched, but the same `500` also comes back when the helper signalled the switch and it had not
+stopped 10 s later, so the SDK cannot tell the two apart: read the state back. On an OVS fabric the
+kernel uses `ovs-vsctl` and `ifconfig` instead (the same section).
 
 ## Powering a switch back on
 

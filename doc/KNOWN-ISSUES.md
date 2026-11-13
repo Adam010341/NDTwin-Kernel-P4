@@ -31,9 +31,9 @@ nothing is counted twice: the twin is only lagging behind the measured traffic, 
 fall in the real rate.
 
 **Why.** The verdict is chosen by the ratio alone: above 1.5 it prints DOUBLE-COUNTING and the command
-exits 4 (`tools/test_workflow/ndt:8263-8265`, `:8425`). The verdict word no longer names a mechanism,
+exits 4 (`tools/test_workflow/ndt:8273-8275`, `:8435`). The verdict word no longer names a mechanism,
 and the lines under it list both possible causes (stacked duplicates, or a lagging twin) side by
-side from the per-sub-window ratios (`tools/test_workflow/ndt:8186-8241`); but a lag still produces
+side from the per-sub-window ratios (`tools/test_workflow/ndt:8196-8251`); but a lag still produces
 the same word and the same exit code as a real stack of duplicates.
 
 **What to do.** Read the cause lines under the verdict, not the exit code alone: they say whether every
@@ -52,19 +52,19 @@ and exits 3.
 
 **When.** After every `ndt down` whose own `verify clean` finds none of the fabric itself (no bmv2
 switch, no Mininet host or switch process, no topo session): that `ndt down` clears the recorded
-`ndt up` target, `.test_run/up.target` (`tools/test_workflow/ndt:6245-6246`, `clear_up_target` at
+`ndt up` target, `.test_run/up.target` (`tools/test_workflow/ndt:6255-6256`, `clear_up_target` at
 `:623`). If the fabric is still there the record is kept and `--check` does not answer 3: `ndt down`
 keeps it when `verify clean` still finds bmv2 switches, Mininet hosts or switches, the topo session, or a
 topo session it could not read (for example because the lab helper's sudo grant is missing), and when its
-own `verify clean` was refused because another `ndt down` is running (`:6409`). It then prints what it
+own `verify clean` was refused because another `ndt down` is running (`:6421`). It then prints what it
 found and "kept the 'ndt up' target record", and `ndt status --check` goes on comparing the running lab
 with that record. Anything else `verify clean` reports (a stranger on a port, the app knob) does not keep
-it (`:6232-6247`). A kept record goes with the next `ndt down` that finds none of the fabric, or with the
+it (`:6242-6257`). A kept record goes with the next `ndt down` that finds none of the fabric, or with the
 next `ndt up` that builds a fabric (one that refuses leaves it as it is); once the fabric is gone you can
 remove it yourself with `rm .test_run/up.target` (`:634-647`; user guide, section 4.9).
 
 **Why.** `--check` compares the running lab with the recorded `up` target; with no target there is
-nothing to compare (`tools/test_workflow/ndt:8084-8091`). It does not fall back to checking that
+nothing to compare (`tools/test_workflow/ndt:8094-8101`). It does not fall back to checking that
 nothing should be running. This is documented behaviour (`doc/2026-11-05_user-guide.md`, section 4.5,
 exit-code table); whether `--check` should do more after `down` is undecided.
 
@@ -72,7 +72,7 @@ exit-code table); whether `--check` should do more after `down` is undecided.
 gone (or, if its own check was refused, was not measured): fix what it says (for a missing sudo grant, the
 line it prints) and run `ndt down` again. To confirm that a lab is down, use `ndt clean` (it asserts that no lab process, topo session or
 listening lab port is left). On a lab that is already down it exits 3, "there was nothing to judge", and both 0 and 3
-mean down (`tools/test_workflow/ndt:12338-12344`; user guide, section 4.10). To compare a state before and after,
+mean down (`tools/test_workflow/ndt:12348-12354`; user guide, section 4.10). To compare a state before and after,
 compare the full `ndt status --check` output (rc 3 and the same list of problems), not the exit code against 0; plain
 `ndt status` always exits 0 (`doc/2026-11-05_user-guide.md`, section 4.5).
 
@@ -89,7 +89,7 @@ loses the abort message the same way.
 **Why.** The helper starts the bridge in a detached tmux session (`tools/test_workflow/ndtwin-lab:585`)
 without `remain-on-exit`, and tmux removes the session when the bridge exits. `ndt` notices the missing
 session at two checks in a row and prints the `look at the pane` line, and then the log tail
-(`tools/test_workflow/ndt:4297-4331`).
+(`tools/test_workflow/ndt:4307-4341`).
 
 **What to do.** Read `.test_run/logs/topo.log` (the bridge writes its output there as well); `ndt up p4`
 prints its tail. For a hand-run bring-up, read that file directly.
@@ -127,17 +127,17 @@ longer while the cache is carried forward after failed polls).
 
 **Why.** Two edges of the window are fixed in whole seconds from the clock of a different moment. The
 start is the app's elapsed time in whole seconds (`ps etimes`) turned into an absolute time
-(`tools/test_workflow/ndt:10329-10336`), which can be up to a second late; it is stored when the app
-is stopped (`:10030`, `app_window_record` at `:8632`). A rule's age is `now - duration_sec`, and the
+(`tools/test_workflow/ndt:10339-10346`), which can be up to a second late; it is stored when the app
+is stopped (`:10040`, `app_window_record` at `:8644`). A rule's age is `now - duration_sec`, and the
 table that supplies `duration_sec` is the kernel's cached copy, polled about every 10 seconds
-(`:10822-10834`), so the age can be later than the real install time by the age of the cache.
+(`:10832-10844`), so the age can be later than the real install time by the age of the cache.
 Rules outside the window are by design not reported.
 
 **What to do.** Do not read "no flow entry arrived" as proof that the app left nothing behind. Read the
 switch tables from the controller's REST API (not from the kernel's cached copy) for the rules the app
 is known to install. Waiting before you run the report does not help: a rule's install time is computed
 from the cached table as it was last polled, and the window's end is fixed when the app is stopped
-(`tools/test_workflow/ndt:8637`, `:10032`), so no amount of waiting closes the gap. This applies to OVS
+(`tools/test_workflow/ndt:8647`, `:10042`), so no amount of waiting closes the gap. This applies to OVS
 only; on P4 the report prints `NOT CHECKED` (see "On P4, `ndt` cannot tell when a rule was installed"
 under Limitations). None yet that makes the window exact.
 
@@ -599,7 +599,7 @@ check the queueing tree before and after with `tools/test_workflow/qdisc_snapsho
 
 The P4 proxy now stamps every rule it installs, so the flow statistics it serves carry a real age for
 those rules. `ndt` still treats the whole P4 plane as having no time axis
-(`tools/test_workflow/ndt:10560-10562`). On a P4 fabric, `ndt apps stop`, `ndt apps orphans` and
+(`tools/test_workflow/ndt:10570-10572`). On a P4 fabric, `ndt apps stop`, `ndt apps orphans` and
 `ndt status --check` therefore cannot date any rule to an app's time window, and their `rules-in-window`
 row prints `NOT CHECKED`, which is not "clean". To find the rules an app left behind on P4, read the
 switch tables themselves. The user guide describes this in section 4.5 (`doc/2026-11-05_user-guide.md`,

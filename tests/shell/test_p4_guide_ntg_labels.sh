@@ -63,9 +63,10 @@ section() { printf '\n%s\n' "$1"; }
 section "1. the ready line NTG as shipped produces is the one the guide shows"
 mk_ntg "$FIX/shipped" custom_command ./setting/Hardware.yaml
 out="$(pane "$FIX/shipped" fresh)"
-check "  (ndt printed two lines)" "2" "$(grep -c . <<<"$out")"
+check "  (ndt printed three lines)" "3" "$(grep -c . <<<"$out")"
 in_guide "🔴 the guide shows the attach line verbatim" "$(sed -n 1p <<<"$out")"
 in_guide "🔴 and the hint line under it, verbatim"     "$(sed -n 2p <<<"$out")"
+in_guide "🔴 and the no-root line under that, verbatim" "$(sed -n 3p <<<"$out")"
 
 section "2. every label ndt prints is one the guide explains"
 mk_ntg "$FIX/cli" cli ./setting/Mininet.yaml

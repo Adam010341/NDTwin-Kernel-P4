@@ -104,13 +104,24 @@ Needs a C++23 compiler, CMake 3.16+, Ninja, Boost (`system`, `url`), OpenSSL and
 `nlohmann/json` and `spdlog` are vendored under `libs/`. Full tutorial: https://ndtwin.org/
 
 ```bash
+git clone https://github.com/ndtwin-lab/NDTwin-Kernel-P4
+cd NDTwin-Kernel-P4
 sudo apt-get install g++ cmake ninja-build libboost-system-dev libboost-url-dev libssl-dev libssh-dev
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-The first configure copies `setting/AppConfig.hpp.example` to `setting/AppConfig.hpp`.
-Edit it to point at your topology file and controller/proxy addresses.
+The configure step downloads googletest, which the unit tests use (`FetchContent` in
+`CMakeLists.txt`, pinned to one commit). On a machine without network access, put that commit's
+source tree there by other means (`tools/ci/fetch_googletest.sh <dir>`, run where there is a
+network, fetches it and prints its directory) and configure with
+`-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=<that directory> -DFETCHCONTENT_FULLY_DISCONNECTED=ON`.
+
+The first configure copies `setting/AppConfig.hpp.example` to `setting/AppConfig.hpp`. A lab
+run with `ndt` (see "Live fabric") needs no edit there: `ndt` gives the kernel its topology file
+on the command line, and the default controller and proxy addresses are this machine's. Edit it,
+and build again, only to run the kernel by hand against another topology file, or against a
+controller or P4 proxy on another machine.
 
 ## Test
 
@@ -141,6 +152,8 @@ Installing, bringing a lab up, checking it and troubleshooting are in
 - [`doc/2026-11-05_user-guide.md`](doc/2026-11-05_user-guide.md): user guide (install, run and troubleshoot a lab)
 - [`doc/2026-01-02_ndt_api.md`](doc/2026-01-02_ndt_api.md): REST API reference
 - [`doc/2026-10-31_p4-app-guide.md`](doc/2026-10-31_p4-app-guide.md): put your P4 program into NDTwin
+- [`sdk/python/README.md`](sdk/python/README.md): the Python client for applications
+- [`examples/p4_energy_saving/README.md`](examples/p4_energy_saving/README.md): an energy-saving application on a P4 fabric, through the kernel's API
 - [`doc/KNOWN-ISSUES.md`](doc/KNOWN-ISSUES.md): the defects that are open
 - [`doc/FIXED-ISSUES.md`](doc/FIXED-ISSUES.md): the codes of defects that are fixed, were not defects, or were decided against
 - [`CHANGELOG.md`](CHANGELOG.md)

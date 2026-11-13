@@ -1506,6 +1506,25 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
         self.assertEqual(tee.calls, ["note", "stop", "NTG prompt", "start"])
 
     @needs_compiled_baseline
+    def test_the_cli_banner_names_both_prompts_and_scopes_stack_sh_to_a_hand_started_pane(self):
+        # [Co-developed with claude code -- Adam] The banner above the prompt used to tell every
+        # reader to run stack.sh and use the NTG prompt; under `ndt up` neither is true.
+        self.use_package(load_package_fixture())
+        tee = FakeTee()
+        nets = []
+        self.patch(testbed, "build_net", lambda package, model, grpc_host=None: nets.append(
+            RecordingNet(package, model, grpc_host=grpc_host)) or nets[-1])
+        self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said):
+            ntg.main(tee=tee, enter_cli=lambda net: None)
+        text = said.getvalue()
+        self.assertIn("'ndt up' they start by themselves.", text,
+                      "the banner does not say that `ndt up` starts the proxy and the kernel itself")
+        self.assertIn("Started by hand (ndtwin-lab topo-start)?", text)
+        self.assertIn("NTG's prompt or Mininet's CLI (mininet>), as NTG's mode says", text)
+
+    @needs_compiled_baseline
     def test_the_fabric_is_torn_down_even_when_the_prompt_raises(self):
         self.use_package(load_package_fixture())
         tee = FakeTee()

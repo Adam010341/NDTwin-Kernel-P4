@@ -3813,6 +3813,14 @@ rollback_up() {
 # compares the two files rather than trusting this string.
 lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t topo\n'; }
 
+# [Co-developed with claude code -- Adam]
+# The attach needs root: the session belongs to root's tmux, and none of the three sudo grants
+# ndt needs covers tmux. Those grants do cover the helper, whose topo-out prints the pane and
+# whose topo-cmd types one line into it, so the footer names both under the attach command.
+lab_pane_without_root() {
+    printf "attach needs root; with ndt's sudo grants only: sudo ndtwin-lab topo-out, sudo ndtwin-lab topo-cmd '<line>'\n"
+}
+
 # lab_entry_points <plane> [fresh|reused] -- the ports and the CLI, for a lab that came up and
 # verified. OVS has no proxy: naming one there would send a reader to a port nothing is listening
 # on. On P4 the pane holds what NTG's mode chose, named only for a fabric this run started.
@@ -3822,7 +3830,9 @@ lab_entry_points() {
              info "proxy :8081   kernel :8000   $NTG_PANE_LABEL: $(lab_attach_cmd)"
              if [[ -n "$NTG_PANE_HINT" ]]; then info "  $NTG_PANE_HINT"; fi ;;
         ovs) info "Ryu :8080   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;
+        *)   return 0 ;;
     esac
+    info "  $(lab_pane_without_root)"
 }
 
 up_p4() {

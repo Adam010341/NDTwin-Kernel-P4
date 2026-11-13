@@ -69,13 +69,34 @@ over both spines; then wait until every switch-to-switch edge in `GET /ndt/get_g
 `live` or `idle`. The pings may keep running while the app runs: they are far below its limits on
 link usage.
 
+These pings are typed at Mininet's `mininet>` prompt, which NTG as it ships does not give: select
+it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.7,
+`doc/2026-11-05_user-guide.md`; a fabric that is already up keeps its mode until `ndt down`).
+
 1. Finish the tutorials' `basic` exercise (its `solution/basic.p4` is a finished one), build it
    and bring it up:
 
    ```bash
+   ndt ntg cli
    make -C ~/tutorials/exercises/basic build
    ndt up p4 --app ~/tutorials/exercises/basic
    ```
+
+   Then start the pings, a minute of them at five a second, in the background, each into its own
+   file. `sudo ndtwin-lab topo-cmd` types a line at the `mininet>` prompt and needs only the user
+   guide's sudo grants (section 4.7 says what it does; as root you can attach to the pane and type
+   the same lines):
+
+   ```bash
+   sudo ndtwin-lab topo-cmd 'h1 ping -c 300 -i 0.2 h3 > /tmp/h1-h3.txt 2>&1 &'
+   sudo ndtwin-lab topo-cmd 'h1 ping -c 300 -i 0.2 h4 > /tmp/h1-h4.txt 2>&1 &'
+   sudo ndtwin-lab topo-cmd 'h3 ping -c 300 -i 0.2 h1 > /tmp/h3-h1.txt 2>&1 &'
+   sudo ndtwin-lab topo-cmd 'h4 ping -c 300 -i 0.2 h1 > /tmp/h4-h1.txt 2>&1 &'
+   ```
+
+   When they have ended, `tail -n 2 /tmp/h1-h3.txt /tmp/h1-h4.txt /tmp/h3-h1.txt /tmp/h4-h1.txt`
+   shows each one's loss. Without a `mininet>` prompt, the user guide's section 3.2 runs the same
+   pings with `mnexec`.
 
 2. See what it would do, then do it:
 
@@ -85,8 +106,7 @@ link usage.
    ```
 
    The SDK version needs the SDK installed first, into a virtual environment (Python 3.10 or
-   newer, no other package; `sdk/python/README.md` gives the recipe for a machine without
-   network access), then takes the same options:
+   newer, no other package), then takes the same options:
 
    ```bash
    python3 -m venv .venv && . .venv/bin/activate
@@ -95,18 +115,25 @@ link usage.
    python3 examples/p4_energy_saving/energy_saving_sdk.py
    ```
 
+   `pip install -e sdk/python` downloads `setuptools` for the build. On a machine without network
+   access, install it as the second recipe of `sdk/python/README.md` says
+   (`python3 -m venv --system-site-packages .venv`, then
+   `pip install --no-index --no-build-isolation -e sdk/python`), or skip the install with
+   `export PYTHONPATH="$PWD/sdk/python"` as that README describes.
+
 On `basic`'s pod topology (h1 and h2 on s1, h3 and h4 on s2, s3 and s4 each joined to s1 and s2)
 it picks s4, moves s1's route to h4 and s2's route to h2 onto s3, reads both tables back, and
 powers s4 off. On 2026-10-31 an earlier version of both apps did that on a bmv2 1.15.5 fabric of
 that exercise, with pings through every switch, without losing a ping; the tests show the same
 against a fake kernel built from a recorded reply of that topology.
 
-Powering a bmv2 switch off or on needs the root helper `ndtwin-p4-power`
-(`doc/2026-01-02_ndt_api.md` §8). The User Manual does not install it: the steps are in the
-docstring of `tools/p4_power_helper.py`. Without it the power-off answers `500` and the app says
-the power-off may have taken effect, since the same `500` also comes back when the helper
-signalled the switch and it had not stopped 10 s later; the routes it moved still work, because
-the other spine carries them.
+Powering a bmv2 switch off or on needs the root helper `/usr/local/sbin/ndtwin-p4-power` and a
+sudo grant for it (`doc/2026-01-02_ndt_api.md` §8). This repository's user guide gives the one
+install command and the grant line, under "P4 power control" in section 3.2
+(`doc/2026-11-05_user-guide.md`); nothing installs them for you. Without them the power-off
+answers `500` and the app says the power-off may have taken effect, since the same `500` also
+comes back when the helper signalled the switch and it had not stopped 10 s later; the routes it
+moved still work, because the other spine carries them.
 
 ## Options
 

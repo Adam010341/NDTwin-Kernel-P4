@@ -844,7 +844,7 @@ atleast() { local c; c="$(clock_now)"; [[ "$c" =~ ^[0-9]+$ ]] && (( c >= $1 )) &
 
 # --- the live shape: the session is gone before the first look, and never comes back --------
 reset_fix
-printf "Error: this interpreter has no 'nornir'; run with the ntg-env python\n" > "$TOPO_LOG"
+printf "Error: this interpreter has no 'nornir', so it is not NTG's Python environment. Set NTG_PY in /etc/ndtwin-lab.conf to that environment's python\n" > "$TOPO_LOG"
 OUT="$(drive "$BRIDGE_CLOCK"$'\n'"SESS_UNTIL=0; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
 check "🔴 a bridge that exited at once fails the bring-up"     "1" "$(rc_of "$OUT")"
 check "🔴 and stops waiting within a few seconds, not 180"     "yes" "$(within 6)"

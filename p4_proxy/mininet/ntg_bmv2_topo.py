@@ -25,10 +25,11 @@ switches, manifest missing". Both of those are fixed here: ONE bring-up function
 p4_testbed_topo.py, called by both mains, and this script's output is tee'd to
 `.test_run/logs/topo.log` so that the next time something dies there is something left to read.
 
-Run it (Mininet needs root; nornir/loguru live in the ntg-env conda env, and the
-dist-packages append below borrows the system Mininet the same way NTG's own topo does):
+Run it (Mininet needs root; nornir/loguru live in NTG's Python environment, whose python is
+the `NTG_PY` of the lab config, and the dist-packages append below borrows the system Mininet
+the same way NTG's own topo does):
 
-    sudo $HOME/miniconda3/envs/ntg-env/bin/python ntg_bmv2_topo.py
+    sudo <the NTG_PY python> ntg_bmv2_topo.py
 
 Then, at the NTG prompt -- with the P4 stack's rates in mind. Measured 2026-08-15 on a
 10-switch fabric with 1400 B UDP over the 3-hop path s1->s5->s2, the stock build (-O0, full
@@ -210,8 +211,10 @@ def main(tee=None, enter_cli=None) -> None:
     try:
         import nornir  # noqa: F401  -- NTG's hard dependency; missing means wrong interpreter
     except ImportError:
-        fail("this interpreter has no 'nornir'; run with the ntg-env python:\n"
-             "  sudo $HOME/miniconda3/envs/ntg-env/bin/python " + __file__)
+        # [Co-developed with claude code -- Adam] Names the config key, as the NTG_DIR refusal does.
+        fail(f"this interpreter has no 'nornir', so it is not NTG's Python environment. Set "
+             f"NTG_PY in {LAB_CONF} to that environment's python (doc/2026-11-05_user-guide.md, "
+             "section 2 step 4 and 3.3).")
 
     # 🔴 THE SAME PRE-FLIGHT THE OTHER MAIN RUNS, not a copy of it: which package, which model,
     # which compiled JSON, which binary, and a gRPC port block for the switches THE MODEL
@@ -242,9 +245,15 @@ def main(tee=None, enter_cli=None) -> None:
         print("======================================================================\n")
         testbed.tear_down(net)
         sys.exit(1)
-    print("Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),")
-    print("then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an")
-    print("absolute path -- the cwd moves to NTG's repo before the prompt appears):")
+    # [Co-developed with claude code -- Adam] Under `ndt up` the proxy and the kernel start by
+    # themselves, and NTG's mode decides whether the prompt below is NTG's or Mininet's; the
+    # first three lines are for a pane started by hand with `ndtwin-lab topo-start`.
+    print("Started by hand (ndtwin-lab topo-start)? Start the P4 proxy + kernel now with")
+    print("stack.sh up p4, and press Enter at its 'once Mininet is up' question. Under")
+    print("'ndt up' they start by themselves.")
+    print("Below: NTG's prompt or Mininet's CLI (mininet>), as NTG's mode says ('ndt ntg').")
+    print("At NTG's prompt, the low-rate template (the CLI needs the flag AND an absolute")
+    print("path -- the cwd moves to NTG's repo before the prompt appears):")
     print(f"    flow --config {os.path.join(HERE, 'flow_bmv2_low.json')}")
     print("NTG cannot interrupt an experiment -- let flows finish.")
     print("======================================================================\n")
