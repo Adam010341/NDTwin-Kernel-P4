@@ -28,6 +28,7 @@ class NDTwinError(Exception):
     default_nothing_written = None
     lab_claim = None
     written = ()        # P4.modify_all: the entries answered before the write that failed
+    plan = None         # Kernel.move_routes_off: the RoutePlan whose write failed
 
     def __init__(self, message, *, method=None, path=None, status=None, origin=None, body=None,
                  nothing_written=_DEFAULT):
@@ -168,6 +169,26 @@ class PowerError(NDTwinError):
     before the kernel gave up.
     [Co-developed with claude code -- Adam]
     """
+
+
+class NoDetour(NDTwinError):
+    """`Kernel.plan_routes_off` or `Kernel.move_routes_off` will not move the routes off a switch:
+    it finds no way around the switch for an entry, or cannot tell where an entry sends packets,
+    or after the moves a host would not reach another. `Kernel.move_routes_off` also raises it
+    for a switch it would write whose tables belong to NDTwin (its own pipeline), where
+    `plan_routes_off` still shows the plan; a table NDTwin owns on a package fabric
+    (`--table-owner ndtwin`) is refused by the first write as `Refused` instead, so catch both
+    or test `nothing_written`. Nothing was written.
+
+    `entry` is the entry the refusal is about, as read (None when it is about a route as a
+    whole); `switches` is then the switches that route visits after the moves, in order (`path`
+    keeps its meaning on every NDTwinError: the HTTP route, None here).
+    [Co-developed with claude code -- Adam]
+    """
+
+    default_nothing_written = True
+    entry = None
+    switches = None
 
 
 # The classes a write reports once the kernel has answered or the request went out: use it to tell

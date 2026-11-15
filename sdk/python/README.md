@@ -45,17 +45,7 @@ import ndtwin
 
 k = ndtwin.Kernel("http://localhost:8000")          # timeout=20.0, retries=2, retry_wait=1.0
 with k.lock("routing_lock", ttl=60) as lease:       # LockBusy if another app holds it
-    topo = k.topology()                             # switches, hosts, links
-    changed = []
-    for dpid in topo.switches:                      # every switch with a link to s4 ...
-        ports = topo.neighbours(dpid)               # {port: neighbouring switch}
-        if 4 not in ports.values():
-            continue
-        spare = [p for p, n in ports.items() if n != 4]
-        table = k.p4.read_table(dpid, "MyIngress.ipv4_lpm")
-        changed += [e.with_params(port=spare[0]) for e in table.entries
-                    if ports.get(e.params["port"]) == 4]   # ... sends its routes via s4 elsewhere
-    k.p4.modify_all(changed, verify=True)           # writes, then reads each table back
+    changed = k.move_routes_off(4, "MyIngress.ipv4_lpm")   # NoDetour, and nothing written, if it cannot
     for e in changed:
         print(f"s{e.dpid}", e.match, "now leaves on port", e.params["port"])
     lease.renew(60)                                 # before a step that must still hold the lock
@@ -65,10 +55,99 @@ with k.lock("routing_lock", ttl=60) as lease:       # LockBusy if another app ho
 ```
 
 This is for the tutorials' `basic` exercise (pod topology: h1, h2 on s1; h3, h4 on s2; s3 and s4
-each joined to s1 and s2), where s4 has no host and s3 already routes every host, so moving the
-routes of s1 and s2 that leave towards s4 onto their other spine keeps every host reachable. It
-keeps each entry's next-hop MAC address, which `basic` does not check, and checks no route: on
-another fabric, use a route check such as the one of `examples/p4_energy_saving/` (below).
+each joined to s1 and s2). `move_routes_off` finds every entry of the table that leaves towards
+s4, moves it to a port whose neighbour still reaches its destination without s4, checks that
+every host still reaches every other host through the tables as they will be, writes the entries
+and reads the tables back: here, s1's route to h4 and s2's route to h2 go over s3. See "Moving
+the routes off a switch" for the rules and the names it assumes.
+
+## Moving the routes off a switch
+
+Every app that turns a switch off, or steers traffic away from one, first sends the routes that
+leave towards that switch out of another port. Two calls do it for one forwarding table:
+
+| call | what it does |
+|---|---|
+| `k.plan_routes_off(dpid, table, *, port_param="port", mac_param=None, match_field="hdr.ipv4.dstAddr", topo=None)` | reads the topology (unless you pass `topo`) and the table of every switch that is on and reachable, and returns the entries to send as modifies, a `RoutePlan`; writes nothing (this is the dry run) |
+| `k.move_routes_off(dpid, table, *, port_param="port", mac_param=None, match_field="hdr.ipv4.dstAddr", topo=None, verify=True)` | the same, then `k.p4.modify_all(plan, verify=verify)`; returns the entries as read back |
+
+The names after `*` are keyword-only. A `RoutePlan` is a list of the new entries; its `old` holds
+each of them as it was read, in the same order, so `k.p4.modify_all(plan.old)` moves the routes
+back. The caller holds the lock, from before the plan to after the write: the plan is only as
+good as the tables it read.
+
+The kernel does not say which action parameter is the egress port, so the call assumes the names
+of the tutorials' `basic` exercise and of NDTwin's own pipeline: `port_param` is the action
+parameter that holds the egress port and `match_field` the match field that holds the destination
+address (the names the energy example's `--port-param`, `--mac-param` and `--match-field` take).
+Name yours when they differ. `mac_param` names the parameter that holds the next hop's MAC
+address: given, the moved entry takes the address that the switch's other entries leaving on the
+new port carry, and an entry whose action has parameters but not that one is refused (a misspelt
+name is an error, not ignored); left out, the entry keeps the address it had, which is harmless on
+a pipeline that forwards on the IPv4 address alone (like `basic`) and wrong on one that checks the
+destination MAC address.
+
+How it decides:
+
+- An entry leaves towards the switch when its `port_param` leads there over a link that is up.
+- Its new port is one whose neighbour reaches the switches of every host its destination holds
+  without passing the switch being avoided and without coming back through this one: of those,
+  the fewest hops in all, then the lowest port. The neighbour is not simply "any other one": on a
+  fabric where a neighbour reaches the destination only back through this switch, that would loop.
+- Then it follows the packets from every switch with a host (also one behind a link that is down)
+  to every host that is not on the avoided switch, through the tables as they will be. Moving only
+  the entries next to the switch can loop on some fabrics, when a switch further back still sends
+  packets towards it; the plan is refused then.
+
+It refuses rather than guesses, raising `ndtwin.NoDetour` (an `NDTwinError`, `nothing_written`
+True, nothing sent) whose message names the switch and the entry (`err.entry`), or the way the
+packets would take (`err.switches`, the switches in order; `err.path` keeps its meaning on every
+`NDTwinError`, the HTTP route, and is `None` here), when:
+
+| case | why |
+|---|---|
+| the switch is off or unreachable | `topo.links` still lists its links, but `topo.neighbours()` leaves out those of a switch that is not usable, and the call reads neighbours of switches that are on; so it cannot tell which entries lead to a switch that has already failed |
+| a destination holds a host on the switch itself | no route reaches that host without the switch |
+| a destination holds a host on the entry's own switch | the entry would send packets away from a host that hangs off this very switch |
+| no other port reaches the destination | there is no way around |
+| after the moves some host does not reach another (a loop, a drop) | the message says when no moved entry is on that way: the route is broken already |
+| after the moves a packet needs a default entry whose action has parameters (a port, or a next-hop id the check cannot read), or an entry that matches every address (an lpm `0/0` entry reads back without the match field), to be forwarded | the check does not follow those; the message says "not followed" and does not say broken: the packets may well be delivered |
+| a default entry sends packets to the switch | default entries are not moved |
+| an entry's action has parameters but not `port_param` (or not `mac_param`, when that is named); an entry has a priority; an entry's match has a key besides `match_field` (an ingress port, a VRF, an exact metadata key); a destination is not an IPv4 address or prefix, matches every address, or holds no host the topology knows | it cannot tell where those packets go, or which entry the switch applies |
+| with `mac_param`, no other entry leaving on the new port gives an address, or two disagree | it would have to invent one |
+
+A table the API cannot show in full (entries it cannot render) is not a `NoDetour`: the read
+raises its own `NDTwinError` (`nothing_written` True) as `k.p4.read_table` does, and the plan stops
+there.
+
+It works on one table: a pipeline that forwards through several tables is not followed. It reads
+switches that are on and reachable only; a switch that is off has no table to read. An unknown
+`dpid` raises `NotFound`.
+
+If a write of `move_routes_off` fails (a refused entry, a read-back that does not show an entry,
+Ctrl-C between two writes), the exception is raised as it is, with the plan on it as `err.plan`.
+After a refused write `err.written` lists the entries that landed; after a failed read-back every
+entry was sent. To move the routes back, send the old entries: `k.p4.modify_all(err.plan.old)`
+(an entry that never changed is sent as it was, which changes nothing).
+
+Writes to a table that NDTwin owns are refused with `409`, and `plan_routes_off` still works
+there: it only reads, so an app can show the plan or hand it to the owner. Which tables belong to
+NDTwin depends on the fabric:
+
+- On NDTwin's own pipeline (`ndt up p4` without `--app`) every table does. The topology says so
+  (`capabilities` `ipv4_route` is `"ndtwin"` and `binding_source` is `"baseline"`), so
+  `move_routes_off` makes the plan, then refuses before the first write, for a switch the plan
+  would write, with a `NoDetour` that names the switch and says its tables belong to NDTwin. A
+  switch the plan does not write does not count, and an unknown or powered-off `dpid` gets its
+  own `NotFound` or off-or-unreachable refusal first.
+- A package started with `--table-owner ndtwin` shows `ipv4_route` `"ndtwin"` in the capabilities
+  too (with `binding_source` `"package"`), but only its route-role table belongs to NDTwin: the
+  first write to that table gets `409` and `move_routes_off` raises `Refused`, nothing written.
+  The package's other tables are writable.
+- A table a package leaves to an external control plane is not told by the topology either: the
+  first write finds out.
+
+So catch both `NoDetour` and `Refused` when an app may meet either, or test `nothing_written`.
 
 ## What it offers
 
@@ -78,6 +157,7 @@ another fabric, use a route check such as the one of `examples/p4_energy_saving/
 | `k.average_link_usage()` | `GET /ndt/get_average_link_usage` (§24), a 0..1 fraction (a `float`) with `.telemetry_health` |
 | `k.power_report()` | `GET /ndt/get_power_report` (§6), `{dpid: mW}` |
 | `k.power_state(dpid)`, `k.power_off(dpid)`, `k.power_on(dpid)` | `GET`/`POST /ndt/(get\|set)_switches_power_state` (§7, §8): see "What powering a P4 switch needs" and "Powering a switch back on" |
+| `k.plan_routes_off(dpid, table)`, `k.move_routes_off(dpid, table)` | `GET /ndt/get_graph_data`, `GET /ndt/p4/table_entry` of each switch, and for `move_routes_off` `POST /ndt/p4/table_entry`: see "Moving the routes off a switch" |
 | `k.lock(name, ttl)`, `lease.renew(ttl)` | `POST /ndt/acquire_lock`, `/ndt/renew_lock`, `/ndt/release_lock` (§27, §28, §29) |
 | `k.p4.read_table(dpid, table)` | `GET /ndt/p4/table_entry` (§43) |
 | `k.p4.write(entry, op, table_size=None)`, `k.p4.modify(entry)`, `k.p4.modify_all(entries)` | `POST /ndt/p4/table_entry` (§43); `table_size`: see "A full table" |
@@ -98,9 +178,12 @@ the GET returns them. A MAC address in upper case, or a number where the API giv
 string, lands on the switch and still fails the check; send values back in the GET's form.
 
 The counter and register reads return the proxy's reply as plain objects; they are sent again on
-the same rule as any read. Not covered: path finding over the topology (an app that reroutes
-brings its own, as `examples/p4_energy_saving/energy_saving_sdk.py` does), and reading a table's
-declared size (the kernel does not serve it for every table: pass it, see "A full table").
+the same rule as any read. Not covered: path finding beyond moving routes off one switch
+(`examples/p4_energy_saving/energy_saving_sdk.py` does the same job with its own planner, under a
+different policy: it keeps the old MAC address and says so where `move_routes_off` with
+`mac_param` refuses, and it refuses a prefix whose hosts need different ports where
+`move_routes_off` picks the one port that reaches them all), and reading a table's declared size
+(the kernel does not serve it for every table: pass it, see "A full table").
 
 A complete app on this SDK, which turns a switch off when the network is quiet and on again when
 the traffic returns, with a route check, is described in
@@ -204,7 +287,8 @@ Every exception is an `NDTwinError` with `method`, `path`, `status`, `origin` (`
 or `None`), `body`, `lab_claim` (the reply's `X-NDTwin-Lab-Claim`, parsed) and `nothing_written`:
 `True` when nothing was changed on any switch (no request went out, or the reply says so), `None`
 when that is unknown. `may_have_landed` is `nothing_written is not True`. An error of
-`modify_all` also has `written`: the entries answered before the write that failed.
+`modify_all` also has `written`: the entries answered before the write that failed; one of
+`move_routes_off` also has `plan`, the `RoutePlan` it was writing.
 
 | exception | when | `nothing_written` | sent again by the SDK |
 |---|---|---|---|
@@ -216,6 +300,7 @@ when that is unknown. `may_have_landed` is `nothing_written is not True`. An err
 | `OutcomeUnknown` | a write: the kernel's 502/504 with `request_sent` true, a 500 on `/ndt/p4`, a proxy 502 without `p4rt_error` (its own deadline, an unavailable switch: `grpc_status` says which), any other proxy 5xx except 501 and 503, a connection that broke after the request went out | `None` | never |
 | `Unsettled` (an `OutcomeUnknown`) | `k.p4.settle` could not tell: its budget ran out, or the re-sent write was refused in a way that does not say; `last` is that error, `attempts` the writes it sent | `None` | no |
 | `WriteNotVerified` | a write was answered and the table read back does not show it, shows entries the API cannot render, or could not be read | `None` | no |
+| `NoDetour` | `plan_routes_off` or `move_routes_off` will not move the routes, or `move_routes_off` finds a switch it would write on NDTwin's own pipeline (the tables belong to NDTwin; a package's `--table-owner ndtwin` table arrives as `Refused` instead, so catch both or test `nothing_written`): see "Moving the routes off a switch" | `True` | no |
 | `PowerError` | the power command failed, or the state read afterwards is not the one commanded | `None`: the kernel's 500 is the same whether the switch was touched or not (a bmv2 switch may have been signalled and still be stopping) | no |
 | `NDTwinError` | any other case: a proxy 502 on a read, a kernel 504 on a read that was sent, a 501, a reply that is not JSON, a broken connection on a read | `True` for a read, `None` for a write | reads only |
 

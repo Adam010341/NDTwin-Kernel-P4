@@ -104,7 +104,9 @@ def refused_502(dpid, code, message):
 
 
 def table_of(dpid, routes=None):
-    entries = [{"dpid": dpid, "table": TABLE, "match": {FIELD: [dst, 32]},
+    # A destination "a.b.c.d/n" is a prefix of length n; without a length it is a /32.
+    entries = [{"dpid": dpid, "table": TABLE,
+                "match": {FIELD: [dst.partition("/")[0], int(dst.partition("/")[2] or 32)]},
                 "action_name": "MyIngress.ipv4_forward",
                 "action_params": {"dstAddr": mac, "port": port},
                 "priority": None, "default_action": False}

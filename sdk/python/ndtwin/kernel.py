@@ -1,4 +1,5 @@
-"""The client: topology, link usage, power (off and on), locks, and the `p4` namespace.
+"""The client: topology, link usage, power (off and on), locks, moving the routes of a table off a
+switch, and the `p4` namespace.
 
 [Co-developed with claude code -- Adam]
 
@@ -8,6 +9,7 @@ not used.
 import contextlib
 from dataclasses import dataclass
 
+from . import reroute
 from ._http import Transport
 from .errors import NDTwinError, NotFound, PowerError
 from .p4 import P4
@@ -46,6 +48,15 @@ class Lease:
         self._http.call("POST", "/ndt/renew_lock",
                         body={"type": self.name, "ttl": ttl, "lease": self.id})
         self.ttl = ttl
+
+
+def _owned_by_ndtwin(switch):
+    """Whether every table of the switch belongs to NDTwin: its own pipeline, which the proxy
+    reports as `ipv4_route` "ndtwin" with `binding_source` "baseline". A package that gives its
+    route table to NDTwin reports "ndtwin" too, with `binding_source` "package": one table only.
+    [Co-developed with claude code -- Adam]"""
+    caps = switch.capabilities or {}
+    return caps.get("ipv4_route") == "ndtwin" and caps.get("binding_source") == "baseline"
 
 
 class Kernel:
@@ -160,6 +171,90 @@ class Kernel:
             raise PowerError(f"s{dpid} ({ip}) was told to power {action} and reports "
                              f"admin_state {state.admin_state!r}", nothing_written=None)
         return state
+
+    # --- moving routes off a switch ------------------------------------------------------------
+
+    def plan_routes_off(self, dpid, table, *, port_param="port", mac_param=None,
+                        match_field="hdr.ipv4.dstAddr", topo=None):
+        """The modifies that move every route of `table` leaving towards switch `dpid` onto
+        another way, as a `RoutePlan`; nothing is written (this is the dry run).
+
+        `port_param` is the action parameter that holds the egress port, `match_field` the
+        match field that holds the destination address, and `mac_param`, when given, the action
+        parameter that holds the next hop's MAC address; the SDK cannot read these names from
+        the kernel, so name yours when they differ. It reads the topology (or takes `topo`) and
+        the table of every usable switch but `dpid`. An entry leaves towards `dpid` when its
+        `port_param` leads there over a link that is up. For each such entry it takes the hosts
+        its destination holds, and of the switch's other ports the one whose neighbour reaches
+        the switches of all of them without passing `dpid` or coming back, the fewest hops in
+        all first, then the lowest port. With `mac_param`, the moved entry takes the MAC address
+        of the switch's other entries that leave on the new port; without it, the entry keeps
+        the one it had.
+
+        Then it follows the packets of every switch with a host to every host not on `dpid`
+        through the tables as they will be, and refuses unless each one is delivered without
+        passing `dpid`. It refuses, raising NoDetour (nothing written) with the entry named,
+        rather than guess, when: `dpid` is off or unreachable; a default entry sends packets to
+        `dpid`; an entry has a priority (the check follows longest prefixes only) or a match
+        key besides `match_field`; an entry's action has parameters but no `port_param` (or no
+        `mac_param`, when that is named); a destination is not an IPv4 address or prefix, holds
+        no known host, or holds a host on `dpid` or on the entry's own switch; no other port has
+        a way; `mac_param` finds no MAC address, or two. The check does not follow a default
+        entry whose action has parameters, or an entry that matches every address, so a packet
+        that needs one is refused as "not followed". One table per call: a pipeline that
+        forwards through several tables is not followed. A table that cannot be read in full
+        raises the NDTwinError of that read. Hold the lock you write under from before this call
+        to after the write: the plan is only as good as the tables it read.
+        [Co-developed with claude code -- Adam]
+        """
+        topo = self.topology() if topo is None else topo
+        if dpid not in topo.switches:
+            raise NotFound(f"no switch {dpid} in the topology", nothing_written=True)
+        if not topo.switches[dpid].usable:
+            raise reroute.refusal(table, dpid, reroute.OFF)
+        tables = {d: self.p4.read_table(d, table) for d, sw in topo.switches.items()
+                  if sw.usable and d != dpid}
+        return reroute.plan(topo, tables, dpid, table, port_param=port_param,
+                            mac_param=mac_param, match_field=match_field)
+
+    def move_routes_off(self, dpid, table, *, port_param="port", mac_param=None,
+                        match_field="hdr.ipv4.dstAddr", topo=None, verify=True):
+        """`plan_routes_off`, then `p4.modify_all` of the plan with `verify`: returns the
+        `RoutePlan` of the entries as read back (as sent when `verify` is False), whose `old`
+        holds them as they were. Raises what those two raise; a NoDetour means nothing was sent.
+        A write that fails (also a read-back that fails, or Ctrl-C between two writes) is raised
+        as it is, with the plan on it as `err.plan`: `k.p4.modify_all(err.plan.old)` moves the
+        routes back. After a refused write `err.written` lists the entries that landed; after a
+        failed read-back every entry was sent.
+
+        It makes the plan first (it only reads), then refuses, before the first write, when a
+        switch the plan would write runs NDTwin's own pipeline (`capabilities` `ipv4_route`
+        `"ndtwin"` and `binding_source` `"baseline"`): every table there belongs to NDTwin and
+        the proxy refuses the write. The refusal is a NoDetour (nothing written), and
+        `plan_routes_off` still shows the plan. A package started with `--table-owner ndtwin`
+        also reports `ipv4_route` `"ndtwin"`, but with `binding_source` `"package"`: only its
+        route-role table belongs to NDTwin, so the first write to that table is refused
+        (`Refused`, nothing written) and its other tables can be written. A table a package
+        leaves to an external control plane is not told by the topology either; the first write
+        finds out. Catch both `NoDetour` and `Refused`, or test `nothing_written`.
+        [Co-developed with claude code -- Adam]
+        """
+        topo = self.topology() if topo is None else topo
+        plan = self.plan_routes_off(dpid, table, port_param=port_param, mac_param=mac_param,
+                                    match_field=match_field, topo=topo)
+        owned = sorted({e.dpid for e in plan if _owned_by_ndtwin(topo.switches[e.dpid])})
+        if owned:
+            raise reroute.refusal(
+                table, dpid, f"the tables of s{owned[0]} belong to NDTwin (capabilities "
+                             f"ipv4_route 'ndtwin', binding_source 'baseline'), so the proxy "
+                             f"does not let an app write them; plan_routes_off still shows the "
+                             f"plan")
+        try:
+            done = self.p4.modify_all(plan, verify=verify)
+        except (NDTwinError, KeyboardInterrupt) as err:
+            err.plan = plan
+            raise
+        return reroute.RoutePlan(done, plan.old, dpid, table)
 
     @contextlib.contextmanager
     def lock(self, name, ttl=5):
