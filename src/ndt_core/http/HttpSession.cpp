@@ -14,6 +14,7 @@
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "ndt_core/power_management/P4Capabilities.hpp" // [Co-developed with claude code -- Adam]
 #include "ndt_core/power_management/P4RulesLost.hpp" // [Co-developed with claude code -- Adam]
+#include "ndt_core/power_management/P4PathVisibility.hpp" // [Co-developed with claude code -- Adam]
 #include "ndt_core/routing_management/Controller.hpp"
 #include "ndt_core/routing_management/DispatchOutcomeLog.hpp"
 #include "ndt_core/routing_management/FlowJob.hpp"
@@ -1585,11 +1586,18 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
         m_deviceConfigurationAndPowerManager
             ? m_deviceConfigurationAndPowerManager->p4RulesLostSnapshot()
             : p4loss::RecordsByDpid{};
+    // [Co-developed with claude code -- Adam] How many rows of each bmv2 switch the proxy's flow
+    // render left out, verbatim. Same absence rules. See P4PathVisibility.hpp.
+    const p4paths::FlowStatsByDpid p4FlowStats =
+        m_deviceConfigurationAndPowerManager
+            ? m_deviceConfigurationAndPowerManager->p4FlowStatsSnapshot()
+            : p4paths::FlowStatsByDpid{};
     for (auto vd : boost::make_iterator_range(boost::vertices(graph)))
     {
         json node = graph[vd];
         p4caps::attachToNode(node, graph[vd], p4Capabilities);
         p4loss::attachToNode(node, graph[vd], p4RulesLost);
+        p4paths::attachToNode(node, graph[vd], p4FlowStats);
         result["nodes"].push_back(std::move(node));
     }
 
@@ -1715,6 +1723,15 @@ HttpSession::readLivenessFilter(http::response<http::string_body>& res,
     return true;
 }
 
+// [Co-developed with claude code -- Adam]
+// What the proxy last said each bmv2 switch's flow render left out, or nothing when there is no
+// power manager to ask (some tests build a session without one).
+static p4paths::FlowStatsByDpid
+p4FlowStatsOf(const std::shared_ptr<DeviceConfigurationAndPowerManager>& manager)
+{
+    return manager ? manager->p4FlowStatsSnapshot() : p4paths::FlowStatsByDpid{};
+}
+
 void
 HttpSession::handleGetDetectedFlowData(http::response<http::string_body>& res)
 {
@@ -1725,7 +1742,11 @@ HttpSession::handleGetDetectedFlowData(http::response<http::string_body>& res)
     {
         return;
     }
-    res.body() = m_flowLinkUsageCollector->getFlowInfoJson(filter).dump();
+    json rows = m_flowLinkUsageCollector->getFlowInfoJson(filter);
+    // [Co-developed with claude code -- Adam] Marks each path that crosses a switch whose table
+    // view is incomplete. See P4PathVisibility.hpp.
+    p4paths::annotateFlowRows(rows, p4FlowStatsOf(m_deviceConfigurationAndPowerManager));
+    res.body() = rows.dump();
 }
 
 void
@@ -1768,6 +1789,8 @@ HttpSession::handleGetDetectedTopKFlowData(http::response<http::string_body>& re
     }
 
     auto j = m_flowLinkUsageCollector->getTopKFlowInfoJson(k, filter);
+    // [Co-developed with claude code -- Adam] The same marking as get_detected_flow_data.
+    p4paths::annotateFlowRows(j, p4FlowStatsOf(m_deviceConfigurationAndPowerManager));
 
     res.body() = j.dump();
 }

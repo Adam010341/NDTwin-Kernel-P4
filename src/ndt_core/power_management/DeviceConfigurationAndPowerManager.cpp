@@ -807,11 +807,15 @@ DeviceConfigurationAndPowerManager::pollP4SwitchState()
     // Replaced on every tick, including the ones that asked nothing or got nothing back: an empty
     // record is what makes get_graph_data omit the key, and omitting it is the only answer the
     // kernel has when it cannot read the proxy (P4Capabilities.hpp).
+    // [Co-developed with claude code -- Adam] `flow_stats` too: how many rows of each switch the
+    // proxy's flow render left out, which is what tells a path through it from a confirmed one.
+    p4paths::FlowStatsByDpid flowStats = p4paths::fromSwitchState(payload);
     p4caps::CapabilitiesByDpid capabilities = p4caps::fromSwitchState(payload);
     {
         std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
         m_p4Capabilities = std::move(capabilities);
         m_p4RulesLost = std::move(rulesLost);
+        m_p4FlowStats = std::move(flowStats);
     }
     return payload;
 }
@@ -828,6 +832,14 @@ DeviceConfigurationAndPowerManager::p4RulesLostSnapshot() const
 {
     std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
     return m_p4RulesLost;
+}
+
+// [Co-developed with claude code -- Adam]
+p4paths::FlowStatsByDpid
+DeviceConfigurationAndPowerManager::p4FlowStatsSnapshot() const
+{
+    std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
+    return m_p4FlowStats;
 }
 
 /** @brief A plausible synthetic power draw in mW for a simulated switch. See the header for why.

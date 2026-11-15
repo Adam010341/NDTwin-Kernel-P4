@@ -116,6 +116,10 @@ class SPSCQueue; // forward declare template
  */
 class FlowLinkUsageCollector
 {
+    // [Co-developed with claude code -- Adam] Test seam: puts a row with a known path in the
+    // flow table, which only the path walk writes from live samples. Nothing else uses it.
+    friend class FlowRowsTestPeer;
+
   public:
     FlowLinkUsageCollector(std::shared_ptr<TopologyAndFlowMonitor> topologyAndFlowMonitor,
                            std::shared_ptr<DeviceConfigurationAndPowerManager> deviceManager,

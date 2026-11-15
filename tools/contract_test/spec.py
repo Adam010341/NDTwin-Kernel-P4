@@ -485,6 +485,11 @@ GRAPH_NODE = Obj({
     # has already grown once (`link_discovery: "heartbeat"`), and pinning them here would make
     # the kernel's contract test a second, lagging copy of the proxy's list.
     "capabilities": Obj({}, strict=False),
+    # [Co-developed with claude code -- Adam]
+    # doc/2026-01-02_ndt_api.md section 3, `flow_stats`: a bmv2 switch's flow-render record, copied
+    # verbatim from the P4 proxy. Same rules as `capabilities`: optional, an object when present,
+    # its keys the proxy's. `unrendered_entries` is an integer or null (schema.py has no Null type).
+    "flow_stats": Obj({}, optional={"unrendered_entries": Any_()}, strict=False),
 })
 
 GRAPH_EDGE = Obj({
@@ -569,6 +574,12 @@ FLOW_RECORD = Obj({
     "liveness": Str(nonempty=True),
     "last_seen_ms": Int(min=0),
     "ended_at_ms": Int(min=0),
+    # [Co-developed with claude code -- Adam]
+    # Sections 4 and 30: the switches on `path` whose table view is incomplete, in path order.
+    # OPTIONAL: absent when no switch on the path has a `flow_stats` record (an OVS fabric, an
+    # unread proxy) and on every kernel built before the key. A list when present, `[]` included;
+    # never null, which a consumer could not tell from "absent".
+    "path_unconfirmed_at": List(Obj({"dpid": Int(min=0), "unrendered_entries": Any_()})),
 })
 
 # Ryu /stats/flow shape. actions are STRINGS ("OUTPUT:1") -- Classifier.cpp parses only

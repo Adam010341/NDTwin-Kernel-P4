@@ -8,4 +8,6 @@ add_library(NdtCore_PowerManagementLib STATIC
     P4Capabilities.cpp
     # [Co-developed with claude code -- Adam] Per-switch `ryu_rules_lost` (KNOWN-ISSUES A-4c).
     P4RulesLost.cpp
+    # [Co-developed with claude code -- Adam] Per-switch `flow_stats` and the flow rows' paths.
+    P4PathVisibility.cpp
 )

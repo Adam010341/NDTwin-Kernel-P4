@@ -2981,5 +2981,68 @@ class GraphNodeCapabilitiesTest(unittest.TestCase):
                         "a string where the object belongs passed")
 
 
+class FlowStatsAndPathUnconfirmedTest(unittest.TestCase):
+    """
+    `flow_stats` on a switch node and `path_unconfirmed_at` on a flow row (API doc sections 3, 4).
+
+    [Co-developed with claude code -- Adam]
+    Both optional -- an OVS fabric and every older kernel serve neither -- and both pinned by
+    type, because Obj is non-strict and would otherwise accept any value. The one shape that
+    would be misread is a null or a scalar where the object or the list belongs: a consumer
+    reads absence as "nobody said", `[]` as "every switch said it hides nothing", and a null
+    could be taken for either.
+    """
+
+    RECORD = {"src_ip": 1, "dst_ip": 2, "src_port": 1, "dst_port": 2, "protocol_id": 6,
+              "estimated_flow_sending_rate_bps_in_the_last_sec": 1.0,
+              "estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot": 1.0,
+              "estimated_packet_rate_in_the_last_sec": 1.0,
+              "estimated_packet_rate_in_the_proceeding_1sec_timeslot": 1.0,
+              "first_sampled_time": "t", "latest_sampled_time": "t",
+              "path": [{"node": 50528266, "interface": 1}, {"node": 1, "interface": 1},
+                       {"node": 16842762, "interface": 0}]}
+
+    def _node(self, **extra):
+        import selftest_fixtures as fx
+        node = dict(next(n for n in fx.GRAPH_DATA_SAMPLE["nodes"] if n["vertex_type"] == 0))
+        node.pop("flow_stats", None)
+        node.update(extra)
+        return node
+
+    def test_a_row_without_the_key_conforms(self):
+        self.assertEqual(validate(spec.FLOW_RECORD, self.RECORD), [])
+
+    def test_a_list_naming_a_switch_conforms_and_a_null_count_too(self):
+        for listed in ([], [{"dpid": 1, "unrendered_entries": 8}],
+                       [{"dpid": 1, "unrendered_entries": None}]):
+            with self.subTest(listed=listed):
+                self.assertEqual(
+                    validate(spec.FLOW_RECORD, dict(self.RECORD, path_unconfirmed_at=listed)), [])
+
+    def test_a_null_or_an_object_in_place_of_the_list_is_rejected(self):
+        for wrong in (None, {"dpid": 1, "unrendered_entries": 8}, "s1"):
+            with self.subTest(wrong=wrong):
+                self.assertTrue(
+                    validate(spec.FLOW_RECORD, dict(self.RECORD, path_unconfirmed_at=wrong)),
+                    f"path_unconfirmed_at={wrong!r} passed")
+
+    def test_an_element_without_its_dpid_is_rejected(self):
+        self.assertTrue(validate(spec.FLOW_RECORD, dict(
+            self.RECORD, path_unconfirmed_at=[{"unrendered_entries": 8}])))
+
+    def test_a_switch_node_with_or_without_flow_stats_conforms(self):
+        self.assertEqual(validate(spec.GRAPH_NODE, self._node()), [])
+        self.assertEqual(validate(spec.GRAPH_NODE,
+                                  self._node(flow_stats={"unrendered_entries": 8})), [])
+        self.assertEqual(validate(spec.GRAPH_NODE,
+                                  self._node(flow_stats={"unrendered_entries": None})), [])
+
+    def test_a_null_or_a_number_in_place_of_flow_stats_is_rejected(self):
+        for wrong in (None, 8):
+            with self.subTest(wrong=wrong):
+                self.assertTrue(validate(spec.GRAPH_NODE, self._node(flow_stats=wrong)),
+                                f"flow_stats={wrong!r} passed")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
