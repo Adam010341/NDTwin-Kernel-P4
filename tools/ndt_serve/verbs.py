@@ -337,6 +337,10 @@ RC_TABLE = {
 # (lab_pane_without_root and one line in lab_entry_points): 10 more lines above status --measuring's
 # row and every row below it; the claim and release rows did not move. Each anchor was moved to the
 # line that holds the same code (text and function checked).
+# 2026-11-13, later: `ndt down` leaves stack.sh's report on a deferred port out of [1/3] and names the
+# holder at the re-read instead (a new function above cmd_down and a few lines in cmd_down): 44 more
+# lines above status --measuring's row and every row below it; the claim and release rows did not move.
+# Each anchor was moved to the line that holds the same code (text and function checked).
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -350,21 +354,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(8103, 3, "return 3", "cmd_status"), (8108, 0, "return 0", "cmd_status"),
-                              (8112, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(8114, 0, "return 0", "cmd_status")]},
+                     "code": [(8147, 3, "return 3", "cmd_status"), (8152, 0, "return 0", "cmd_status"),
+                              (8156, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(8158, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(7717, 0, "return 0", "cmd_status")]},
+                         "code": [(7761, 0, "return 0", "cmd_status")]},
     "claim": {"code": [(800, 2, "return 2", "cmd_claim"), (809, 2, "return 2", "cmd_claim"),
                        (834, 1, "return 1", "claim_take"), (906, 1, "return 1", "claim_take"),
                        (908, 0, 'ok "lab claimed by', "claim_take")]},
     "release": {"code": [(912, 0, "return 0", "cmd_release"), (917, 1, "return 1", "cmd_release"),
                          (951, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9932, 0, "return 0", "app_start"), (9936, 1, "return 1", "app_start"),
-                            (10009, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(11487, 1, "return 1", "cmd_apps"), (11490, 2, "return 2", "cmd_apps"),
-                           (11493, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(11420, 0, "return 0", "cmd_apps")]},
+    "apps.start": {"code": [(9976, 0, "return 0", "app_start"), (9980, 1, "return 1", "app_start"),
+                            (10053, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(11531, 1, "return 1", "cmd_apps"), (11534, 2, "return 2", "cmd_apps"),
+                           (11537, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(11464, 0, "return 0", "cmd_apps")]},
 }
 
 

@@ -779,11 +779,91 @@ report "M47: the classification stops being pinned to a return site" "$m" \
 
 # W8 (behaviour-preserving): the explanation printed with the deferral reworded. The cells read
 # the deferral and the re-read, not this sentence.
+# [Co-developed with claude code -- Adam] Repointed 2026-11-13: the note is three info lines now.
 m=$(mutant w8 "$NDT" \
-    '            warn "  [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this"' \
-    '            warn "  [1/3] happens ahead of the data-plane sweep in [3/3], so on a live P4 fabric this"')
+    '            info "  [3/3] has not swept the data plane yet, so they are read again after '"'"'verify clean'"'"';"' \
+    '            info "  the data plane is swept at [3/3], so they are read again after '"'"'verify clean'"'"';"')
 report_green "W8 (behaviour-preserving): the deferral note reworded" "$m" \
        "the note above the re-read is not the behaviour under test"
+
+# [Co-developed with claude code -- Adam]
+# --- 2026-11-12/13: a deferred port is not reported as somebody else's at [1/3] ----------------
+# Three live P4 teardowns by a non-root user holding only the user guide's sudo grants printed
+# stack.sh's report on every bmv2 port at [1/3] ("held by a process this user cannot see", "This
+# script did not start it") and then exited 0.
+
+# M153 restores it: the deferred status still prints stack.sh's port report in full.
+m=$(mutant m153 "$NDT" \
+    '        stack_down_lines "$(stack_down_without_port_report "$out")"' \
+    '        stack_down_lines "$out"')
+report "M153: a deferred port is called somebody else's at [1/3] again" "$m" \
+       "🔴 a deferred port is not called somebody else's at [1/3]"
+
+# M154 (widening): the report is left out whatever the status, so a port held by something this
+# stack started -- stop_one failing, which no sweep addresses -- loses its holder line too.
+m=$(mutant m154 "$NDT" \
+    '    else
+        stack_down_lines "$out"
+    fi' \
+    '    else
+        stack_down_lines "$(stack_down_without_port_report "$out")"
+    fi')
+report "M154 (widening): stack.sh's port report is dropped when nothing is deferred" "$m" \
+       "  🔴 so stack.sh's port lines are printed in full at [1/3]"
+
+# M155 (widening): the filter drops every line -- "silence everything" -- so what stack.sh said
+# about the kernel, the proxy and its registry goes with the ports.
+m=$(mutant m155 "$NDT" \
+    '        printf '"'"'%s\n'"'"' "$line"
+    done <<<"$1"' \
+    '        :
+    done <<<"$1"')
+report "M155 (widening): the [1/3] filter drops every line stack.sh printed" "$m" \
+       "  🔴 and what stack.sh said about anything else is kept (first line)"
+
+# M156: the foreign-holder line itself is no longer left out; only its tail is.
+m=$(mutant m156 "$NDT" \
+    '        [[ "$line" =~ ^\ \ :[0-9]+\ "$STACK_DOWN_FOREIGN_PORT"\  ]] && continue' \
+    '        :')
+report "M156: the deferred port's holder line is printed at [1/3] again" "$m" \
+       "🔴 a deferred port is not called somebody else's at [1/3]"
+
+# M157: a port still held after the sweep is named without its holder -- the re-read line, the
+# one that names it for the failing teardown (a refused 'verify clean' names none), is gone.
+m=$(mutant m157 "$NDT" \
+    '                err "    :$dp is still listening, held by $(ndt_port_holder "$dp" "$(ndt_port_proto "$dp")")"' \
+    '                :')
+report "M157: a port still held after the sweep is named without its holder" "$m" \
+       "  🔴 and naming the holder of each, after 'verify clean'"
+
+# M158, M159: one entry of the filter's drop list deleted, so one line of stack.sh's report on a
+# deferred port is printed again at [1/3]: the second half of the "did not start it" tail, and
+# the advice's `ss -ltnp` line.
+m=$(mutant m158 "$NDT" \
+    '        ["    measure the wrong process, so this is reported rather than ignored."]=1' \
+    '')
+report "M158: the second line of the foreign-holder tail is printed at [1/3] again" "$m" \
+       "  nor the second half of that tail"
+m=$(mutant m159 "$NDT" \
+    '        ["    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"]=1' \
+    '')
+report "M159: the advice's ss line is printed at [1/3] again" "$m" \
+       "  nor the advice's ss line"
+
+# M160 (widening): the holder-line pattern also takes any other line that starts "  :<port> ", so
+# the unchecked-UDP warning (":6343 (udp) could NOT be checked") goes with the report.
+m=$(mutant m160 "$NDT" \
+    '        [[ "$line" =~ ^\ \ :[0-9]+\ "$STACK_DOWN_FOREIGN_PORT"\  ]] && continue' \
+    '        [[ "$line" =~ ^\ \ :[0-9]+\  ]] && continue')
+report "M160 (widening): the filter also drops the unchecked-UDP warning" "$m" \
+       "  🔴 and an unchecked-UDP warning is kept, whole"
+
+# M161: the empty-line guard is gone, so an empty line in stack.sh's output reaches the array lookup.
+m=$(mutant m161 "$NDT" \
+    '        [[ -n "$line" && -n "${drop[$line]:-}" ]] && continue' \
+    '        [[ -n "${drop[$line]:-}" ]] && continue')
+report "M161: an empty line in stack.sh's output reaches the drop-list lookup" "$m" \
+       "  and an empty line in stack.sh's output raises no bash error"
 
 
 # --- FIXED-ISSUES G-44: `ndt clean` during a teardown -------------------------------------------
