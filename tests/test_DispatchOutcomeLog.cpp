@@ -520,6 +520,97 @@ TEST(DispatchOutcomeLogTest, TheOldestRequestAgesOutAndTheLogSaysHowMany)
     EXPECT_TRUE(log.tallyFor(overflow).has_value()) << "the newest is still there";
 }
 
+// --- A request's own failures, and who refused ------------------------------------------------
+// [Co-developed with claude code -- Adam]
+// The per-request answer used to carry counts only: `dispatch_failed 1` and no reason, while the
+// proxy's reason sat in the process-wide list with no request id on it. Measured on a package
+// fabric: a destination-route install answered 200 `queued`, ?request_id= said
+// `rejected_by_switch 1`, and the proxy's `owned_by_package` was in neither.
+
+namespace
+{
+
+/// The P4 proxy refusing a route write on a switch whose route table belongs to a package.
+OpResult
+proxyRefusedOwnedByPackage()
+{
+    OpResult::Refusal refusal;
+    refusal.by = "proxy";
+    refusal.outcome = "unsupported_on_p4";
+    refusal.reason = "owned_by_package";
+    refusal.remedy = "the package owns this table: use POST /p4/table_entry";
+    return OpResult::failure(501, "P4 proxy agent returned HTTP 501: {\"detail\":...")
+        .withProgrammingRefused(true)
+        .withRefusal(refusal);
+}
+
+} // namespace
+
+TEST(DispatchOutcomeLogTest, AFailureRecordCarriesItsRequestIdAndTheRefusal)
+{
+    DispatchOutcomeLog log(8);
+    log.noteRequestEnqueued(7, 1);
+    log.record(jobForRequest(7), proxyRefusedOwnedByPackage());
+
+    const auto failures = log.recentFailures();
+    ASSERT_EQ(failures.size(), 1u);
+    EXPECT_EQ(failures[0].requestId, 7u);
+    EXPECT_EQ(failures[0].refusal.by, "proxy");
+    EXPECT_EQ(failures[0].refusal.outcome, "unsupported_on_p4");
+    EXPECT_EQ(failures[0].refusal.reason, "owned_by_package");
+    EXPECT_EQ(failures[0].refusal.remedy, "the package owns this table: use POST /p4/table_entry");
+}
+
+TEST(DispatchOutcomeLogTest, FailuresForARequestAreThatRequestsOnly)
+{
+    // The copy of TwoRequestsDoNotPolluteEachOther for the records: interleaved, and each id
+    // answers with its own.
+    DispatchOutcomeLog log(64);
+    log.noteRequestEnqueued(11, 2);
+    log.noteRequestEnqueued(22, 2);
+
+    log.record(jobForRequest(11, 1), p4Refused(502, "the switch did not take it"));
+    log.record(jobForRequest(22, 2), proxyRefusedOwnedByPackage());
+    log.record(jobForRequest(11, 3), p4Accepted());
+    log.record(jobForRequest(22, 4), p4Refused(502, "full table"));
+
+    const auto first = log.recentFailuresFor(11);
+    ASSERT_EQ(first.size(), 1u);
+    EXPECT_EQ(first[0].dpid, 1u);
+    EXPECT_EQ(first[0].message, "the switch did not take it");
+
+    const auto second = log.recentFailuresFor(22);
+    ASSERT_EQ(second.size(), 2u);
+    EXPECT_EQ(second[0].dpid, 2u) << "oldest first";
+    EXPECT_EQ(second[0].refusal.reason, "owned_by_package");
+    EXPECT_EQ(second[1].dpid, 4u);
+
+    EXPECT_TRUE(log.recentFailuresFor(33).empty()) << "an id with no failures has no records";
+    EXPECT_TRUE(log.recentFailuresFor(0).empty()) << "0 means 'not from an HTTP batch'";
+}
+
+TEST(DispatchOutcomeLogTest, AnEvictedFailureIsCountedAgainstItsRequest)
+{
+    // A ring of two. Request 5's first failure is pushed out by request 6's two, so 5 has one
+    // failure counted and none listed -- and its tally must say the record was dropped rather
+    // than leave a count with nothing beside it.
+    DispatchOutcomeLog log(2);
+    log.noteRequestEnqueued(5, 1);
+    log.noteRequestEnqueued(6, 2);
+    log.record(jobForRequest(5), proxyRefusedOwnedByPackage());
+    log.record(jobForRequest(6), p4Refused(502));
+    log.record(jobForRequest(6), p4Refused(502));
+
+    EXPECT_TRUE(log.recentFailuresFor(5).empty());
+    ASSERT_TRUE(log.tallyFor(5).has_value());
+    EXPECT_EQ(log.tallyFor(5)->dispatchFailed, 1u);
+    EXPECT_EQ(log.tallyFor(5)->failuresEvicted, 1u);
+
+    EXPECT_EQ(log.recentFailuresFor(6).size(), 2u);
+    EXPECT_EQ(log.tallyFor(6)->failuresEvicted, 0u) << "another request's eviction is not 6's";
+    EXPECT_EQ(log.failuresEvicted(), 1u);
+}
+
 TEST(DispatchOutcomeLogTest, TheFailureRingIsAsLargeAsADispatcherBurst)
 {
     // The ring is sized to a full dispatcher burst. At the old 256 a single 2000-entry burst

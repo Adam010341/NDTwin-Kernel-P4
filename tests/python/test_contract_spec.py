@@ -3044,5 +3044,68 @@ class FlowStatsAndPathUnconfirmedTest(unittest.TestCase):
                                 f"flow_stats={wrong!r} passed")
 
 
+class DispatchRequestFailuresTest(unittest.TestCase):
+    """
+    A `?request_id=` answer's own `failures`, and the record fields that say who refused.
+
+    [Co-developed with claude code -- Adam]
+    API doc section 42. All optional, because a kernel built before them emits none of them;
+    listed so that their types and the three values of `refused_by` are pinned.
+    """
+
+    FAILURE = {"seq": 1, "at_unix_ms": 1794767155757, "op": "install", "dpid": 1,
+               "requested_priority": 99, "match": {"eth_type": 2048, "ipv4_dst": "10.0.3.3"},
+               "controller_status": 501, "message": "P4 proxy agent returned HTTP 501: ..."}
+
+    def _answer(self, **extra):
+        import selftest_fixtures as fx
+        body = dict(fx.DISPATCH_STATUS_FOR_REQUEST_SAMPLE)
+        body.update(extra)
+        return body
+
+    def test_a_record_with_who_refused_and_why_conforms(self):
+        record = dict(self.FAILURE, request_id=1, refused_by="proxy", outcome="unsupported_on_p4",
+                      reason="owned_by_package",
+                      remedy="the package owns this table: use POST /p4/table_entry")
+        self.assertEqual(validate(spec.DISPATCH_FAILURE, record), [])
+        self.assertEqual(validate(spec.DISPATCH_FAILURE, self.FAILURE), [],
+                         "a record from an older kernel must still conform")
+
+    def test_refused_by_has_three_values(self):
+        for ok in ("switch", "proxy", "controller"):
+            with self.subTest(ok=ok):
+                self.assertEqual(validate(spec.DISPATCH_FAILURE,
+                                          dict(self.FAILURE, refused_by=ok)), [])
+        for wrong in ("nobody", "", "Switch"):
+            with self.subTest(wrong=wrong):
+                self.assertTrue(validate(spec.DISPATCH_FAILURE,
+                                         dict(self.FAILURE, refused_by=wrong)),
+                                f"refused_by={wrong!r} passed")
+
+    def test_a_request_id_that_is_not_an_integer_is_rejected(self):
+        self.assertTrue(validate(spec.DISPATCH_FAILURE, dict(self.FAILURE, request_id="1")))
+
+    def test_the_answer_with_its_failures_conforms(self):
+        body = self._answer(failures=[dict(self.FAILURE, request_id=1, refused_by="proxy")],
+                            failures_not_retained=0)
+        self.assertEqual(validate(spec.DISPATCH_STATUS_FOR_REQUEST, body), [])
+        self.assertEqual(validate(spec.DISPATCH_STATUS_FOR_REQUEST, self._answer()), [],
+                         "an answer from an older kernel must still conform")
+
+    def test_failures_must_be_a_list_of_records(self):
+        for wrong in (None, {"0": self.FAILURE}, [{"seq": 1}]):
+            with self.subTest(wrong=wrong):
+                self.assertTrue(validate(spec.DISPATCH_STATUS_FOR_REQUEST,
+                                         self._answer(failures=wrong)),
+                                f"failures={wrong!r} passed")
+
+    def test_failures_not_retained_is_a_count(self):
+        for wrong in (-1, None, "0"):
+            with self.subTest(wrong=wrong):
+                self.assertTrue(validate(spec.DISPATCH_STATUS_FOR_REQUEST,
+                                         self._answer(failures_not_retained=wrong)),
+                                f"failures_not_retained={wrong!r} passed")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

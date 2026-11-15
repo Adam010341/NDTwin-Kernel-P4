@@ -556,3 +556,138 @@ TEST_F(RoutingStrategyFixture, AnUnansweredRequestIsNoVerdictOnEitherPlane)
     EXPECT_FALSE(notSent.confirmsNotProgrammed)
         << "curl never ran; blaming the switch here is the B-2b defect in a new field";
 }
+
+// =====================================================================================
+// Who refused, and the far end's own outcome, reason and remedy
+// [Co-developed with claude code -- Adam]
+// =====================================================================================
+//
+// `message` keeps the first 200 bytes of a refusal for a log line. On a P4 proxy refusal that cut
+// can fall before the remedy, and the per-request dispatch answer had nothing else to give a
+// caller. The strategy reads the three fields from the whole reply and says who refused.
+
+namespace
+{
+
+/// The proxy's refusal of a route write on a switch whose route table belongs to a package, as a
+/// live proxy sent it -- with a long `error` first, so the remedy lies past the 200 bytes
+/// `message` keeps.
+std::string
+ownedByPackageReply()
+{
+    const json body = {
+        {"detail",
+         {{"error", "no NDTwin route binding for this write; " + std::string(220, 'x')},
+          {"outcome", "unsupported_on_p4"},
+          {"reason", "owned_by_package"},
+          {"remedy", "the package owns this table: use POST /p4/table_entry"},
+          {"dpid", 1},
+          {"message", "table ipv4_lpm on dpid 1 belongs to the package"}}}};
+    return body.dump() + "\n501";
+}
+
+} // namespace
+
+TEST_F(RoutingStrategyFixture, AProxyRefusalCarriesItsOutcomeReasonAndRemedy)
+{
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = ownedByPackageReply();
+
+    const OpResult r = s.installAnEntry(1, 99, sampleMatch(), sampleActions(), 0);
+
+    EXPECT_FALSE(r.ok);
+    EXPECT_EQ(r.httpStatus, 501);
+    EXPECT_EQ(r.refusal.by, "proxy") << "a 501 is raised before any switch is asked";
+    EXPECT_EQ(r.refusal.outcome, "unsupported_on_p4");
+    EXPECT_EQ(r.refusal.reason, "owned_by_package");
+    EXPECT_EQ(r.refusal.remedy, "the package owns this table: use POST /p4/table_entry");
+    EXPECT_EQ(r.message.find("use POST /p4/table_entry"), std::string::npos)
+        << "the fixture must put the remedy past the cut, or this proves nothing: " << r.message;
+}
+
+TEST_F(RoutingStrategyFixture, AProxyRefusalAtTheTopLevelIsReadToo)
+{
+    // The other shape the proxy refuses in: a request it cannot use, answered with its add body
+    // and the fields beside it rather than inside `detail`.
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = json{{"status", "error"},
+                         {"message", "Failed to add route"},
+                         {"error", "no usable match"},
+                         {"dpid", 1},
+                         {"reason", "a match with no destination cannot be routed"},
+                         {"outcome", "unsupported_on_p4"}}
+                        .dump() +
+                    "\n501";
+
+    const OpResult r = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+
+    EXPECT_EQ(r.refusal.by, "proxy");
+    EXPECT_EQ(r.refusal.outcome, "unsupported_on_p4");
+    EXPECT_EQ(r.refusal.reason, "a match with no destination cannot be routed");
+    EXPECT_EQ(r.refusal.remedy, "");
+}
+
+TEST_F(RoutingStrategyFixture, AWriteTheSwitchDidNotTakeIsTheSwitchsRefusal)
+{
+    // 502 is the proxy's code for "I wrote and the switch refused" (FIXED-ISSUES C-6).
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = "{\"status\":\"error\",\"message\":\"Failed to add route\"}\n502";
+
+    const OpResult r = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+
+    EXPECT_EQ(r.refusal.by, "switch");
+    EXPECT_EQ(r.refusal.outcome, "") << "nothing invented when the body names no outcome";
+    EXPECT_TRUE(r.confirmsNotProgrammed);
+}
+
+TEST_F(RoutingStrategyFixture, AnOlderProxysErrorBodyIsTheSwitchsRefusal)
+{
+    // Before the 502 a proxy sent the same refusal as a 200 with {"status":"error"}.
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = "{\"status\":\"error\",\"message\":\"Failed to delete route\"}\n200";
+
+    const OpResult r = s.deleteAnEntry(1, sampleMatch(), -1);
+
+    EXPECT_FALSE(r.ok);
+    EXPECT_EQ(r.refusal.by, "switch");
+}
+
+TEST_F(RoutingStrategyFixture, ARyuRefusalIsTheControllersNotASwitchs)
+{
+    RecordingOpenFlow s("localhost:8080");
+    s.cannedReply = "{\"error\":\"bad dpid\"}\n502";
+
+    const OpResult r = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+
+    EXPECT_EQ(r.refusal.by, "controller")
+        << "a 502 means a switch only on the plane whose proxy writes before it answers";
+}
+
+TEST_F(RoutingStrategyFixture, ARefusalThatIsNotJsonNamesTheRefuserAndNoWords)
+{
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = "Internal Server Error\n500";
+
+    const OpResult r = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+
+    EXPECT_EQ(r.refusal.by, "proxy");
+    EXPECT_EQ(r.refusal.outcome, "");
+    EXPECT_EQ(r.refusal.reason, "");
+    EXPECT_EQ(r.refusal.remedy, "");
+}
+
+TEST_F(RoutingStrategyFixture, NothingAnsweredMeansNobodyRefused)
+{
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = "\n000";
+    EXPECT_EQ(s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0).refusal.by, "");
+
+    s.cannedRan = false;
+    s.cannedStatus = 127 << 8;
+    EXPECT_EQ(s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0).refusal.by, "")
+        << "curl never ran, so nobody was asked";
+
+    s.cannedRan = true;
+    s.cannedReply = "{\"status\":\"success\"}\n200";
+    EXPECT_EQ(s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0).refusal.by, "");
+}

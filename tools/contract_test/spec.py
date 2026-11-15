@@ -624,6 +624,15 @@ DISPATCH_FAILURE = Obj({
     # received), which is different from an error status and must not be schema-rejected.
     "controller_status": Int(min=0),
     "message": Str(),
+}, optional={
+    # [Co-developed with claude code -- Adam]
+    # Section 42. The POST the job came from, and who refused it with the far end's own words.
+    # Optional: a kernel built before them emits none, and the four words appear only when said.
+    "request_id": Int(min=0),
+    "refused_by": Str(allowed=("switch", "proxy", "controller")),
+    "outcome": Str(),
+    "reason": Str(),
+    "remedy": Str(),
 })
 
 DISPATCH_STATUS = Obj({
@@ -704,6 +713,11 @@ DISPATCH_STATUS_FOR_REQUEST = Obj({
 }, optional={
     "dispatcher_running": Bool(),
     "detail": Str(),
+    # [Co-developed with claude code -- Adam]
+    # This request's failure records and how many of them the ring has since dropped. Optional
+    # only because a kernel built before them emits neither.
+    "failures": List(DISPATCH_FAILURE),
+    "failures_not_retained": Int(min=0),
 })
 
 

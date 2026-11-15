@@ -10,6 +10,9 @@
 #   A  the counters are named for what they count      `dispatched_ok`, not `succeeded`
 #   B  a second group answers about the SWITCH         accepted/rejected/unknown, unknown on OVS
 #   C  a caller can ask about its own POST             ?request_id=<id>
+#   D  ... and learn why it failed                      its own `failures`, who refused, the
+#                                                      far end's outcome/reason/remedy
+#                                                      [Co-developed with claude code -- Adam]
 #
 #   cpp       tests/test_DispatchOutcomeLog.cpp     the classification and the per-request tallies
 #             tests/test_RoutingStrategies.cpp      the carrier: does a plane's refusal arrive as one
@@ -393,6 +396,99 @@ each_mutation() {
         '    if dispatched_ok is not None and accepted > dispatched_ok:' \
         '    if False and dispatched_ok is not None and accepted > dispatched_ok:' \
         'switch_outcome_closes' ''
+
+    # --- D: a request's own failures, and who refused -------------------------------------
+    # [Co-developed with claude code -- Adam]
+    # Measured on a package fabric: ?request_id= said `dispatch_failed 1` and nothing else, while
+    # the proxy's `owned_by_package` sat in the process-wide list with no request id on it.
+
+    "$m" "19. a failure record forgets which request it came from" cpp "$OUT" \
+        '        rec.requestId = job.requestId;' \
+        '        (void)job.requestId; // MUTANT' \
+        'DispatchOutcomeLogTest.AFailureRecordCarriesItsRequestIdAndTheRefusal' ''
+
+    "$m" "20. a failure record drops the far end's refusal" cpp "$OUT" \
+        '        rec.refusal = result.refusal;' \
+        '        // MUTANT: refusal not kept' \
+        'DispatchOutcomeLogTest.AFailureRecordCarriesItsRequestIdAndTheRefusal' ''
+
+    "$m" "21. a request's failures are every request's failures" cpp "$OUT" \
+        '            if (rec.requestId == requestId)' \
+        '            if (true)' \
+        'DispatchOutcomeLogTest.FailuresForARequestAreThatRequestsOnly' ''
+
+    "$m" "22. a dropped record is not counted against its request" cpp "$OUT" \
+        '                ++it->second.failuresEvicted;' \
+        '                (void)it; // MUTANT' \
+        'DispatchOutcomeLogTest.AnEvictedFailureIsCountedAgainstItsRequest' ''
+
+    "$m" "23. a write the switch did not take is called the proxy's refusal" cpp "$BASE" \
+        '    return status == 502 ? "switch" : "proxy";' \
+        '    return "proxy";' \
+        'RoutingStrategyFixture.AWriteTheSwitchDidNotTakeIsTheSwitchsRefusal' ''
+
+    "$m" "24. every P4 refusal is called the switch's" cpp "$BASE" \
+        '    return status == 502 ? "switch" : "proxy";' \
+        '    return "switch";' \
+        'RoutingStrategyFixture.AProxyRefusalCarriesItsOutcomeReasonAndRemedy' ''
+
+    "$m" "25. a Ryu refusal is attributed to a P4 component" cpp "$BASE" \
+        '    if (!adjudicatingPlane)
+    {
+        return "controller";
+    }' \
+        '    if (false)
+    {
+        return "controller";
+    }' \
+        'RoutingStrategyFixture.ARyuRefusalIsTheControllersNotASwitchs' ''
+
+    "$m" "26. the refusal's words are never read from the reply" cpp "$BASE" \
+        '                          .withRefusal(refusalFrom(
+                              responseBody, refuserOf(status, successConfirmsProgramming())))' \
+        '                          .withRefusal(OpResult::Refusal{
+                              refuserOf(status, successConfirmsProgramming()), "", "", ""})' \
+        'RoutingStrategyFixture.AProxyRefusalCarriesItsOutcomeReasonAndRemedy' ''
+
+    "$m" "27. the proxy's words are looked for only at the top level, not in detail" cpp "$BASE" \
+        '            (detailIt != parsed.end() && detailIt->is_object()) ? *detailIt : parsed;' \
+        '            (detailIt != parsed.end() && false) ? *detailIt : parsed;' \
+        'RoutingStrategyFixture.AProxyRefusalCarriesItsOutcomeReasonAndRemedy' ''
+
+    "$m" "28. an older proxy's error body is called Ryu's" cpp "$BASE" \
+        '                    responseBody, successConfirmsProgramming() ? "switch" : "controller");' \
+        '                    responseBody, "controller");' \
+        'RoutingStrategyFixture.AnOlderProxysErrorBodyIsTheSwitchsRefusal' ''
+
+    "$m" "29. the per-request answer carries no failures" cpp "$SES" \
+        '    body["failures"] = dispatchFailuresJson(outcomes.recentFailuresFor(*requestId));' \
+        '    body["failures"] = json::array();' \
+        'DispatchStatusEndpointTest.ARequestIdAnswerCarriesItsOwnFailureAndTheProxysReason' ''
+
+    "$m" "30. the per-request answer carries every request's failures" cpp "$SES" \
+        '    body["failures"] = dispatchFailuresJson(outcomes.recentFailuresFor(*requestId));' \
+        '    body["failures"] = dispatchFailuresJson(outcomes.recentFailures());' \
+        'DispatchStatusEndpointTest.ARequestThatFailedNothingHasAnEmptyList' ''
+
+    "$m" "31. a dropped record leaves no trace in the request's answer" cpp "$SES" \
+        '    body["failures_not_retained"] = tally->failuresEvicted;' \
+        '    body["failures_not_retained"] = 0;' \
+        'DispatchStatusEndpointTest.AnEvictedFailureIsCountedNotHidden' ''
+
+    "$m" "32. a record on the wire does not say which request it came from" cpp "$SES" \
+        '        added["request_id"] = rec.requestId;' \
+        '        // MUTANT: no request_id' \
+        'DispatchStatusEndpointTest.TheProcessWideRecordsCarryTheirRequestId' ''
+
+    "$m" "33. who refused and why never reach the wire" cpp "$SES" \
+        '            if (!value->empty())' \
+        '            if (false)' \
+        'DispatchStatusEndpointTest.ARequestIdAnswerCarriesItsOwnFailureAndTheProxysReason' ''
+
+    "$m" "34. a word the far end did not say is sent as an empty string" cpp "$SES" \
+        '            if (!value->empty())' \
+        '            if (true)' \
+        'DispatchStatusEndpointTest.ARequestIdAnswerCarriesItsOwnFailureAndTheProxysReason' ''
 
     # --- declared-uncovered -------------------------------------------------------------------
     # Run, reported, and NOT counted as a survivor -- with the reason stated, because an exemption

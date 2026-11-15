@@ -1335,6 +1335,137 @@ TEST_F(DispatchStatusEndpointTest, TheRouteAcceptsAQueryStringAtAll)
                                          "them apart, so this is the process-wide answer";
 }
 
+// --- a request's own failures, with the proxy's reason ----------------------------------------
+// [Co-developed with claude code -- Adam]
+// Measured on a package fabric: POST /ndt/install_flow_entry answered 200 `queued`, and
+// ?request_id= answered `dispatch_failed 1`, `rejected_by_switch 1` and nothing else. The proxy's
+// refusal -- 501 `unsupported_on_p4`, reason `owned_by_package`, and a remedy -- was only in the
+// process-wide `recent_failures`, which carried no request id, and in kernel.log.
+
+namespace
+{
+
+/// The proxy's refusal of a route write on a package-owned table, as the strategy hands it on.
+OpResult
+ownedByPackageRefusal()
+{
+    OpResult::Refusal refusal;
+    refusal.by = "proxy";
+    refusal.outcome = "unsupported_on_p4";
+    refusal.reason = "owned_by_package";
+    refusal.remedy = "the package owns this table: use POST /p4/table_entry";
+    return OpResult::failure(501,
+                             "P4 proxy agent returned HTTP 501: {\"detail\":{\"error\":\"no "
+                             "NDTwin route binding for this write\",...")
+        .withProgrammingRefused(true)
+        .withRefusal(refusal);
+}
+
+/// GET @p target until `counters.dispatched` reaches @p dispatched: the stub is called before the
+/// sender records the outcome, so the last record can land just after waitForCalls returns.
+nlohmann::json
+statusOnceRecorded(const std::shared_ptr<Controller>& controller,
+                   const std::string& target,
+                   uint64_t dispatched)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    nlohmann::json body;
+    do
+    {
+        HttpSessionTestPeer peer(controller);
+        body = nlohmann::json::parse(peer.send(http::verb::get, target).body(), nullptr, false);
+        if (!body.is_discarded() && body.contains("counters") &&
+            body.at("counters").value("dispatched", uint64_t{0}) >= dispatched)
+        {
+            return body;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    } while (std::chrono::steady_clock::now() < deadline);
+    return body;
+}
+
+} // namespace
+
+TEST_F(DispatchStatusEndpointTest, ARequestIdAnswerCarriesItsOwnFailureAndTheProxysReason)
+{
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(1, 1, ownedByPackageRefusal()));
+    ASSERT_TRUE(fx.run(2, 1, OpResult::failure(502, "the switch did not take it")
+                                 .withProgrammingRefused(true)
+                                 .withRefusal(OpResult::Refusal{"switch", "", "", ""})));
+
+    const auto first =
+        statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status?request_id=1", 1);
+    RecordProperty("request_1_body", first.dump());
+    ASSERT_TRUE(first.contains("failures")) << first.dump();
+    ASSERT_EQ(first.at("failures").size(), 1u) << first.dump();
+    const auto& rec = first.at("failures").at(0);
+    EXPECT_EQ(rec.value("request_id", 0u), 1u);
+    EXPECT_EQ(rec.value("controller_status", 0), 501);
+    EXPECT_EQ(rec.value("refused_by", std::string{}), "proxy");
+    EXPECT_EQ(rec.value("outcome", std::string{}), "unsupported_on_p4");
+    EXPECT_EQ(rec.value("reason", std::string{}), "owned_by_package");
+    EXPECT_EQ(rec.value("remedy", std::string{}),
+              "the package owns this table: use POST /p4/table_entry");
+    EXPECT_EQ(first.value("failures_not_retained", 99u), 0u);
+    // The bucket keeps its name; the record says who refused.
+    EXPECT_EQ(first.at("switch_outcome").value("rejected_by_switch", 0u), 1u);
+
+    const auto second =
+        statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status?request_id=2", 1);
+    ASSERT_EQ(second.at("failures").size(), 1u) << second.dump();
+    EXPECT_EQ(second.at("failures").at(0).value("refused_by", std::string{}), "switch");
+    EXPECT_FALSE(second.at("failures").at(0).contains("reason"))
+        << "a word the far end did not say is absent, not an empty string";
+}
+
+TEST_F(DispatchStatusEndpointTest, ARequestThatFailedNothingHasAnEmptyList)
+{
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(3, 2, OpResult::success()));
+    ASSERT_TRUE(fx.run(4, 1, ownedByPackageRefusal()));
+
+    const auto body =
+        statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status?request_id=3", 2);
+    ASSERT_TRUE(body.contains("failures")) << body.dump();
+    EXPECT_EQ(body.at("failures"), nlohmann::json::array())
+        << "request 4's failure leaked into request 3's answer";
+    EXPECT_EQ(body.value("failures_not_retained", 99u), 0u);
+}
+
+TEST_F(DispatchStatusEndpointTest, TheProcessWideRecordsCarryTheirRequestId)
+{
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(5, 1, ownedByPackageRefusal()));
+
+    const auto body = statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status", 1);
+    ASSERT_EQ(body.at("recent_failures").size(), 1u) << body.dump();
+    const auto& rec = body.at("recent_failures").at(0);
+    EXPECT_EQ(rec.value("request_id", 0u), 5u);
+    EXPECT_EQ(rec.value("reason", std::string{}), "owned_by_package");
+}
+
+TEST_F(DispatchStatusEndpointTest, AnEvictedFailureIsCountedNotHidden)
+{
+    // One failure, then a full ring of another request's: the first record is gone, and its
+    // request's answer must say so rather than show `dispatch_failed 1` beside an empty list.
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(6, 1, ownedByPackageRefusal()));
+    const uint64_t ring = DispatchOutcomeLog::kDefaultCapacity;
+    ASSERT_TRUE(fx.run(7, ring, OpResult::failure(502, "full").withProgrammingRefused(true)));
+
+    const auto body = statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status", ring + 1);
+    ASSERT_EQ(body.value("recent_failures_evicted", 0u), 1u) << "the ring did not overflow";
+
+    HttpSessionTestPeer peer(fx.controller);
+    const auto own = nlohmann::json::parse(
+        peer.send(http::verb::get, "/ndt/get_flow_dispatch_status?request_id=6").body());
+    EXPECT_EQ(own.at("counters").value("dispatch_failed", 0u), 1u);
+    EXPECT_EQ(own.at("failures"), nlohmann::json::array());
+    EXPECT_EQ(own.value("failures_not_retained", 0u), 1u)
+        << "a failure the ring dropped read as a request with no reason";
+}
+
 // --- B-6: a declared link failure must survive the topology poll, and say why it is down --------
 // [Co-developed with claude code -- Adam]
 //

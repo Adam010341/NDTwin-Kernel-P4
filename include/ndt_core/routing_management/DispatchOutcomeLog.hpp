@@ -136,6 +136,9 @@ class DispatchOutcomeLog
         uint64_t acceptedBySwitch = 0;
         uint64_t rejectedBySwitch = 0;
         uint64_t switchOutcomeUnknown = 0;
+        /// This request's failure records the ring has since dropped, so a per-request answer
+        /// with fewer records than `dispatchFailed` says why. [Co-developed with claude code -- Adam]
+        uint64_t failuresEvicted = 0;
     };
     /// One dispatched job whose southbound attempt failed.
     struct Record
@@ -150,6 +153,11 @@ class DispatchOutcomeLog
         nlohmann::json match;
         int controllerStatus = 0; ///< OpResult::httpStatus. 0 means nothing answered at all.
         std::string message;
+        /// The POST this job came from (FlowJob::requestId); 0 when not from an HTTP batch.
+        /// [Co-developed with claude code -- Adam]
+        uint64_t requestId = 0;
+        /// Who refused, and the far end's own outcome, reason and remedy (OpResult::Refusal).
+        OpResult::Refusal refusal{};
     };
 
     /**
@@ -171,7 +179,7 @@ class DispatchOutcomeLog
     /**
      * @brief How many requests keep a per-request tally before the oldest is forgotten.
      *
-     * [Co-developed with claude code -- Adam] One entry is ~56 bytes, so this is under 15 KB
+     * [Co-developed with claude code -- Adam] One entry is ~64 bytes, so this is about 16 KB
      * for the whole map. It bounds how far back a caller can ask about its own POST; the forgotten
      * count is published so "I have no record of that request" is never confused with "that
      * request had no outcomes".
@@ -233,14 +241,49 @@ class DispatchOutcomeLog
         rec.match = job.match;
         rec.controllerStatus = result.httpStatus;
         rec.message = result.message;
+        // [Co-developed with claude code -- Adam] So `?request_id=` can answer with this
+        // request's own failures and the far end's reason, not only with its counts.
+        rec.requestId = job.requestId;
+        rec.refusal = result.refusal;
 
-        std::lock_guard<std::mutex> lk(mutex_);
-        failures_.push_back(std::move(rec));
-        while (failures_.size() > capacity_)
+        std::vector<uint64_t> evictedRequests;
         {
-            failures_.pop_front();
-            evicted_.fetch_add(1, std::memory_order_relaxed);
+            std::lock_guard<std::mutex> lk(mutex_);
+            failures_.push_back(std::move(rec));
+            while (failures_.size() > capacity_)
+            {
+                evictedRequests.push_back(failures_.front().requestId);
+                failures_.pop_front();
+                evicted_.fetch_add(1, std::memory_order_relaxed);
+            }
         }
+        // After mutex_ is released: the two locks are never held together (see requestMutex_).
+        noteFailuresEvicted_(evictedRequests);
+    }
+
+    /**
+     * @brief The failure records of one request still in the ring, oldest first.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Fewer than its tally's `dispatchFailed` when some have aged out of the ring; the tally's
+     * `failuresEvicted` says how many. Id 0 ("not from an HTTP batch") answers nothing.
+     */
+    std::vector<Record> recentFailuresFor(uint64_t requestId) const
+    {
+        std::vector<Record> out;
+        if (requestId == 0)
+        {
+            return out;
+        }
+        std::lock_guard<std::mutex> lk(mutex_);
+        for (const Record& rec : failures_)
+        {
+            if (rec.requestId == requestId)
+            {
+                out.push_back(rec);
+            }
+        }
+        return out;
     }
 
     /**
@@ -491,6 +534,25 @@ class DispatchOutcomeLog
         case SwitchOutcome::Unknown:
             ++tally.switchOutcomeUnknown;
             break;
+        }
+    }
+
+    /// Counts each dropped failure record against its request, when that request still has a
+    /// tally. Takes requestMutex_; the caller must not hold mutex_. [Co-developed with claude code -- Adam]
+    void noteFailuresEvicted_(const std::vector<uint64_t>& requestIds)
+    {
+        if (requestIds.empty())
+        {
+            return;
+        }
+        std::lock_guard<std::mutex> lk(requestMutex_);
+        for (const uint64_t requestId : requestIds)
+        {
+            const auto it = requests_.find(requestId);
+            if (requestId != 0 && it != requests_.end())
+            {
+                ++it->second.failuresEvicted;
+            }
         }
     }
 

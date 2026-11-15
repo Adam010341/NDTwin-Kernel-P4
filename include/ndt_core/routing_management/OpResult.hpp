@@ -101,6 +101,40 @@ struct OpResult
      */
     bool confirmsNotProgrammed = false;
 
+    /**
+     * @brief Who refused this request, and the far end's own outcome, reason and remedy.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Filled only where a far end answered with a refusal (HttpRoutingStrategyBase::post).
+     * `message` keeps the first 200 bytes of the reply for a log line, which on a P4 proxy refusal
+     * cuts off the remedy; these are read from the whole reply, so a program asking
+     * GET /ndt/get_flow_dispatch_status can act on them. Empty strings mean "not said".
+     *
+     * `by` is decided by the strategy that owns the connection, from facts the reply carries:
+     *   - "switch": on P4, the proxy tried the write and the switch did not take it (502, or a 200
+     *     whose body says {"status":"error"} from a proxy older than that);
+     *   - "proxy": on P4, the proxy refused before asking any switch (every other non-2xx, e.g.
+     *     501 `unsupported_on_p4` for a route table owned by a package);
+     *   - "controller": on OpenFlow, Ryu refused; no switch adjudicated anything.
+     * Empty when nothing answered or the request never left this host: nobody refused.
+     */
+    struct Refusal
+    {
+        std::string by;
+        std::string outcome;
+        std::string reason;
+        std::string remedy;
+    };
+    Refusal refusal{};
+
+    /// A copy of this result carrying @p given. Chainable. [Co-developed with claude code -- Adam]
+    OpResult withRefusal(Refusal given) const
+    {
+        OpResult copy = *this;
+        copy.refusal = std::move(given);
+        return copy;
+    }
+
     /// A copy of this result carrying @p confirmed. Chainable at a return statement.
     OpResult withProgrammingConfirmed(bool confirmed) const
     {

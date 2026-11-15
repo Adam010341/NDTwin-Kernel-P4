@@ -1840,6 +1840,50 @@ switchOutcomeJson(uint64_t accepted, uint64_t rejected, uint64_t unknown)
 }
 
 // [Co-developed with claude code -- Adam]
+// One JSON record per failure, for both bodies. `request_id` is the POST the job came from (0 when
+// it came from no HTTP batch). `refused_by`, `outcome`, `reason` and `remedy` are the strategy's
+// reading of the far end's refusal (OpResult::Refusal) and are present only when it said them:
+// `message` keeps 200 bytes of the reply for a log line, which on a P4 proxy refusal cuts off the
+// remedy. All of these strings come from another process, so all are dumped with bad bytes
+// replaced, as `message` is.
+static json
+dispatchFailuresJson(const std::vector<DispatchOutcomeLog::Record>& records)
+{
+    json failures = json::array();
+    for (const auto& rec : records)
+    {
+        failures.push_back(json{{"seq", rec.seq},
+                                {"at_unix_ms", rec.atUnixMs},
+                                {"op", DispatchOutcomeLog::opName(rec.op)},
+                                {"dpid", rec.dpid},
+                                // Named "requested" because it is not necessarily what was
+                                // programmed: measured 2026-08-30, the southbound programs every
+                                // entry at priority 0 whatever was asked for.
+                                {"requested_priority", rec.requestedPriority},
+                                {"match", rec.match},
+                                {"controller_status", rec.controllerStatus},
+                                // [Co-developed with claude code -- Adam] The controller's
+                                // own words, from another process: any byte, dumped strictly.
+                                {"message", withInvalidUtf8Replaced(rec.message)}});
+        json& added = failures.back();
+        added["request_id"] = rec.requestId;
+        const std::pair<const char*, const std::string*> said[] = {
+            {"refused_by", &rec.refusal.by},
+            {"outcome", &rec.refusal.outcome},
+            {"reason", &rec.refusal.reason},
+            {"remedy", &rec.refusal.remedy}};
+        for (const auto& [key, value] : said)
+        {
+            if (!value->empty())
+            {
+                added[key] = withInvalidUtf8Replaced(*value);
+            }
+        }
+    }
+    return failures;
+}
+
+// [Co-developed with claude code -- Adam]
 // `?request_id=<id>` answers for one POST instead of for the process. Split out of
 // the handler below so the two answers cannot drift into different key names, and so the parse
 // failure is answered here rather than by the outermost catch -- `?request_id=abc` through
@@ -1907,6 +1951,14 @@ HttpSession::respondToDispatchStatusRequestId(http::response<http::string_body>&
                    "are still queued -- or, if dispatcher_running is false, that they were "
                    "dropped before any southbound attempt and are counted in the process-wide "
                    "counters.dropped_after_stop instead"}};
+    // [Co-developed with claude code -- Adam]
+    // This request's own failure records, with who refused and the far end's reason. A count
+    // with no reason beside it told a caller its write failed and not why: the reason was only
+    // in the process-wide list, which carried no request id. `failures_not_retained` is how many
+    // of this request's records the ring has since dropped, so a short list never reads as "no
+    // reason given". Always present, 0 included.
+    body["failures"] = dispatchFailuresJson(outcomes.recentFailuresFor(*requestId));
+    body["failures_not_retained"] = tally->failuresEvicted;
     // Written as an assignment rather than in the initialiser above so the process-wide body's
     // `{"dispatcher_running", ...}` line stays the only occurrence of that literal: the A-7
     // mutation gate anchors on it and a second copy would make its mutation ambiguous.
@@ -1941,23 +1993,9 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
 
     const auto& outcomes = m_controller->dispatchOutcomes();
 
-    json failures = json::array();
-    for (const auto& rec : outcomes.recentFailures())
-    {
-        failures.push_back(json{{"seq", rec.seq},
-                                {"at_unix_ms", rec.atUnixMs},
-                                {"op", DispatchOutcomeLog::opName(rec.op)},
-                                {"dpid", rec.dpid},
-                                // Named "requested" because it is not necessarily what was
-                                // programmed: measured 2026-08-30, the southbound programs every
-                                // entry at priority 0 whatever was asked for.
-                                {"requested_priority", rec.requestedPriority},
-                                {"match", rec.match},
-                                {"controller_status", rec.controllerStatus},
-                                // [Co-developed with claude code -- Adam] The controller's
-                                // own words, from another process: any byte, dumped strictly.
-                                {"message", withInvalidUtf8Replaced(rec.message)}});
-    }
+    // [Co-developed with claude code -- Adam] Built by the same function as the per-request
+    // answer's `failures`, so the two cannot spell a record differently.
+    json recentFailures = dispatchFailuresJson(outcomes.recentFailures());
 
     // [Co-developed with claude code -- Adam]
     // `succeeded`/`failed` are GONE from this body, renamed to `dispatched_ok`/
@@ -2044,7 +2082,7 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
                         "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries"})},
           {"includes_boot_time_programming", false},
           {"includes_intent_translator", false}}},
-        {"recent_failures", std::move(failures)},
+        {"recent_failures", std::move(recentFailures)},
         {"recent_failures_capacity", outcomes.capacity()},
         // Non-zero means the list above is partial. Published rather than left implicit: a
         // silently truncated list reads exactly like a system with fewer failures than it has.
