@@ -1089,24 +1089,61 @@ section '15. the rc of a teardown is its ENDING, not a reading from the middle o
 # 🔴 The fix that would be worse: "P4 does not check ports". That swaps a reading for an
 # assumption, and an orphan on :30051 is exactly what the reading is for. So the ports are
 # RE-READ after `verify clean` and the rc follows the SECOND reading.
-STACK_DOWN_LIVE_P4="  -> an orphan holding one makes the next fabric fail to bind
+# [Co-developed with claude code -- Adam]
+ndt_cons() {   # <port> -- the consequence the port table beside $NDT gives that port's row
+    ( source "$(dirname "$NDT")/ports.sh"
+      while IFS='|' read -r spec proto plane owner cons; do
+          for p in $(ndt_port_expand "$spec"); do [[ "$p" == "$1" ]] && { echo "$cons"; exit 0; }; done
+      done < <(ndt_port_rows all) )
+}
+# [Co-developed with claude code -- Adam] stack.sh's real lines for two bmv2 ports, as a non-root
+# user holding only the user guide's sudo grants saw them on 2026-11-13 (eight ports, 46 lines):
+# the table's consequence for each row, the foreign-holder line and its two-line tail, and the
+# advice block at the return site. The first and last lines are not about the ports and must
+# survive any filtering of that report, and so must the unchecked-UDP warning (stack.sh's own
+# text, with ports.sh's reason for a machine with no ss) and an empty line (which
+# stack.sh's down path does not print today; the filter's array lookup must not choke on one).
+STACK_DOWN_LIVE_P4="stopped kernel
+
+  :6343 (udp) could NOT be checked: no ss on PATH, and UDP can only be probed through ss -- not reported clear
+  -> $(ndt_cons 30051)
   :30051 is still listening, held by a process this user cannot see (probably root-owned)
     This script did not start it. The next 'up' would find the port open and
     measure the wrong process, so this is reported rather than ignored.
+  -> $(ndt_cons 9091)
   :9091 is still listening, held by a process this user cannot see (probably root-owned)
     This script did not start it. The next 'up' would find the port open and
     measure the wrong process, so this is reported rather than ignored.
   find and stop it, or the next 'up' will report on it:
-    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"
+    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh
+    cat $FIX/.test_run/pids/*.pid   # what this stack started; check each against /proc/<pid>
+  cleared ryu's stale registry files (pid gone): ryu.pid"
 
 reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
 OUT="$(drive 'cmd_down')"
 check "🔴 ports [1/3] found open and [3/3] closed are not a failed teardown" "0" "$(rc_of_out "$OUT")"
-has   "  what [1/3] said is still printed in full" ":30051 is still listening" "$OUT"
-has   "  and the status it produced is still named" "stack.sh down exited 1" "$OUT"
-has   "  🔴 with the verdict on those ports deferred" "taken AFTER 'verify clean'" "$OUT"
-has   "  🔴 then re-read, by number, and reported closed" "were closed by [3/3]: 9091 30051" "$OUT"
+has   "  the status it produced is still named, with the ports" \
+      "stack.sh down exited 1 only on port(s) it did not start: 9091 30051" "$OUT"
+has   "  🔴 then re-read, by number, and reported closed" "were closed by the teardown ([2/3]/[3/3]): 9091 30051" "$OUT"
 has   "  and 'verify clean' really ran"            "ports closed" "$OUT"
+# [Co-developed with claude code -- Adam]
+# 🔴 2026-11-12/13. Three live P4 teardowns by a non-root user holding only the user guide's sudo
+# grants printed stack.sh's report on every bmv2 port at [1/3] -- "held by a process this user
+# cannot see", "This script did not start it" -- and then said the ports were closed and exited 0.
+# A port held only because [3/3] has not swept the fabric yet is not reported as somebody else's.
+hasnt "🔴 a deferred port is not called somebody else's at [1/3]" "is still listening, held by" "$OUT"
+hasnt "  nor given the 'did not start it' tail"     "This script did not start it" "$OUT"
+hasnt "  nor the second half of that tail"          "measure the wrong process" "$OUT"
+hasnt "  nor its row's consequence"                 "-> $(ndt_cons 30051)" "$OUT"
+hasnt "  nor the second row's"                      "-> $(ndt_cons 9091)" "$OUT"
+hasnt "  nor the advice block for a port nobody has to find" "find and stop it" "$OUT"
+hasnt "  nor the advice's ss line"                  "ss -ltnp" "$OUT"
+hasnt "  nor its pidfile line"                      "# what this stack started" "$OUT"
+has   "  🔴 and what stack.sh said about anything else is kept (first line)" "stopped kernel" "$OUT"
+has   "  and (last line)"                           "cleared ryu's stale registry files" "$OUT"
+has   "  🔴 and an unchecked-UDP warning is kept, whole" \
+      ":6343 (udp) could NOT be checked: no ss on PATH, and UDP can only be probed through ss -- not reported clear" "$OUT"
+hasnt "  and an empty line in stack.sh's output raises no bash error" "bad array subscript" "$OUT"
 
 # 🔴 THE OTHER DIRECTION, isolated from the assertion's own rc. `cmd_clean` would go red about
 # a held port by itself, so a reader that merely inherited clean_rc would pass this cell while
@@ -1118,12 +1155,46 @@ cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0;
 cmd_down')"
 check "🔴 a port STILL held after [3/3] keeps the teardown red" "1" "$(rc_of_out "$OUT")"
 has   "  naming which ones"                       "STILL held after [3/3]: 9091 30051" "$OUT"
+# [Co-developed with claude code -- Adam] ...and by whom, read AFTER 'verify clean': [1/3] no
+# longer prints stack.sh's holder line for a deferred port, so the re-read is the line that names it
+# for the failing teardown (a real 'verify clean' also names the holder, in its residue lines, but
+# it can be refused, rc 5, and then names none; this line does not depend on it).
+AFTER_VERIFY="$(sed -n '/^verify clean$/,$p' <<<"$OUT")"
+has   "  🔴 and naming the holder of each, after 'verify clean'" \
+      ":30051 is still listening, held by a process this user cannot see" "$AFTER_VERIFY"
+has   "  (the other one too)"                     ":9091 is still listening, held by" "$AFTER_VERIFY"
 # ...and the control for that stub: with the ports closed the same drive is green, so the cell
 # above is about the ports and not about the stub.
 reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
 OUT="$(drive 'cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
 cmd_down')"
 check "  and green when they are not"             "0" "$(rc_of_out "$OUT")"
+
+# [Co-developed with claude code -- Adam]
+# A stranger on a port no sweep of the fabric touches (:8080, visible, someone else's pid) among
+# the bmv2 ports. Deferral is all or nothing, so its report is held back with theirs; the sweep
+# does not close it, so it must come out at the re-read, with its holder, and fail the teardown.
+STACK_DOWN_STRANGER="stopped kernel
+  -> $(ndt_cons 8080)
+  :8080 is still listening, held by python3 pid 4242
+    This script did not start it. The next 'up' would find the port open and
+    measure the wrong process, so this is reported rather than ignored.
+  -> $(ndt_cons 30051)
+  :30051 is still listening, held by a process this user cannot see (probably root-owned)
+    This script did not start it. The next 'up' would find the port open and
+    measure the wrong process, so this is reported rather than ignored.
+  find and stop it, or the next 'up' will report on it:
+    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh
+    cat $FIX/.test_run/pids/*.pid   # what this stack started; check each against /proc/<pid>"
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_STRANGER"
+OUT="$(drive 'FX_HELD="8080:4242"
+cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
+cmd_down')"
+check "🔴 a stranger's port still held after [3/3] keeps the teardown red" "1" "$(rc_of_out "$OUT")"
+has   "  naming the port that is still held"       "STILL held after [3/3]: 8080" "$OUT"
+hasnt "  and not the bmv2 port the sweep closed"   "STILL held after [3/3]: 8080 30051" "$OUT"
+AFTER_VERIFY="$(sed -n '/^verify clean$/,$p' <<<"$OUT")"
+has   "  🔴 and its holder, after 'verify clean'"  ":8080 is still listening, held by" "$AFTER_VERIFY"
 
 # 🔴 A fatal ending in the same breath is NOT deferrable. It is delivered once, out of a .exit
 # record report_exit then removes, so an rc that swallowed it would lose it for good.
@@ -1150,7 +1221,8 @@ out_for stack_down "  :30051 is still listening, held by a process this user can
   find and stop it, or the next 'up' will report on it:"
 OUT="$(drive 'cmd_down')"
 check "🔴 a port this stack STARTED still holds keeps the teardown red" "1" "$(rc_of_out "$OUT")"
-hasnt "  and nothing is deferred out of that status"  "taken AFTER 'verify clean'" "$OUT"
+hasnt "  and nothing is deferred out of that status"  "only on port(s) it did not start" "$OUT"
+has   "  🔴 so stack.sh's port lines are printed in full at [1/3]" ":30051 is still listening, held by" "$OUT"
 
 # 🔴 Pinned to a RETURN SITE, not to a vocabulary: `still listening` with no advice block under
 # it did not come from the branch that returns on ports, so nothing is deferred.
@@ -1169,7 +1241,7 @@ check "🔴 an unaccounted-for non-zero is still red"       "1" "$(rc_of_out "$O
 reset_fix; rm -f "$DM"; rc_for stack_down 0
 OUT="$(drive 'cmd_down')"
 check "🔴 a clean stack.sh half is still green"           "0" "$(rc_of_out "$OUT")"
-hasnt "  and nothing is deferred"                         "taken AFTER 'verify clean'" "$OUT"
+hasnt "  and nothing is deferred"                         "only on port(s) it did not start" "$OUT"
 
 # 🔴 Against the CODE, from this tree and never from a mutant copy: the four sentences this
 # reader is pinned to are the ones stack.sh really prints, each exactly once. A text-only
@@ -1188,6 +1260,21 @@ check "  and report_exit's fatal-ending line"             "1" \
 # phrase on purpose, so this reader treats it as a fatal ending too; nothing else may.
 check "  and stop_one's stop-window KILL line, the only other one" "1 2" \
       "$(grep -cF 'did not stop cleanly: still running' "$STACK_REAL") $(grep -cF 'did not stop cleanly:' "$STACK_REAL")"
+# [Co-developed with claude code -- Adam] ...and the lines stack_down_without_port_report leaves
+# out at [1/3] are stack.sh's own, so the fixture above is not a sentence only this suite prints.
+# Each is matched whole there; reworded in stack.sh, it would be printed again and these go red.
+check "  the foreign-holder line's tail, first half, is stack.sh's own" "1" \
+      "$(grep -cF "err \"    This script did not start it. The next 'up' would find the port open and\"" "$STACK_REAL")"
+check "  and second half"                                 "1" \
+      "$(grep -cF 'err "    measure the wrong process, so this is reported rather than ignored."' "$STACK_REAL")"
+check "  and the advice block's ss line"                  "1" \
+      "$(grep -cF 'err "    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"' "$STACK_REAL")"
+check "  and its pidfile line"                            "1" \
+      "$(grep -cF 'err "    cat $PID_DIR/*.pid   # what this stack started; check each against /proc/<pid>"' "$STACK_REAL")"
+check "  and the foreign-holder line's shape (two spaces, colon, port)" "1" \
+      "$(grep -cF 'err "  :$port is still listening, held by $owner"' "$STACK_REAL")"
+check "  and the consequence line, built from the table" "1" \
+      "$(grep -cF 'err "  -> $consequence"' "$STACK_REAL")"
 
 # ==========================================================================================
 section "16. 'ndt clean' refuses while a teardown is in flight"
@@ -1967,7 +2054,7 @@ cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0;
 cmd_down')"
 check "🔴 down: a deferred port the re-read cannot tell about keeps the teardown red" "1" "$(rc_of_out "$OUT")"
 has   "  naming it, with a reason"                        "could not re-read :6343 after the sweep (" "$OUT"
-hasnt "🔴 and it is never reported closed by [3/3]"       "were closed by [3/3]" "$OUT"
+hasnt "🔴 and it is never reported closed by [3/3]"       "were closed by the teardown" "$OUT"
 # ...and the control: the same drive with the port readable and closed is green.
 reset_fix; rm -f "$DM"; rc_for stack_down 1
 out_for stack_down "  :6343 is still listening, held by a process this user cannot see (probably root-owned)
@@ -1975,7 +2062,7 @@ out_for stack_down "  :6343 is still listening, held by a process this user cann
 OUT="$(drive 'cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
 cmd_down')"
 check "  and green when the re-read says closed"          "0" "$(rc_of_out "$OUT")"
-has   "  reporting it closed"                             "were closed by [3/3]: 6343" "$OUT"
+has   "  reporting it closed"                             "were closed by the teardown ([2/3]/[3/3]): 6343" "$OUT"
 
 # ndt clean: unchanged, and pinned -- the residue names it, the rc is not clean, and the
 # ours/stranger split does not invent a holder for a port nobody could see. The switch manifest

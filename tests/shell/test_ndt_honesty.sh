@@ -885,7 +885,7 @@ has   "  and the status table's --measuring note keeps its date" "measurement is
 # 🔴 Against the code. A text-only cell here would go on passing after the re-read had been
 # deleted, which is the exact state the table would then be lying about.
 check "  the re-read the table describes is really taken"  "1" \
-      "$(grep -c "were closed by \[3/3\]" "$NDT")"
+      "$(grep -c "were closed by the teardown" "$NDT")"
 check "  🔴 and it is pinned to stack.sh's return site, not to a word list" "1" \
       "$(grep -c '^STACK_DOWN_RETURNED_ON_PORTS=' "$NDT")"
 

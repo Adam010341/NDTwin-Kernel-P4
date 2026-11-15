@@ -3489,6 +3489,39 @@ stack_down_deferrable_ports() {
     return 0
 }
 
+# stack_down_without_port_report <text> -- <text> minus stack.sh's report on the ports that
+# stack_down_deferrable_ports has just deferred, for printing at [1/3].
+#
+# [Co-developed with claude code -- Adam]
+# On a live P4 fabric that report is two to five lines per bmv2 port -- the table's
+# `-> <consequence>`, `:<port> is still listening, held by a process this user cannot see`,
+# "This script did not start it" -- forty-odd lines calling the fabric this teardown has not yet
+# swept somebody else's, and then, after 'verify clean', the same teardown saying the ports are
+# closed and exiting 0. The rc was already taken from the second reading; the text was not.
+# Called ONLY when the status is deferred, so it removes a report whose verdict is taken later,
+# never a vocabulary: every other line stack.sh printed is kept. The holder line is a start-anchored
+# regex and the pidfile line a glob, the rest are matched whole, so a line stack.sh rewords is printed
+# rather than dropped. A port still held after the sweep is reported at the re-read below 'verify clean'.
+stack_down_without_port_report() {
+    local line spec proto plane owner consequence
+    local -A drop=(
+        ["    This script did not start it. The next 'up' would find the port open and"]=1
+        ["    measure the wrong process, so this is reported rather than ignored."]=1
+        ["  $STACK_DOWN_RETURNED_ON_PORTS"]=1
+        ["    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"]=1
+    )
+    while IFS='|' read -r spec proto plane owner consequence; do
+        [[ -n "$consequence" ]] && drop["  -> $consequence"]=1
+    done < <(ndt_port_rows all)
+    while IFS= read -r line; do
+        [[ -n "$line" && -n "${drop[$line]:-}" ]] && continue
+        [[ "$line" =~ ^\ \ :[0-9]+\ "$STACK_DOWN_FOREIGN_PORT"\  ]] && continue
+        [[ "$line" == "    cat "*"/*.pid   # what this stack started; check each against /proc/<pid>" ]] && continue
+        printf '%s\n' "$line"
+    done <<<"$1"
+    return 0
+}
+
 # ndt_port_table_size [plane] -- "<N> rule(s), <M> port(s)", ranges expanded. Written for the
 # help text, and written as a function for the reason the help needed it: that line said
 # `--deep also kills whatever still holds :8000/:8080/:8081` while deep_sweep had been reading
@@ -6078,20 +6111,26 @@ cmd_down() {
     # more important, and down_rc is the single verdict this function ends on.
     local out src ports_deferred=""
     out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"; src=$?
-    stack_down_lines "$out"
     if (( src != 0 )); then
         # 🔴 2026-09-12. See stack_down_deferrable_ports: when the ONLY thing behind
         # that status is ports held by processes stack.sh did not start, the verdict on them is
         # taken after [3/3] has had its turn, because [1/3] runs before the sweep and on a live
         # P4 fabric it can only be naming the fabric this teardown is about to remove.
         ports_deferred="$(stack_down_deferrable_ports "$out")"
+    fi
+    # [Co-developed with claude code -- Adam] The report on deferred ports is left out here
+    # and given at the re-read, for a port that is still held then. See
+    # stack_down_without_port_report.
+    if [[ -n "$ports_deferred" ]]; then
+        stack_down_lines "$(stack_down_without_port_report "$out")"
+    else
+        stack_down_lines "$out"
+    fi
+    if (( src != 0 )); then
         if [[ -n "$ports_deferred" ]]; then
-            warn "stack.sh down exited $src, and the only thing behind that status is port(s)"
-            warn "  still listening at [1/3], held by processes it did not start:"
-            warn "    $ports_deferred"
-            warn "  [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this"
-            warn "  is the fabric this teardown is about to remove, accusing itself. The verdict"
-            warn "  on these ports is taken AFTER 'verify clean' below, not here."
+            info "stack.sh down exited $src only on port(s) it did not start: $ports_deferred"
+            info "  [3/3] has not swept the data plane yet, so they are read again after 'verify clean';"
+            info "  a port still held then is reported there, with its holder, and fails this teardown."
         else
             err "stack.sh down exited $src -- the kernel/proxy/Ryu half did not end cleanly;"
             err "  what it found is printed above. A component that died of a fatal signal is"
@@ -6296,11 +6335,16 @@ cmd_down() {
         fi
         if [[ -n "$dstill" ]]; then
             err "the port(s) [1/3] named are STILL held after [3/3]: $dstill"
+            # [Co-developed with claude code -- Adam] The holder, read now: [1/3] no longer prints
+            # stack.sh's line for a deferred port, so this is where it is named.
+            for dp in $dstill; do
+                err "    :$dp is still listening, held by $(ndt_port_holder "$dp" "$(ndt_port_proto "$dp")")"
+            done
             err "  that is this teardown failing, and not the order of its own steps."
             down_rc=1
             not_verified "port(s) still held after the sweep: $dstill"
         elif [[ -z "$dblind" && -z "$dunk" ]]; then
-            ok "the $dn port(s) [1/3] called 'still listening' were closed by [3/3]: $ports_deferred"
+            ok "the $dn port(s) [1/3] named were closed by the teardown ([2/3]/[3/3]): $ports_deferred"
             info "  so stack.sh's exit $src was a reading from the MIDDLE of this teardown, not"
             info "  its ending, and it is not carried to the exit code."
         fi
