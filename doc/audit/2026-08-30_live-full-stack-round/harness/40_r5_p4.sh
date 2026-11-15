@@ -215,7 +215,7 @@ fi
 
 say "  now the invalid rule"
 # OUTPUT to port 999: shape-valid (so it passes the kernel's pre-queue shape check at
-# HttpSession.cpp:913-957) but no such port exists on the switch, so the southbound write fails.
+# HttpSession.cpp:914-958) but no such port exists on the switch, so the southbound write fails.
 BAD_BODY='{"dpid":1,"priority":901,"match":{"eth_type":2048,"ipv4_dst":"10.0.0.98"},"actions":[{"type":"OUTPUT","port":999}]}'
 read -r RC_B CODE_B <<<"$(http_probe f5b_invalid POST "$NDT_URL/ndt/install_flow_entry" "$BAD_BODY")"
 BAD_RESP="$(cat "$OUT/http/f5b_invalid.body" 2>/dev/null || true)"
@@ -223,7 +223,7 @@ info "invalid rule -> curl_rc=$RC_B http=$CODE_B  body: $BAD_RESP"
 if [[ "$CODE_B" == "400" ]]; then
     # The kernel now shape-checks before queueing (added after 08-18). If it rejects this at the
     # front door, the southbound never sees it and F-5b's mechanism is not exercised.
-    verdict5 F-5b unreachable "the kernel answered 400 at the shape check (HttpSession.cpp:913-957) so nothing was queued and the southbound write path was never entered. Find a shape-valid rule the switch still refuses, or record F-5b as not exercised this run. Body: $BAD_RESP"
+    verdict5 F-5b unreachable "the kernel answered 400 at the shape check (HttpSession.cpp:914-958) so nothing was queued and the southbound write path was never entered. Find a shape-valid rule the switch still refuses, or record F-5b as not exercised this run. Body: $BAD_RESP"
 else
     # Poll: the error is logged asynchronously by the dispatcher thread (Controller.cpp:55).
     WAITED="$(wait_for_line "$KLOG" kernel_dispatch_failed 30)"

@@ -26,7 +26,7 @@ C2	pre_clone	ext	A	2	RED	no clone-session route (clone written only at boot and 
 K1	counters	core	A	2	GREEN	first run; GET /p4/counter reads p4info.counters (p4_client.py:1598)	r6
 K2	counters	ext	A	2	RED	inferred 404: only p4info.counters is scanned, not direct_counters (p4_client.py:1598)	r6
 K3	counters	core	B	4	GREEN	the counter read works under external (api_routes.py:987-990)	r6
-MT1	meters	core	A	2	RED	501 unsupported_on_p4 (HttpSession.cpp:279-281,416-427,2012-2017; P4RoutingStrategy.cpp:10-33)	r6
+MT1	meters	core	A	2	RED	501 unsupported_on_p4 (HttpSession.cpp:280-282,417-428,2073-2078; P4RoutingStrategy.cpp:10-33)	r6
 MT2	meters	core	A	2	RED	no meter route on the proxy	r6
 MT3	meters	ext	A	2	RED	no direct-meter route on the proxy	r6
 R2	registers	core	A	2	GREEN	C2 thrift cut: observed offline, at commit a46c8614, on throwaway bmv2 stock and fast, the proxy's own GET /p4/register handler (bmv2's thrift service) and observe_r2 judged against the marker's value (gates-0910/p4-register-read/trial-reg-r4.json, an audit-raw log outside the repo; repeated at the final head in trial-reg-r5.json); no live health.json yet; code: api_routes.register, bm_thrift	r6

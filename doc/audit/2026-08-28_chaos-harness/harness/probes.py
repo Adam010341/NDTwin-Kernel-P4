@@ -28,7 +28,7 @@ under test and this codebase has twelve documented "fails while reporting succes
   3. **No request leaves this module with a method the kernel does not register for that
      path.** Added 2026-09-03, FINDINGS-ALL #17. Rules 1 and 2 both assume the request
      ASKED THE RIGHT QUESTION, and five call sites did not: they sent GET to
-     `/ndt/set_switches_power_state`, which `HttpSession.cpp:189` registers under
+     `/ndt/set_switches_power_state`, which `HttpSession.cpp:190` registers under
      `http::verb::post` alone. Rule 1 then did its job perfectly and made things worse --
      the 404 was carried honestly all the way back to a caller that read it as a
      measurement of the system.
@@ -550,7 +550,7 @@ def bmv2_process_count() -> int:
 # reported a finding that was a misdiagnosis of its own bug.
 #
 # The harness sent `{"lockName": "chaos_probe"}`. The handler reads **`type`**
-# (`HttpSession.cpp:1918`, and the same in renew at `:1967` and release at `:2004`), so
+# (`HttpSession.cpp:4035`, and the same in renew at `:4108` and release at `:4218`), so
 # `lockName` was never read at all and every call silently fell back to
 # `DEFAULT_LOCK_TYPE_STR = "routing_lock"` (`LockManager.hpp:27`).
 #
@@ -773,7 +773,7 @@ def switch_flags(graph: Any) -> dict[Any, dict]:
          collision while the evidence field printed a confident `"total": 11`.
 
     So: filter on `vertex_type`, which `include/common_types/GraphTypes.hpp:23` defines as
-    `enum class VertexType { SWITCH, HOST }` and `HttpSession.cpp:1212` states outright --
+    `enum class VertexType { SWITCH, HOST }` and `HttpSession.cpp:2920` states outright --
     "Must be 0 (switch) or 1 (host)".
 
     And raise instead of coping. `.get("vertex_type", 0)` would have re-created the original

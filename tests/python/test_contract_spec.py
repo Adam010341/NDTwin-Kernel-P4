@@ -2452,7 +2452,7 @@ class DownReasonVocabularyTest(unittest.TestCase):
 
         spec.py   DOWN_REASONS, DECLARED, LINK_FAILURE_REPORTED, LINK_FAILURE_INJECTED
         kernel    downReasonToString (the enum's wire form, common_types/GraphTypes.hpp),
-                  HttpSession.cpp:564 (a raw-string reply) and :836 (a json object)
+                  HttpSession.cpp:565 (a raw-string reply) and :837 (a json object)
 
     Nothing compared them. This is not a defect today -- the seven agree -- and the guard is
     the point: a fourth reason added to the C++ enum would pass every existing check while

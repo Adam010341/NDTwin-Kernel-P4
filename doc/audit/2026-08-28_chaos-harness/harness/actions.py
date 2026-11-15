@@ -118,9 +118,9 @@ def _c01_apply(dry: bool) -> ActionResult:
     🔴 THIS CONTROL NEVER TOUCHED THE SYSTEM, and its own G2 verify confirmed it had. Found on
     the first live run, 2026-08-29. Two independent defects, either one fatal:
 
-      1. It sent **GET**. `HttpSession.cpp:177` routes `/ndt/set_switches_power_state` under
+      1. It sent **GET**. `HttpSession.cpp:178` routes `/ndt/set_switches_power_state` under
          `http::verb::post` only, so no route matched.
-      2. It sent **`dpid=1`**. The handler reads `ip` (`HttpSession.cpp:653`) and answers
+      2. It sent **`dpid=1`**. The handler reads `ip` (`HttpSession.cpp:654`) and answers
          400 `Missing or invalid ip/action` without it. Even as a POST it would have done
          nothing.
 
@@ -139,7 +139,7 @@ def _c01_apply(dry: bool) -> ActionResult:
     if dry:
         return _dry(f"would POST set_switches_power_state ip={S1_MGMT_IP} off, then on")
     off = probes.api_post(f"/ndt/set_switches_power_state?ip={S1_MGMT_IP}&action=off", {})
-    # The handler answers `{"<ip>": "Success"}` (HttpSession.cpp:665). Checked by content, not
+    # The handler answers `{"<ip>": "Success"}` (HttpSession.cpp:666). Checked by content, not
     # by status -- which is the whole reason probes.api_post does not return one.
     if not (isinstance(off, dict) and off.get(S1_MGMT_IP) == "Success"):
         # G2 up front: if the switch did not actually go down there is no A-1 to observe, and
@@ -310,7 +310,7 @@ def _c06_undo() -> None:
     ❌ **RETRACTED, and the retraction is the lesson.** This used to read "`lockName` does NOT
     namespace -- acquiring alpha blocks beta, there is one global routing lock". That was a
     misdiagnosis of *this harness's own bug*: it sent `lockName`, the handler reads `type`
-    (`HttpSession.cpp:1918`), so both requests carried no type and both defaulted to
+    (`HttpSession.cpp:4035`), so both requests carried no type and both defaulted to
     `routing_lock`. Names work fine -- `stringToLockType` (`LockManager.hpp:38-43`) returns
     `Unknown` for anything unrecognised and the acquire is refused. Corrected by reading the
     code.
@@ -325,7 +325,7 @@ def _c06_undo() -> None:
 
 # The route, spelled once. POST /ndt/historical_logging with `state` as a QUERY parameter --
 # the handler reads utils::queryParam(target, "state") and IGNORES the body
-# (HttpSession.cpp:2077), which is why nothing is sent in it.
+# (HttpSession.cpp:2138), which is why nothing is sent in it.
 #
 # 🔴 RETRACTED AND REWRITTEN 2026-09-03 (FIXED-ISSUES G-3): an earlier write-up of this control
 # reported a defect in the kernel that was a defect in the harness.

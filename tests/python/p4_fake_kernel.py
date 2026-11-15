@@ -222,7 +222,7 @@ class FakeKernel:
         if method == "GET" and path.startswith(STATEFUL):
             return self.stateful(path, query)
         if (method, path) == ("POST", "/ndt/set_switches_power_state"):
-            # As src/ndt_core/http/HttpSession.cpp:2057-2095 answers: 400 for a missing ip or an
+            # As src/ndt_core/http/HttpSession.cpp:2121-2169 answers: 400 for a missing ip or an
             # action other than on/off, 404 for an address it does not know, 200 {ip: "Success"}.
             # `reachable` follows at once (see the module docstring).
             # [Co-developed with claude code -- Adam]

@@ -8,10 +8,10 @@
  * the four skip paths deleted the switch -- while saying, in four places, that they were doing the
  * opposite:
  *
- *     DeviceConfigurationAndPowerManager.cpp:1079  "tables are left as they were"
- *     :1098  "Keeping the previous table is the same conservative choice the timeout path makes"
- *     :1122  "Skipping leaves the previous table in place, the conservative direction"
- *     :1149  "not as a switch with no rules. Keeping the previous table."
+ *     DeviceConfigurationAndPowerManager.cpp:1091  "tables are left as they were"
+ *     :1110  "Keeping the previous table is the same conservative choice the timeout path makes"
+ *     :1134  "Skipping leaves the previous table in place, the conservative direction"
+ *     :1161  "not as a switch with no rules. Keeping the previous table."
  *
  * plus `FlowStatsVerdict::SuspectTimedOut`'s own "Keep the previous table" in the header, the note
  * on buildFlowStatsCommand, and -- the reason this survived -- two test files whose prose already
@@ -21,7 +21,7 @@
  *
  * ### Why deleting is the worse of the two dishonesties
  *
- * Every consumer walks the array matching on `dpid` -- `HttpSession.cpp:622` serves it verbatim,
+ * Every consumer walks the array matching on `dpid` -- `HttpSession.cpp:623` serves it verbatim,
  * `IntentTranslator.cpp:1069` and `LLMAgent.cpp:275` read it whole, and the three checkers
  * (`tools/contract_test/spec.py:295`,
  * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and a live-acceptance probe) all
@@ -263,7 +263,7 @@ TEST(StaleTableCarryForward, LastErrorReportsTheLatestReasonNotTheFirst)
 TEST(StaleTableCarryForward, ASwitchThatWasNeverAttemptedIsNotCarriedForward)
 {
     // A switch that is down is skipped before any request is made
-    // (DeviceConfigurationAndPowerManager.cpp:1027), so it never reaches the unread list.
+    // (DeviceConfigurationAndPowerManager.cpp:1039), so it never reaches the unread list.
     const json previous = json::array({switchWithRules(3, "10.0.0.3")});
     json fresh = json::array();
 
@@ -353,7 +353,7 @@ TEST(StaleTableCarryForward, ASwitchThatStaysUnreadSinceBootKeepsCountingAndStay
 TEST(StaleTableCarryForward, TheStaleMarkersSurviveTheT11PendingEntryFilter)
 {
     // getOpenFlowTables copies the cache and runs stripUnprogrammedEntries over it before
-    // answering (DeviceConfigurationAndPowerManager.cpp:1974-1975). That filter rewrites
+    // answering (DeviceConfigurationAndPowerManager.cpp:1986-1987). That filter rewrites
     // sw["flows"]; if it ever rebuilt the switch object instead, F-6's markers would be silently
     // dropped on the way out and the endpoint would be back to serving a stale table as fresh --
     // with the unit test above still green, because it never runs the filter.
@@ -376,7 +376,7 @@ TEST(StaleTableCarryForward, TheStaleMarkersSurviveTheT11PendingEntryFilter)
 // --- the wiring: what get_switch_openflow_table_entries actually serves ----------------------
 //
 // Everything above tests the rule. These test that the rule is CONNECTED -- that the cache the
-// endpoint reads (HttpSession.cpp:622 -> getOpenFlowTables) really keeps the switch. Without
+// endpoint reads (HttpSession.cpp:623 -> getOpenFlowTables) really keeps the switch. Without
 // these, a mutation that stops the worker calling carryForwardUnreadTables leaves every test
 // above green, which is the same "decided correctly, wired to nothing" shape as F-6 itself.
 

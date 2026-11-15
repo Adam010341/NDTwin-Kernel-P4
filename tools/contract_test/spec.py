@@ -248,7 +248,7 @@ DOWN_REASONS = ("none", "switch-unreachable", "declared")
 #
 #   this file      DOWN_REASONS, DECLARED, and the two link-reply schemas   (4)
 #   the kernel     downReasonToString (common_types/GraphTypes.hpp, the enum's wire form),
-#                  HttpSession.cpp:564 (a raw-string reply) and :836 (a json object)  (3)
+#                  HttpSession.cpp:565 (a raw-string reply) and :837 (a json object)  (3)
 #
 # A fourth reason added to the enum would give the two hardcoded C++ replies nothing to say
 # about it and would fail the structural check here, in the two schemas that never mention
@@ -2566,7 +2566,7 @@ ENDPOINTS = [
     # Its sibling parses the body with an unguarded json::parse, so the 400 here comes from
     # buildResponse's `catch (const json::exception&)` rather than from a validator. That is the
     # difference this check exists for: the same malformed body reaches the two endpoints by
-    # different routes, and the other route has answered 500 before (HttpSession.cpp:2753).
+    # different routes, and the other route has answered 500 before (HttpSession.cpp:2814).
     dict(name="link_recovery_detected__malformed_json", method="POST",
          path="/ndt/link_recovery_detected", raw_body="{this is not json",
          category=ERRORPATH, expect_status=[400],

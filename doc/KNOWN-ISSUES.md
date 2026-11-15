@@ -165,7 +165,7 @@ lock, is refused with 412; that part is fixed.)
 back as `lease` is refused when the lock has moved on (`:526`, `:552`, `:687`, `:713`), but a call with
 no `lease` is acted on by name alone and only counted (`:564-570`, `:725-731`). The switch that would make
 the lease mandatory, `setRequireLeaseId`, is off by default and nothing calls it (`:73`, `:215`;
-`src/ndt_core/http/HttpSession.cpp:4085`, `:4196`).
+`src/ndt_core/http/HttpSession.cpp:4146`, `:4257`).
 
 **What to do.** Pass the `lease` value returned by `acquire_lock` to every `renew_lock` and
 `release_lock`, as a number in the JSON body: a query parameter or a string is silently ignored, as if
@@ -187,7 +187,7 @@ thread is not running or when every write to the output directory fails.
 
 **Why.** The recorder is not started in MININET mode, and says so in the kernel log
 (`src/ndt_core/data_management/HistoricalDataManager.cpp:63-72`). The endpoint reports this honestly
-(`src/ndt_core/http/HttpSession.cpp:3544-3578`). The reply is 200, so only the `recording` and `status`
+(`src/ndt_core/http/HttpSession.cpp:3605-3639`). The reply is 200, so only the `recording` and `status`
 fields tell the case apart from a working recorder.
 
 **What to do.** Read `recording` (and `reason`), not the status code. Use a deployment mode that records
@@ -253,7 +253,7 @@ starts or on an edge nobody samples.
 
 **Why.** Deliberate sentinel: `-1.0` means "never", not "a long time ago"
 (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:2001-2005`, serialised as is at
-`src/ndt_core/http/HttpSession.cpp:1635-1636`). The contract does not bound the value from below.
+`src/ndt_core/http/HttpSession.cpp:1643-1644`). The contract does not bound the value from below.
 
 **What to do.** Treat a negative value as "never sampled" before doing arithmetic on it. Do not use
 `telemetry_status` instead: it is decided per switch, so an edge that was never sampled on a switch that
@@ -268,14 +268,14 @@ no traffic. `telemetry_status` is `silent` then, but `silent` is not a fault tes
 sample has arrived from that switch on any port within the window, and a switch that is idle on every
 port looks the same. Agents report only for the flows they sample, and MININET mode discards counter
 samples (`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1592-1594`, `:1303-1308`); the code
-documents the false positive as deliberate (`include/ndt_core/collection/FlowLinkUsageCollector.hpp:284-287`).
+documents the false positive as deliberate (`include/ndt_core/collection/FlowLinkUsageCollector.hpp:288-291`).
 
 **When.** After traffic stops and the sampling agent goes quiet (the window is 5 seconds,
-`include/ndt_core/collection/FlowLinkUsageCollector.hpp:305`), for as long as the edge stays in the
+`include/ndt_core/collection/FlowLinkUsageCollector.hpp:309`), for as long as the edge stays in the
 graph.
 
-**Why.** The usage fields are always numeric (`src/ndt_core/http/HttpSession.cpp:1650-1651`); the
-silence is carried only by `telemetry_status` (`:1634`;
+**Why.** The usage fields are always numeric (`src/ndt_core/http/HttpSession.cpp:1658-1659`); the
+silence is carried only by `telemetry_status` (`:1642`;
 `src/ndt_core/collection/FlowLinkUsageCollector.cpp:2007-2027`).
 
 **What to do.** Read `silent` as "cannot tell": it covers a broken telemetry path and a switch with
@@ -298,7 +298,7 @@ link has a reading at all.
 
 **Why.** Links with `linkBandwidthUsage` 0, links that are not usable, and edges to hosts are skipped,
 and 0 is returned when no link is left (`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:5783-5844`).
-The handler is `src/ndt_core/http/HttpSession.cpp:3590-3606`. The endpoint is part of the
+The handler is `src/ndt_core/http/HttpSession.cpp:3651-3667`. The endpoint is part of the
 cross-repository `/ndt/` contract, so its meaning is not changed. The P4 energy-saving example uses it
 as a gate and stops its pass when the value is above its limit
 (`examples/p4_energy_saving/energy_saving.py:416-420`), so an overstated value makes it skip passes.
@@ -320,7 +320,7 @@ power control (its `power_path` is `none`) answers 200 `{"<ip>":"Success"}` and 
 off. `GET /ndt/get_power_report` for that switch never shows a measured saving. Before the
 off it reads the synthetic per-switch figure in MININET mode (every `ndt up` lab) and -1 ("unavailable")
 in TESTBED mode; after the off it reads 0 in both modes, because a switch that is marked down reads 0
-(`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1941-1950`, `:1982-1985`).
+(`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1953-1962`, `:1994-1997`).
 
 **When.** A switch that the topology file admits through an explicit `switch_kind` (`ovs`,
 `bmv2`/`p4` or `hardware`) although its `brand_name` is one this build has no power or telemetry path
@@ -331,7 +331,7 @@ OVS strategy; the exemption mark is never read on that path
 (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:70-100`). It is deliberate:
 a documented state value is not answered with 4xx. In TESTBED mode the command goes through the
 smart-plug table instead, and a switch missing from that table is refused with 404
-(`:2044-2077`; `src/ndt_core/http/HttpSession.cpp:2089-2096`). It is documented in
+(`:2056-2089`; `src/ndt_core/http/HttpSession.cpp:2150-2157`). It is documented in
 `doc/2026-01-02_ndt_api.md` ("The exemption affects reads, not commands").
 
 **What to do.** To tell whether a switch is exempt, read its node in `/ndt/get_graph_data`:
@@ -432,8 +432,8 @@ deletes again gets 200 each time.
 
 **Why.** The endpoint serves the kernel's cached table, refreshed by a periodic poll of the controller.
 The delete edits the cache by matching a key built from the request
-(`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:3189-3201`); the key reads the
-Ethernet type from `eth_type` only (`:3102`), while rows polled from the controller can carry `dl_type`,
+(`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:3201-3213`); the key reads the
+Ethernet type from `eth_type` only (`:3114`), while rows polled from the controller can carry `dl_type`,
 so the row probably survives until the next poll replaces the cache. That mechanism comes from reading the
 code and has not been confirmed on a running lab.
 
@@ -480,7 +480,7 @@ or read, and is unknown (null) when the push itself failed.
 requests and not the reasons for them. The kernel reads the record on its regular poll of the proxy and logs it at
 ERROR (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:797-805`;
 `src/ndt_core/power_management/P4RulesLost.cpp:99-103`); `get_graph_data` serves it on the switch node
-(`src/ndt_core/http/HttpSession.cpp:1584-1592`).
+(`src/ndt_core/http/HttpSession.cpp:1585-1599`).
 
 **What to do.** After a proxy restart or readopt, read `ryu_rules_lost` in `get_graph_data` and have
 the application that installed those rules resend them. A record of 0 is not proof that nothing was

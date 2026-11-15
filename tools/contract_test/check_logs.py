@@ -138,7 +138,7 @@ def colour(enabled):
 #: [Co-developed with claude code -- Adam] -- FIXED-ISSUES A-8.
 #:
 #: The kernel emits "... reported a read failure for switch N -- keeping the previous table"
-#: (DeviceConfigurationAndPowerManager.cpp:1134) *because it is handling a powered-off switch
+#: (DeviceConfigurationAndPowerManager.cpp:1146) *because it is handling a powered-off switch
 #: correctly*. It is unlistable as a plain WARNING: the identical line is also what a wedged
 #: control plane produces, which is the 2026-08-07 defect the warning was added to expose
 #: (all ten switches reporting zero rules while s1 held 130). Allowlisting it outright would

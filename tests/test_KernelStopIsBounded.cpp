@@ -284,7 +284,7 @@ fabricOfUpBmv2Switches(int count)
         props.isEnabled = true;
         // 🔴 An address, and NOT because this test needs one. fetchCpuReportInternal does
         // `utils::ipToString(vp.ip.front())` on every SWITCH vertex with no empty check
-        // (DeviceConfigurationAndPowerManager.cpp:1689), so a switch carrying no IP segfaults the
+        // (DeviceConfigurationAndPowerManager.cpp:1701), so a switch carrying no IP segfaults the
         // status worker -- confirmed here under gdb before this line existed: SIGSEGV on thread 4
         // in fetchCpuReportInternal <- statusUpdateWorker. That is a defect in its own right and
         // it is NOT what this file is about, so the fixture stays on the realistic side of it and
