@@ -11,11 +11,12 @@
 
 Standard library only. See doc/2026-01-02_ndt_api.md for the routes it calls.
 """
-from .errors import (Busy, KernelUnreachable, LockBusy, NDTwinError, NotFound, OutcomeUnknown,
-                     PowerError, Refused, SwitchRefused, TableFull, Unsettled, WriteError,
-                     WriteNotVerified)
+from .errors import (Busy, KernelUnreachable, LockBusy, NDTwinError, NoDetour, NotFound,
+                     OutcomeUnknown, PowerError, Refused, SwitchRefused, TableFull, Unsettled,
+                     WriteError, WriteNotVerified)
 from .kernel import Kernel, Lease, LinkUsage, PowerState
 from .p4 import P4, Counter, DirectCounter, Register, Settled, Table, TableEntry, WriteResult
+from .reroute import RoutePlan
 from .topology import Host, Link, Switch, Topology
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"

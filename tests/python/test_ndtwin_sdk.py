@@ -29,7 +29,8 @@ from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from p4_fake_kernel import (FIELD, MGMT_IP, POWER_MW, REPO, TABLE, FakeKernel, calls,  # noqa: E402
-                            grpc_502, refused_502, serve)
+                            chain_fabric, fabric_graph, grpc_502, refused_502, ring_fabric, serve,
+                            spine3_fabric)
 
 SDK_DIR = os.environ.get("NDTWIN_SDK_UNDER_TEST") or os.path.join(REPO, "sdk", "python")
 sys.path.insert(0, SDK_DIR)
@@ -1617,6 +1618,534 @@ class CounterAndRegisterTest(SdkTest):
         self.assertEqual(self.fake.requests[-1][1], "/ndt/p4/counter/a%2Fb")
 
 
+def stub_fabric():
+    r"""(graph, routes, power_mw) of a fabric where "any other neighbour" is the wrong way round.
+
+        h1 - s1 ---- s2 ---- s4 - h4       s1's ports: 2 to s2, 3 to s3, 4 to s5
+             |  \           /
+             s3  s5 -------                h3 hangs off s3, which is joined to s1 alone
+
+    s1 sends h4's packets over s2. Without s2, s3 (s1's lowest other port) reaches s4 only back
+    through s1, and its table sends them there: a loop. s5 is the way round.
+    [Co-developed with claude code -- Adam]"""
+    switch_links = [(1, 2, 2, 1), (2, 2, 4, 2), (1, 3, 3, 2), (1, 4, 5, 1), (5, 2, 4, 3)]
+    host_links = [(1, 1, "10.0.1.1"), (3, 1, "10.0.3.3"), (4, 1, "10.0.4.4")]
+    mac = "08:00:00:00:0{}:00".format
+    routes = {
+        1: [("10.0.1.1", "08:00:00:00:01:11", 1), ("10.0.3.3", mac(3), 3), ("10.0.4.4", mac(2), 2)],
+        2: [("10.0.1.1", mac(1), 1), ("10.0.3.3", mac(1), 1), ("10.0.4.4", mac(4), 2)],
+        3: [("10.0.1.1", mac(1), 2), ("10.0.3.3", "08:00:00:00:03:33", 1), ("10.0.4.4", mac(1), 2)],
+        4: [("10.0.1.1", mac(2), 2), ("10.0.3.3", mac(2), 2), ("10.0.4.4", "08:00:00:00:04:44", 1)],
+        5: [("10.0.1.1", mac(1), 1), ("10.0.3.3", mac(1), 1), ("10.0.4.4", mac(4), 2)],
+    }
+    return fabric_graph(switch_links, host_links), routes, {d: 50000 for d in routes}
+
+
+def detour_fabric():
+    r"""(graph, routes, power_mw) of a fabric with two ways round s2 of different length.
+
+        h1 - s1 ---- s2 ---- s4 - h4       s1's ports: 2 to s2, 3 to s5, 4 to s3
+              |  \          /  |            s4's ports: 2 to s2, 3 to s6, 4 to s3
+              |   s5 - s6 -'   |
+              `----- s3 -------'
+
+    Round s2 it is two links over s3 and three over s5, s6. The lower port of both switches
+    leads the longer way, so "fewest hops" and "lowest port" differ.
+    [Co-developed with claude code -- Adam]"""
+    switch_links = [(1, 2, 2, 1), (2, 2, 4, 2), (1, 3, 5, 1), (5, 2, 6, 1), (6, 2, 4, 3),
+                    (1, 4, 3, 1), (3, 2, 4, 4)]
+    host_links = [(1, 1, "10.0.1.1"), (4, 1, "10.0.4.4")]
+    mac = "08:00:00:00:0{}:00".format
+    routes = {
+        1: [("10.0.1.1", "08:00:00:00:01:11", 1), ("10.0.4.4", mac(2), 2)],
+        2: [("10.0.1.1", mac(1), 1), ("10.0.4.4", mac(4), 2)],
+        3: [("10.0.1.1", mac(1), 1), ("10.0.4.4", mac(4), 2)],
+        4: [("10.0.1.1", mac(2), 2), ("10.0.4.4", "08:00:00:00:04:44", 1)],
+        5: [("10.0.1.1", mac(1), 1), ("10.0.4.4", mac(6), 2)],
+        6: [("10.0.1.1", mac(5), 1), ("10.0.4.4", mac(4), 2)],
+    }
+    return fabric_graph(switch_links, host_links), routes, {d: 50000 for d in routes}
+
+
+def prefix_fabric():
+    r"""(graph, routes, power_mw) of a fabric whose tables hold prefixes, not one /32 per host.
+
+        s1 (h1, h5) ---- s2, s3 ---- s4 (h4a), s5 (h4b)     s2 and s3 each join s1, s4 and s5
+
+    h1 is 10.0.1.1 and h5 10.0.5.5, both on s1; h4a is 10.0.4.1 on s4 and h4b 10.0.4.2 on s5.
+    10.0.4.0/24 holds h4a and h4b, and 10.0.4.2/32 overlaps it. Each /24 is listed before the /32
+    that overlaps it, so a walk that takes the first route that matches reads the wrong one. The
+    routes cross s2; with s2 off they cross s3.
+    [Co-developed with claude code -- Adam]"""
+    switch_links = [(1, 2, 2, 1), (1, 3, 3, 1), (2, 2, 4, 2), (2, 3, 5, 2), (3, 2, 4, 3),
+                    (3, 3, 5, 3)]
+    host_links = [(1, 1, "10.0.1.1"), (1, 5, "10.0.5.5"), (4, 1, "10.0.4.1"), (5, 1, "10.0.4.2")]
+    mac = "08:00:00:00:0{}:00".format
+    routes = {
+        1: [("10.0.1.1", "08:00:00:00:01:11", 1), ("10.0.5.5", "08:00:00:00:05:55", 5),
+            ("10.0.4.0/24", mac(2), 2)],
+        2: [("10.0.1.1", mac(1), 1), ("10.0.5.5", mac(1), 1), ("10.0.4.0/24", mac(4), 2),
+            ("10.0.4.2", mac(5), 3)],
+        3: [("10.0.4.0/24", mac(4), 2), ("10.0.4.2", mac(5), 3), ("10.0.1.1", mac(1), 1),
+            ("10.0.5.5", mac(1), 1)],
+        4: [("10.0.4.0/24", "08:00:00:00:04:44", 1), ("10.0.1.1", mac(2), 2),
+            ("10.0.5.5", mac(2), 2), ("10.0.4.2", mac(2), 2)],
+        5: [("10.0.4.2", "08:00:00:00:05:44", 1), ("10.0.1.1", mac(2), 2), ("10.0.5.5", mac(2), 2),
+            ("10.0.4.1", mac(2), 2)],
+    }
+    return fabric_graph(switch_links, host_links), routes, {d: 50000 for d in routes}
+
+
+class MoveRoutesOffTest(SdkTest):
+    """Kernel.plan_routes_off and move_routes_off: which entries move, to which port, and when
+    they refuse. On the pod topology s1's port 4 and s2's port 3 lead to s4, and s3 is on s1's
+    port 3 and s2's port 4.
+    [Co-developed with claude code -- Adam]"""
+
+    def use(self, fabric):
+        self.tearDown()
+        self.fake = FakeKernel(*fabric())
+        self.server = serve(self.fake)
+        self.url = "http://127.0.0.1:%d" % self.server.server_address[1]
+        self.k = ndtwin.Kernel(self.url, timeout=5, retry_wait=0)
+
+    def posts(self):
+        return [b for m, p, _, b in self.fake.requests if (m, p) == ("POST", ENTRY)]
+
+    def take_down(self, a, b):
+        for edge in self.fake.graph["edges"]:
+            if {edge["src_dpid"], edge["dst_dpid"]} == {a, b}:
+                edge["is_up"] = False
+
+    def refused(self, dpid, **kw):
+        """The NoDetour of plan_routes_off(dpid), after checking nothing was written."""
+        with self.assertRaises(ndtwin.NoDetour) as cm:
+            self.k.plan_routes_off(dpid, TABLE, **kw)
+        self.assertEqual(self.posts(), [])
+        self.assertIs(cm.exception.nothing_written, True)
+        return cm.exception
+
+    @staticmethod
+    def moves(plan):
+        return [(e.dpid, e.match[FIELD][0], e.params["port"]) for e in plan]
+
+    def test_the_plan_moves_each_route_towards_the_switch_onto_the_other_spine_and_writes_nothing(self):
+        before = copy.deepcopy(self.fake.tables)
+        plan = self.k.plan_routes_off(4, TABLE)
+        self.assertEqual(self.moves(plan), [(1, "10.0.4.4", 3), (2, "10.0.2.2", 4)])
+        self.assertEqual([e.params["dstAddr"] for e in plan],  # without `mac`: kept as it was
+                         ["08:00:00:00:04:00", "08:00:00:00:04:00"])
+        self.assertEqual(plan.old, [before[1][3], before[2][1]])
+        self.assertEqual((plan.dpid, plan.table), (4, TABLE))
+        self.assertEqual(calls(self.fake), ["GET get_graph_data", "GET table s1", "GET table s2",
+                                            "GET table s3"])
+        self.assertEqual(self.fake.tables, before)
+
+    def test_a_topology_passed_in_is_not_read_again(self):
+        topo = self.k.topology()
+        self.reset()
+        self.k.plan_routes_off(4, TABLE, topo=topo)
+        self.assertEqual(calls(self.fake), ["GET table s1", "GET table s2", "GET table s3"])
+
+    def test_move_routes_off_writes_the_plan_reads_it_back_and_can_move_it_back(self):
+        before = copy.deepcopy(self.fake.tables)
+        done = self.k.move_routes_off(4, TABLE)
+        self.assertEqual(self.moves(done), [(1, "10.0.4.4", 3), (2, "10.0.2.2", 4)])
+        self.assertEqual(calls(self.fake), [
+            "GET get_graph_data", "GET table s1", "GET table s2", "GET table s3",
+            "POST table s1", "POST table s2", "GET table s1", "GET table s2"])
+        for src, dst in ((1, "10.0.4.4"), (2, "10.0.2.2"), (1, "10.0.3.3"), (2, "10.0.1.1")):
+            path, delivered = self.fake.walk(src, dst)
+            self.assertTrue(delivered, path)
+            self.assertNotIn(4, path)
+        self.assertEqual(done.old, [before[1][3], before[2][1]])
+        self.k.p4.modify_all(done.old)
+        self.assertEqual(self.fake.tables, before)
+
+    def test_move_routes_off_without_verify_reads_nothing_back(self):
+        self.k.move_routes_off(4, TABLE, verify=False)
+        self.assertEqual(calls(self.fake)[-2:], ["POST table s1", "POST table s2"])
+
+    def test_with_mac_the_moved_entry_takes_the_next_hops_address_from_the_new_port(self):
+        plan = self.k.plan_routes_off(4, TABLE, mac_param="dstAddr")
+        self.assertEqual([e.params for e in plan], [
+            {"dstAddr": "08:00:00:00:03:00", "port": 3},   # s1's entry for h3 leaves on port 3
+            {"dstAddr": "08:00:00:00:03:00", "port": 4}])  # s2's entry for h1 leaves on port 4
+
+    def test_with_mac_and_no_entry_on_the_new_port_to_take_it_from_it_refuses(self):
+        self.use(stub_fabric)
+        err = self.refused(2, mac_param="dstAddr")
+        self.assertIn("no entry of s1 leaving on port 4 to take dstAddr from", str(err))
+        self.assertEqual(err.entry.match, {FIELD: ["10.0.4.4", 32]})
+
+    def test_the_new_port_is_one_whose_neighbour_reaches_the_destination_without_the_switch(self):
+        self.use(stub_fabric)
+        plan = self.k.move_routes_off(2, TABLE)
+        self.assertEqual(self.moves(plan), [(1, "10.0.4.4", 4), (4, "10.0.1.1", 3),
+                                            (4, "10.0.3.3", 3)])
+        for src in (1, 3, 4):
+            for dst in ("10.0.1.1", "10.0.3.3", "10.0.4.4"):
+                path, delivered = self.fake.walk(src, dst)
+                self.assertTrue(delivered, (src, dst, path))
+                self.assertNotIn(2, path, (src, dst))
+
+    def test_a_plan_that_would_loop_is_refused_and_names_the_way(self):
+        self.use(ring_fabric)
+        err = self.refused(3)
+        self.assertIsNone(err.entry)
+        self.assertEqual(err.switches, [1, 2, 1])
+        self.assertIsNone(err.path)  # `path` keeps its meaning on every NDTwinError: the HTTP route
+        self.assertIn("packets for 10.0.4.4 entering s1 loop: s1 port 2 -> s2 port 1 (moved) -> s1",
+                      str(err))
+
+    def test_on_the_ring_a_switch_no_host_route_needs_is_moved_off(self):
+        self.use(ring_fabric)
+        self.assertEqual(self.moves(self.k.plan_routes_off(5, TABLE)), [(6, "10.0.1.1", 2)])
+
+    def test_the_routes_of_a_host_behind_a_down_link_are_followed_too(self):
+        self.use(chain_fabric)  # h9 hangs off s2 behind a link that is down
+        err = self.refused(3)
+        self.assertEqual(err.switches, [2, 1, 2])
+        self.assertIn("packets for 10.0.4.4 entering s2 loop", str(err))
+
+    def test_a_route_that_is_broken_already_is_refused_and_said_so(self):
+        self.take_down(2, 3)  # s2 still sends h1's packets to s3, over the link that is down
+        err = self.refused(3)
+        self.assertEqual(err.switches, [2])
+        self.assertIn("packets for 10.0.1.1 entering s2 are dropped: s2 port 4; no moved entry is "
+                      "on that way, so it is broken already", str(err))
+
+    def test_a_route_to_a_host_on_the_switch_itself_is_refused(self):
+        err = self.refused(1)
+        self.assertIn("10.0.1.1 hangs off s1 itself", str(err))
+        self.assertEqual(err.entry, self.fake.tables[3][0])
+
+    def test_no_other_way_is_refused_with_the_entry_named(self):
+        self.take_down(1, 3)  # s1 now reaches s2 only over s4
+        err = self.refused(4)
+        self.assertEqual((err.entry.dpid, err.entry.match), (1, {FIELD: ["10.0.4.4", 32]}))
+        self.assertIn("no neighbour but s4 reaches s2 without passing s4 or coming back through s1",
+                      str(err))
+
+    def test_a_default_entry_that_sends_packets_to_the_switch_is_refused(self):
+        default = self.fake.tables[1][-1]
+        default.update(action_name="MyIngress.ipv4_forward",
+                       action_params={"dstAddr": "08:00:00:00:09:09", "port": 4})
+        err = self.refused(4)
+        self.assertTrue(err.entry.is_default)
+        self.assertIn("its default entry sends packets to s4", str(err))
+
+    def test_an_entry_it_cannot_follow_is_refused_rather_than_guessed(self):
+        cases = [
+            ("an action without the port parameter", lambda e: e.update(
+                action_name="MyIngress.set_nhop", action_params={"nhop": 7}),
+             "has no parameter 'port'"),
+            ("a priority", lambda e: e.update(priority=10), "has priority 10"),
+            ("a match that is not an address", lambda e: e["match"].update({FIELD: ["h4", 32]}),
+             "is not an IPv4 address or prefix"),
+            ("a match key besides the destination", lambda e: e["match"].update(
+                {"standard_metadata.ingress_port": 1}),
+             "also has standard_metadata.ingress_port"),
+        ]
+        saved = copy.deepcopy(self.fake.tables)
+        for name, change, says in cases:
+            with self.subTest(name):
+                self.restore_tables(saved)  # a failed subtest must not leave its change behind
+                change(self.fake.tables[1][0])
+                self.reset()
+                err = self.refused(4)
+                self.assertIn(says, str(err))
+                self.assertEqual(err.entry.dpid, 1)
+
+    def restore_tables(self, saved):
+        self.fake.tables = copy.deepcopy(saved)
+
+    def test_a_destination_it_cannot_place_is_refused(self):
+        saved = copy.deepcopy(self.fake.tables)
+        for name, match, says in (
+                ("no known host", {FIELD: ["10.0.9.9", 32]}, "no host the topology knows"),
+                ("every address", {}, "it matches every address")):
+            with self.subTest(name):
+                self.restore_tables(saved)
+                self.fake.tables[1].insert(0, {
+                    "dpid": 1, "table": TABLE, "match": match,
+                    "action_name": "MyIngress.ipv4_forward",
+                    "action_params": {"dstAddr": "08:00:00:00:04:00", "port": 4},
+                    "priority": None, "default_action": False})
+                self.reset()
+                err = self.refused(4)
+                self.assertIn(says, str(err))
+                self.assertEqual(err.entry.match, match)
+
+    def test_other_parameter_and_field_names_are_named_by_the_caller(self):
+        for table in self.fake.tables.values():
+            for e in table:
+                if e["action_params"]:
+                    p = e["action_params"]
+                    e["action_params"] = {"nh": p["dstAddr"], "egress": p["port"]}
+        self.assertIn("has no parameter 'port'", str(self.refused(4)))
+        plan = self.k.plan_routes_off(4, TABLE, port_param="egress", mac_param="nh")
+        self.assertEqual([e.params for e in plan], [{"nh": "08:00:00:00:03:00", "egress": 3},
+                                                    {"nh": "08:00:00:00:03:00", "egress": 4}])
+        # the destination is under another field: the entries' own match key is then an extra one
+        err = self.refused(4, port_param="egress", match_field="hdr.ipv4.srcAddr")
+        self.assertIn(f"also has {FIELD}, not only hdr.ipv4.srcAddr", str(err))
+
+    def test_a_named_mac_parameter_an_entry_lacks_is_refused_not_ignored(self):
+        err = self.refused(4, mac_param="dstaddr")  # a typo: the entries carry `dstAddr`
+        self.assertIn("has no parameter 'dstaddr' to take the next hop's MAC address from",
+                      str(err))
+        self.assertEqual(err.entry.dpid, 1)
+        self.assertEqual(self.refused(4, port_param="nope").entry.dpid, 1)  # as `port_param` does
+
+    def test_a_default_or_match_all_entry_is_not_followed_and_the_refusal_says_that(self):
+        # s3 sends h1's packets out of port 1 through its default entry or through an entry that
+        # matches every address: it forwards them correctly, and the check cannot know.
+        forward = {"action_name": "MyIngress.ipv4_forward",
+                   "action_params": {"dstAddr": "08:00:00:00:01:00", "port": 1}}
+        saved = copy.deepcopy(self.fake.tables)
+        for name, make in (
+                ("default entry", lambda t: t[-1].update(forward)),
+                ("match-all entry", lambda t: t.insert(0, dict(t[-1], default_action=False,
+                                                               **forward)))):
+            with self.subTest(name):
+                self.restore_tables(saved)
+                table = self.fake.tables[3]
+                table[:] = [e for e in table if e["match"] != {FIELD: ["10.0.1.1", 32]}]
+                make(table)
+                self.reset()
+                err = self.refused(4)
+                self.assertIn("packets for 10.0.1.1 entering s2 are dropped: s2 port 4 -> s3",
+                              str(err))
+                self.assertIn("s3 forwards through a default entry or an entry that matches every "
+                              "address: not followed", str(err))
+                self.assertNotIn("broken already", str(err))
+
+    def test_a_default_entry_with_parameters_but_no_port_is_not_followed_either(self):
+        # s3's default entry takes a next-hop id: where it sends packets cannot be read
+        table = self.fake.tables[3]
+        table[:] = [e for e in table if e["match"] != {FIELD: ["10.0.1.1", 32]}]
+        table[-1].update(action_name="MyIngress.set_nhop", action_params={"nhop": 7})
+        self.reset()
+        err = self.refused(4)
+        self.assertIn("packets for 10.0.1.1 entering s2 are dropped: s2 port 4 -> s3", str(err))
+        self.assertIn("s3 forwards through a default entry or an entry that matches every "
+                      "address: not followed", str(err))
+        self.assertNotIn("broken already", str(err))
+
+    def test_a_switch_that_is_off_or_unknown_is_refused_before_any_table_is_read(self):
+        self.k.power_off(4)
+        self.reset()
+        err = self.refused(4)
+        self.assertIn("off or unreachable", str(err))
+        self.assertIn("neighbours() leaves out every link to a switch that is not usable", str(err))
+        self.assertEqual(calls(self.fake), ["GET get_graph_data"])
+        self.reset()
+        with self.assertRaises(ndtwin.NotFound):
+            self.k.plan_routes_off(9, TABLE)
+        self.assertEqual(calls(self.fake), ["GET get_graph_data"])
+
+    def test_of_two_ways_round_the_one_with_fewer_hops_wins_not_the_lower_port(self):
+        self.use(detour_fabric)
+        plan = self.k.plan_routes_off(2, TABLE)
+        self.assertEqual(self.moves(plan), [(1, "10.0.4.4", 4), (4, "10.0.1.1", 4)])
+
+    def test_of_two_ways_of_the_same_length_the_lower_port_wins(self):
+        self.use(spine3_fabric)  # s3 and s4 are each two links from s1 to s2; s5 is being avoided
+        self.assertEqual(self.moves(self.k.plan_routes_off(5, TABLE)), [(1, "10.0.2.2", 3)])
+
+    def test_a_prefix_is_followed_by_its_length_and_the_longest_one_wins(self):
+        self.use(prefix_fabric)
+        done = self.k.move_routes_off(2, TABLE)
+        # s1's /24 holds h4a on s4 and h4b on s5, and not h5 (10.0.5.5, on s1 itself)
+        self.assertEqual(self.moves(done), [
+            (1, "10.0.4.0", 3), (4, "10.0.1.1", 3), (4, "10.0.5.5", 3), (4, "10.0.4.2", 3),
+            (5, "10.0.1.1", 3), (5, "10.0.5.5", 3), (5, "10.0.4.1", 3)])
+        for src in (1, 4, 5):
+            for dst in ("10.0.1.1", "10.0.5.5", "10.0.4.1", "10.0.4.2"):
+                path, delivered = self.fake.walk(src, dst)
+                self.assertTrue(delivered, (src, dst, path))
+                self.assertNotIn(2, path, (src, dst))
+        # h4b's packets leave s3 on its /32 (to s5) and not on the /24 that is listed before it
+        self.assertEqual(self.fake.walk(1, "10.0.4.2"), ([1, 3, 5], True))
+
+    def test_a_destination_on_several_switches_needs_a_way_to_each(self):
+        self.use(prefix_fabric)
+        self.take_down(3, 5)  # s1's only other way, s3, no longer reaches h4b on s5
+        err = self.refused(2)
+        self.assertEqual((err.entry.dpid, err.entry.match), (1, {FIELD: ["10.0.4.0", 24]}))
+        self.assertIn("no neighbour but s2 reaches s4, s5 without passing s2 or coming back "
+                      "through s1", str(err))
+
+    def test_a_route_to_a_host_on_the_entrys_own_switch_is_refused(self):
+        # s1 holds h1, and a /24 that holds it too sends packets towards s4
+        self.fake.tables[1].insert(0, {
+            "dpid": 1, "table": TABLE, "match": {FIELD: ["10.0.1.0", 24]},
+            "action_name": "MyIngress.ipv4_forward",
+            "action_params": {"dstAddr": "08:00:00:00:04:00", "port": 4},
+            "priority": None, "default_action": False})
+        self.reset()
+        err = self.refused(4)
+        self.assertIn("10.0.1.1 hangs off s1 itself", str(err))
+        self.assertEqual(err.entry.match, {FIELD: ["10.0.1.0", 24]})
+
+    def test_with_mac_param_entries_on_the_new_port_that_disagree_are_refused(self):
+        self.fake.tables[1].insert(0, {
+            "dpid": 1, "table": TABLE, "match": {FIELD: ["10.0.3.99", 32]},
+            "action_name": "MyIngress.ipv4_forward",
+            "action_params": {"dstAddr": "08:00:00:00:09:09", "port": 3},
+            "priority": None, "default_action": False})
+        self.reset()
+        err = self.refused(4, mac_param="dstAddr")
+        self.assertIn("entries that disagree of s1 leaving on port 3 to take dstAddr from",
+                      str(err))
+        self.assertEqual(self.moves(self.k.plan_routes_off(4, TABLE)),  # without it: kept
+                         [(1, "10.0.4.4", 3), (2, "10.0.2.2", 4)])
+
+    def test_move_routes_off_passes_every_keyword_on(self):
+        for table in self.fake.tables.values():
+            for e in table:
+                e["match"] = {"ip.dst": e["match"][FIELD]} if e["match"] else {}
+                if e["action_params"]:
+                    p = e["action_params"]
+                    e["action_params"] = {"nh": p["dstAddr"], "egress": p["port"]}
+        topo = self.k.topology()
+        self.reset()
+        done = self.k.move_routes_off(4, TABLE, port_param="egress", mac_param="nh",
+                                      match_field="ip.dst", topo=topo)
+        self.assertEqual(calls(self.fake), [  # no graph read: the topology passed in was used
+            "GET table s1", "GET table s2", "GET table s3", "POST table s1", "POST table s2",
+            "GET table s1", "GET table s2"])
+        self.assertEqual([b["action_params"] for b in self.posts()],
+                         [{"nh": "08:00:00:00:03:00", "egress": 3},
+                          {"nh": "08:00:00:00:03:00", "egress": 4}])
+        self.assertEqual([e.params["egress"] for e in done], [3, 4])
+
+    def test_a_table_that_cannot_be_read_in_full_stops_the_plan_after_the_reads_before_it(self):
+        self.fake.unrendered[3] = [{"default_action": False, "priority": None, "reason": "profile"}]
+        for call in (self.k.plan_routes_off, self.k.move_routes_off):
+            self.reset()
+            with self.assertRaises(ndtwin.NDTwinError) as cm:
+                call(4, TABLE)
+            self.assertNotIsInstance(cm.exception, ndtwin.NoDetour)
+            self.assertIn("s3", str(cm.exception))
+            self.assertIn("entries the API cannot show", str(cm.exception))
+            self.assertIs(cm.exception.nothing_written, True)
+            self.assertEqual(calls(self.fake), ["GET get_graph_data", "GET table s1",
+                                                "GET table s2", "GET table s3"])
+            self.assertEqual(self.posts(), [])
+
+    def test_a_write_that_fails_part_way_carries_the_plan_to_move_the_routes_back(self):
+        before = copy.deepcopy(self.fake.tables)
+        self.fake.fault("POST", ENTRY, 502, refused_502(2, "UNKNOWN", "no room"), origin="proxy",
+                        match=lambda query, body: body["dpid"] == 2)
+        with self.assertRaises(ndtwin.SwitchRefused) as cm:
+            self.k.move_routes_off(4, TABLE)
+        err = cm.exception
+        self.assertEqual(self.moves(err.plan), [(1, "10.0.4.4", 3), (2, "10.0.2.2", 4)])
+        self.assertEqual(len(err.written), 1)  # s1's entry landed, s2's did not
+        self.assertNotEqual(self.fake.tables, before)
+        self.k.p4.modify_all(err.plan.old)
+        self.assertEqual(self.fake.tables, before)
+
+    def test_a_read_back_that_fails_carries_the_plan_too(self):
+        before = copy.deepcopy(self.fake.tables)
+        reads = []
+
+        def after_the_plan(query, body):
+            reads.append(query["dpid"])
+            return len(reads) > 3  # the plan's own three reads come first
+
+        self.fake.fault("GET", ENTRY, 404, proxy_detail("unknown switch"), origin="proxy",
+                        match=after_the_plan)
+        with self.assertRaises(ndtwin.WriteNotVerified) as cm:
+            self.k.move_routes_off(4, TABLE)
+        self.assertEqual(self.moves(cm.exception.plan), [(1, "10.0.4.4", 3), (2, "10.0.2.2", 4)])
+        self.assertNotEqual(self.fake.tables, before)  # both landed
+        self.k.p4.modify_all(cm.exception.plan.old)
+        self.assertEqual(self.fake.tables, before)
+
+    BASELINE = {"ipv4_route": "ndtwin", "binding_source": "baseline"}  # NDTwin's own pipeline
+    MOVES = [(1, "10.0.4.4", 3), (2, "10.0.2.2", 4)]
+
+    def set_capabilities(self, caps, dpids=None):
+        """The capabilities the graph reports for the switches `dpids` (every one by default)."""
+        for node in self.fake.graph["nodes"]:
+            if node["vertex_type"] == 0 and (dpids is None or node["dpid"] in dpids):
+                node["capabilities"] = dict(caps)
+
+    def test_on_ndtwins_own_pipeline_move_routes_off_makes_the_plan_then_refuses_before_a_write(self):
+        self.set_capabilities(self.BASELINE)
+        with self.assertRaises(ndtwin.NoDetour) as cm:
+            self.k.move_routes_off(4, TABLE)
+        self.assertIn("the tables of s1 belong to NDTwin (capabilities ipv4_route 'ndtwin', "
+                      "binding_source 'baseline')", str(cm.exception))
+        self.assertIn("plan_routes_off still shows the plan", str(cm.exception))
+        self.assertIs(cm.exception.nothing_written, True)
+        self.assertEqual(calls(self.fake), ["GET get_graph_data", "GET table s1", "GET table s2",
+                                            "GET table s3"])
+        self.assertEqual(self.posts(), [])
+        self.reset()
+        self.assertEqual(self.moves(self.k.plan_routes_off(4, TABLE)), self.MOVES)  # the dry run
+
+    def test_a_package_that_gives_its_route_table_to_ndtwin_is_not_refused_up_front(self):
+        # `--table-owner ndtwin` reports ipv4_route "ndtwin" too, with binding_source "package":
+        # only its route-role table is NDTwin's, so the first write finds out, not the plan
+        self.set_capabilities({"ipv4_route": "ndtwin", "binding_source": "package"})
+        done = self.k.move_routes_off(4, TABLE)
+        self.assertEqual(self.moves(done), self.MOVES)
+        self.assertEqual(len(self.posts()), 2)
+
+    def test_a_switch_the_plan_does_not_write_does_not_count_for_the_ownership_refusal(self):
+        self.set_capabilities(self.BASELINE, dpids={3})  # s3 is on the new way, and is not written
+        self.assertEqual(self.moves(self.k.move_routes_off(4, TABLE)), self.MOVES)
+        self.assertEqual(len(self.posts()), 2)
+
+    def test_the_avoided_switch_does_not_count_for_the_ownership_refusal(self):
+        self.set_capabilities(self.BASELINE, dpids={4})
+        self.assertEqual(self.moves(self.k.move_routes_off(4, TABLE)), self.MOVES)
+
+    def test_one_switch_of_ndtwins_own_pipeline_among_others_refuses_before_any_write(self):
+        self.set_capabilities(self.BASELINE, dpids={2})  # s1 would be written first, and is not
+        with self.assertRaises(ndtwin.NoDetour) as cm:
+            self.k.move_routes_off(4, TABLE)
+        self.assertIn("the tables of s2 belong to NDTwin", str(cm.exception))
+        self.assertEqual(self.posts(), [])
+
+    def test_an_unknown_or_off_switch_on_ndtwins_own_pipeline_gets_its_own_refusal(self):
+        self.set_capabilities(self.BASELINE)
+        with self.assertRaises(ndtwin.NotFound):
+            self.k.move_routes_off(9, TABLE)
+        self.assertEqual(calls(self.fake), ["GET get_graph_data"])
+        self.k.power_off(4)
+        self.reset()
+        with self.assertRaises(ndtwin.NoDetour) as cm:
+            self.k.move_routes_off(4, TABLE)
+        self.assertIn("off or unreachable", str(cm.exception))
+        self.assertNotIn("belong to NDTwin", str(cm.exception))
+        self.assertEqual(calls(self.fake), ["GET get_graph_data"])
+
+    def test_ctrl_c_between_two_writes_carries_the_plan_and_is_raised_as_it_is(self):
+        before = copy.deepcopy(self.fake.tables)
+        http, posts = self.k.p4._http, []
+        real_call = http.call
+
+        def call(method, *args, **kw):
+            if method == "POST":
+                posts.append(method)
+                if len(posts) == 2:  # s1's entry landed, s2's was not sent
+                    raise KeyboardInterrupt()
+            return real_call(method, *args, **kw)
+
+        with mock.patch.object(http, "call", call):
+            with self.assertRaises(KeyboardInterrupt) as cm:
+                self.k.move_routes_off(4, TABLE)
+        self.assertEqual(self.moves(cm.exception.plan), self.MOVES)
+        self.assertNotEqual(self.fake.tables, before)
+        self.k.p4.modify_all(cm.exception.plan.old)
+        self.assertEqual(self.fake.tables, before)
+
+
 def is_stdlib(name):
     """Whether `name` is a standard-library module: `sys.stdlib_module_names` from Python 3.10 on;
     before that, a built-in module or one found in the standard library's directory, so the suite
@@ -1677,10 +2206,14 @@ class PackageTest(unittest.TestCase):
         self.assertTrue(issubclass(ndtwin.TableFull, ndtwin.SwitchRefused))
         self.assertTrue(issubclass(ndtwin.NotFound, ndtwin.Refused))
         self.assertTrue(issubclass(ndtwin.LockBusy, ndtwin.Refused))
+        self.assertTrue(issubclass(ndtwin.NoDetour, ndtwin.NDTwinError))  # not a WriteError
+        self.assertIs(ndtwin.NoDetour("m").nothing_written, True)
         self.assertEqual(
             {c.__name__ for c in ndtwin.WriteError},
             {"OutcomeUnknown", "SwitchRefused", "Busy", "WriteNotVerified", "Refused"})
-        self.assertEqual(json.dumps(ndtwin.__version__), '"1.0.0"')
+        self.assertEqual(json.dumps(ndtwin.__version__), '"1.1.0"')  # new public API: minor
+        self.assertIsNone(ndtwin.NoDetour("m").path)  # the HTTP route, as on every NDTwinError
+        self.assertIsNone(ndtwin.NoDetour("m").switches)
 
 
 if __name__ == "__main__":
