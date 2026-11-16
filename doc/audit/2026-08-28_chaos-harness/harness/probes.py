@@ -28,7 +28,7 @@ under test and this codebase has twelve documented "fails while reporting succes
   3. **No request leaves this module with a method the kernel does not register for that
      path.** Added 2026-09-03, FINDINGS-ALL #17. Rules 1 and 2 both assume the request
      ASKED THE RIGHT QUESTION, and five call sites did not: they sent GET to
-     `/ndt/set_switches_power_state`, which `HttpSession.cpp:190` registers under
+     `/ndt/set_switches_power_state`, which `HttpSession.cpp:448` registers under
      `http::verb::post` alone. Rule 1 then did its job perfectly and made things worse --
      the 404 was carried honestly all the way back to a caller that read it as a
      measurement of the system.

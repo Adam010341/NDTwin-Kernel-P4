@@ -202,9 +202,9 @@ PATTERNS=(
 
  "kernel_get_graph_ok"
  'get_graph_data success'
- '[info] [HttpSession.cpp:572 handleGetGraphData] get_graph_data success'
+ '[info] [HttpSession.cpp:571 handleGetGraphData] get_graph_data success'
  'get_graph_data failed'
- 'src/ndt_core/http/HttpSession.cpp:572'
+ 'src/ndt_core/http/HttpSession.cpp:571'
 
  "kernel_error_line"
  '\[(error|critical)\]'

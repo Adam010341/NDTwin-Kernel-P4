@@ -26,10 +26,10 @@
  *
  * Four places said otherwise, in the code that does the deleting:
  *
- *   - `DeviceConfigurationAndPowerManager.cpp:1091`  "tables are left as they were"
- *   - `:1110`  "Keeping the previous table is the same conservative choice the timeout path makes"
- *   - `:1134`  "Skipping leaves the previous table in place, the conservative direction"
- *   - `:1161`  "not as a switch with no rules. Keeping the previous table."
+ *   - `DeviceConfigurationAndPowerManager.cpp:1079`  "tables are left as they were"
+ *   - `:1098`  "Keeping the previous table is the same conservative choice the timeout path makes"
+ *   - `:1122`  "Skipping leaves the previous table in place, the conservative direction"
+ *   - `:1149`  "not as a switch with no rules. Keeping the previous table."
  *
  * plus the header's own `SuspectTimedOut, ///< ... Keep the previous table` and two test files
  * that describe the system that way. Nine statements of a policy, no implementation of it.
@@ -37,7 +37,7 @@
  * ### Why deleting is worse than it looks
  *
  * Every consumer asks the same question the same way -- walk the array, match on `dpid`:
- * `HttpSession.cpp:623` serves the array verbatim; `IntentTranslator.cpp:1069` and
+ * `HttpSession.cpp:1802` serves the array verbatim; `IntentTranslator.cpp:1069` and
  * `LLMAgent.cpp:275` read it whole; `tools/contract_test/spec.py:295` (`inv_tables_non_empty`),
  * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and the live-acceptance probe
  * all iterate and skip non-matching
@@ -68,7 +68,7 @@
  * ### The distinction this must never lose
  *
  * Only switches whose read was **attempted and failed** are carried forward. A switch skipped
- * because it is down (`DeviceConfigurationAndPowerManager.cpp:1039`) was never read, is not in
+ * because it is down (`DeviceConfigurationAndPowerManager.cpp:1608`) was never read, is not in
  * the unread list, and must stay out: carrying those forward would keep a dead switch's rules
  * alive indefinitely, which is the optimistic direction of FIXED-ISSUES F-4/F-16 -- a worse
  * failure than the one being fixed here.
@@ -97,14 +97,14 @@ inline constexpr const char* kLastErrorField = "last_error";
 inline constexpr const char* kNeverReadField = "never_read";
 
 /// Empty body: the control plane did not answer at all (connection refused, or curl printed
-/// nothing). DeviceConfigurationAndPowerManager.cpp:1085.
+/// nothing). DeviceConfigurationAndPowerManager.cpp:1692.
 inline constexpr const char* kUnreadNoResponse = "no_response";
 
-/// A non-empty body that will not parse as JSON. DeviceConfigurationAndPowerManager.cpp:1107.
+/// A non-empty body that will not parse as JSON. DeviceConfigurationAndPowerManager.cpp:1726.
 inline constexpr const char* kUnreadUnparseable = "unparseable";
 
 /// The control plane answered "I could not read this switch" ({"error": ...}).
-/// DeviceConfigurationAndPowerManager.cpp:1137.
+/// DeviceConfigurationAndPowerManager.cpp:1757.
 inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 
 /// A body that parses, and whose per-switch value is still not a list of rules -- an object, a
@@ -115,7 +115,7 @@ inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 inline constexpr const char* kUnreadWrongShape = "wrong_shape";
 
 /// Empty *and* slower than kFlowStatsSuspectSeconds: Ryu's stats timeout, not an empty table.
-/// DeviceConfigurationAndPowerManager.cpp:1155.
+/// DeviceConfigurationAndPowerManager.cpp:1794.
 inline constexpr const char* kUnreadSuspectTimeout = "suspect_timeout";
 
 /**

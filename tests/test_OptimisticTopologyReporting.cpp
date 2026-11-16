@@ -14,7 +14,7 @@
  *         updateHosts, which assigns `isUp = true` and nothing else.
  *   F-16  When a switch dies, only switch-to-switch edges are marked down. The only writer of
  *         edge-down is HttpSession::handleLinkFailure, which locates its edge by a *pair of
- *         dpids* (HttpSession.cpp:427, :438) -- and a host has no dpid, so a host-facing edge was
+ *         dpids* (HttpSession.cpp:911, :934) -- and a host has no dpid, so a host-facing edge was
  *         not addressable by it at all.
  *   F-4   A dead switch-to-switch link is resurrected to is_up=true on the next poll, because
  *         updateHosts locates a host's edges by IP alone and a switch's own management address is

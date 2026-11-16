@@ -19,7 +19,7 @@ are pinned here as controls: they must stay green, because the fix depends on th
 The reason this file exists is the other side. `selftest_fixtures.py` carries its **own** copy
 of each schema rather than reading spec.py's, and the copies had drifted:
 
-    spec.py:2068                MapOf(Num(min=-1, max=100), ...)
+    spec.py:502                 MapOf(Num(min=-1, max=100), ...)
     selftest_fixtures.py:84     MapOf(Num(min=0,  max=100), ...)
 
 A self-test whose stated purpose is "prove the schemas accept what the kernel actually

@@ -1974,7 +1974,7 @@ HttpSession::respondToDispatchStatusRequestId(http::response<http::string_body>&
 // Served straight off the dispatcher's own counters, deliberately NOT through
 // DeviceConfigurationAndPowerManager. Every other read endpoint here returns a cache that
 // openflowTablesUpdateWorker refreshes on a 10 s sleep plus one southbound poll
-// (DeviceConfigurationAndPowerManager.cpp:1897-1920), which is why the table view can be up to
+// (DeviceConfigurationAndPowerManager.cpp:2868-2888), which is why the table view can be up to
 // ~10.7 s behind the write that changed it. A failure counter with that much lag would answer
 // "no failures" for the whole window in which the caller is trying to find out whether its write
 // failed -- exactly when the question is being asked. These numbers are read under the

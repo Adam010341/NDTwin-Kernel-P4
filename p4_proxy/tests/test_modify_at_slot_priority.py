@@ -212,7 +212,7 @@ class AModifyAtTheSlotsPriorityIsHonouredTest(SlotTestCase):
     def test_a_modify_naming_no_priority_is_untouched_by_the_record(self):
         # makeModifyJob's 0 ("no priority named"): the proxy edits whatever entry the slot holds,
         # as before, with no record needed. (On OVS the kernel sends this as a priority-0 STRICT
-        # modify, HttpRoutingStrategyBase.cpp:438-453, which is why the 501 remedy does not
+        # modify, HttpRoutingStrategyBase.cpp:438-456, which is why the 501 remedy does not
         # advise it.)
         _, c1, _ = self.fabric(refill=False)
         out = modify(body(priority=0))
