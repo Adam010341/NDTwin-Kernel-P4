@@ -56,6 +56,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROXY_DIR = os.path.join(HERE, "..")
 MAIN = os.path.join(PROXY_DIR, "proxy_agent", "main.py")
 VENV_PY = os.path.join(PROXY_DIR, "venv", "bin", "python")
+#: The port the proxy asks for (main.py `PORT`). The child never gets it: every bind() and
+#: connect_ex() on it is redirected to a free port this test chose (`offline_proxy`), so two runs of
+#: this file, or this file beside a running proxy, do not compete for it.
+#: [Co-developed with claude code -- Adam]
 PORT = 8081
 
 STARTUP_MARKER = "[Proxy Agent] Starting up..."
@@ -80,9 +84,18 @@ REFUSAL = "OFFLINE-GUARD refused to dial"
 #:    runs whatever `ndt up p4 ...` left in p4_proxy/mininet;
 #:  * moving the switch base (main.py reads it at import: `from grpc_ports import ...`);
 #:  * wrapping grpc.insecure_channel / secure_channel so a target outside the block is refused
-#:    with REFUSAL instead of dialled -- a regression then cannot reach a live fabric.
+#:    with REFUSAL instead of dialled -- a regression then cannot reach a live fabric;
+#:  * redirecting :PORT to @LISTEN@ in socket bind() and connect_ex() (the listen socket and the
+#:    proxy's loopback probe), the way test_listen_host.py does, so the real :8081 is never touched.
 _CHILD = """
-import runpy, sys
+import runpy, socket, sys
+def _listen_port(addr):
+    if isinstance(addr, tuple) and len(addr) > 1 and addr[1] == @PORT@:
+        return (addr[0], @LISTEN@) + tuple(addr[2:])
+    return addr
+_bind, _connect_ex = socket.socket.bind, socket.socket.connect_ex
+socket.socket.bind = lambda self, addr: _bind(self, _listen_port(addr))
+socket.socket.connect_ex = lambda self, addr: _connect_ex(self, _listen_port(addr))
 sys.path.insert(0, @MININET@)
 import grpc, grpc_ports, app_package, topo_from_json
 app_package.KNOB_PATH = @KNOB@
@@ -165,15 +178,28 @@ def free_block(size: int = BLOCK_SIZE) -> int:
     raise unittest.SkipTest("found no free port block above the ephemeral range")
 
 
-def offline_proxy(*, python=None):
+def free_port() -> int:
+    """A port the kernel hands out on 127.0.0.1 now, for the child to listen on instead of :8081.
+
+    [Co-developed with claude code -- Adam]"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+    finally:
+        s.close()
+
+
+def offline_proxy(listen_port, *, python=None):
     """
-    How to start the real proxy so that its switch dials, its kernel URL and its routing
-    journal stay inside this test. Returns (argv, env, base).
+    How to start the real proxy so that its switch dials, its kernel URL, its routing
+    journal and its HTTP port stay inside this test. Returns (argv, env, base).
 
     The child (`_CHILD`): runs the baseline fabric whatever knob files are on disk, dials
     the switches at base+1.. in a block checked to be free instead of localhost:30051-30060, and
-    refuses any gRPC target outside the block. env: NDT_URL names base+BLOCK_SIZE (the kernel is
-    otherwise localhost:8000), NDTWIN_RULE_JOURNAL_PATH is a file in a temp dir of its own, and
+    refuses any gRPC target outside the block; it listens on `listen_port` where it would take
+    :8081. env: NDT_URL names base+BLOCK_SIZE (the kernel is otherwise localhost:8000),
+    NDTWIN_RULE_JOURNAL_PATH is a file in a temp dir of its own, and
     NDTWIN_P4_BEACON_S=0.5 shortens the link watchdog's start-up grace from 30 s to 3 s so the
     first link-failure call to the kernel URL happens within the test's reach.
 
@@ -194,6 +220,7 @@ def offline_proxy(*, python=None):
         "LO": str(base), "HI": str(base + BLOCK_SIZE),
         "MAIN": repr(os.path.abspath(MAIN)),
         "REFUSAL": REFUSAL,
+        "PORT": str(PORT), "LISTEN": str(int(listen_port)),
     }
     code = _CHILD
     for key, value in fill.items():
@@ -278,14 +305,12 @@ def run_proxy_until(argv, env, done, deadline_s=60):
 
 class PortAlreadyTakenTest(unittest.TestCase):
     def setUp(self):
+        # The port the child is sent to instead of :8081, held here so the child finds it taken.
         self.blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            self.blocker.bind(("0.0.0.0", PORT))
-        except OSError as exc:
-            self.blocker.close()
-            self.skipTest(f"cannot occupy :{PORT} for the test ({exc})")
+        self.blocker.bind(("0.0.0.0", 0))
         self.blocker.listen(8)
+        self.port = self.blocker.getsockname()[1]
 
     def tearDown(self):
         self.blocker.close()
@@ -293,7 +318,7 @@ class PortAlreadyTakenTest(unittest.TestCase):
     def _run_proxy(self):
         # Offline even here: this test expects the process to stop before startup, but if the
         # guard regresses, "before startup" is exactly where it would start dialling switches.
-        argv, env, _base = offline_proxy()
+        argv, env, _base = offline_proxy(self.port)
         return subprocess.run(
             argv, cwd=PROXY_DIR, env=env, capture_output=True, text=True, timeout=90,
         )
@@ -332,16 +357,10 @@ class PortFreeTest(unittest.TestCase):
     """
 
     def setUp(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.bind(("0.0.0.0", PORT))
-        except OSError:
-            self.skipTest(f":{PORT} is occupied by something else; cannot test the free case")
-        finally:
-            s.close()
+        self.port = free_port()
 
     def test_startup_event_does_run_when_the_port_is_free(self):
-        argv, env, _base = offline_proxy()
+        argv, env, _base = offline_proxy(self.port)
         lines = run_proxy_until(argv, env, lambda ls: any(STARTUP_MARKER in l for l in ls))
         out = "".join(lines)
         self.assertTrue(
@@ -352,6 +371,10 @@ class PortFreeTest(unittest.TestCase):
         )
         self.assertIn(BASELINE_LINE, out, "the child did not run the baseline package:\n"
                       + out[-2000:])
+        # The child listened on the port this test chose, not on :8081.
+        # [Co-developed with claude code -- Adam]
+        self.assertIn("HTTP API listening on 127.0.0.1:%d" % self.port, out,
+                      "the child did not listen on the port it was given:\n" + out[-2000:])
 
     @unittest.skipUnless(
         os.path.exists(P4INFO),
@@ -364,7 +387,7 @@ class PortFreeTest(unittest.TestCase):
         # reached the notifier; and nothing was refused by the child's dial guard. The switch
         # ports the output names are the ones it tried; the guard is what stops a stray one.
         # (A comment, not a docstring: see test_startup_event_never_runs_when_the_port_is_taken.)
-        argv, env, base = offline_proxy()
+        argv, env, base = offline_proxy(self.port)
         block = set(range(base, base + BLOCK_SIZE + 1))
 
         def done(ls):
