@@ -502,7 +502,9 @@ TEST(HttpSessionRoutingTest, CorsHeadersAreSetEvenOnAFailedRequest)
 // caller could not tell a fully handled transition from one that left the graph asymmetric --
 // one direction changed, the pair it belongs to untouched. Edges are inserted in pairs by every
 // loader, so a lone directed edge is the kernel's own state gone inconsistent: the handlers now
-// answer 500 and say which half happened.
+// answer 500. They look the reverse edge up first, so the 500 is a refusal with nothing changed
+// (the way the two injection endpoints answer it): the reported direction keeps its state and its
+// declaration, and no event is emitted.
 
 class LinkTransitionEndpointsTest : public ::testing::Test
 {
@@ -515,6 +517,24 @@ class LinkTransitionEndpointsTest : public ::testing::Test
                                                              std::make_shared<std::shared_mutex>(),
                                                              m_bus,
                                                              utils::MININET);
+        // [Co-developed with claude code -- Adam] The bus is observable: a handler counts what
+        // the endpoint emits, so "no event" is a measured zero rather than an absence of
+        // assertions. Nothing under src/ registers a handler for these two events, so the counts
+        // are the endpoint's own.
+        m_bus->registerHandler(EventType::LinkFailureDetected,
+                               [this](const Event&) { ++m_failureEvents; });
+        m_bus->registerHandler(EventType::LinkRecoveryDetected,
+                               [this](const Event&) { ++m_recoveryEvents; });
+    }
+
+    /// The edge descriptor of the (srcDpid, dstDpid) edge; fails the test when it is absent.
+    /// [Co-developed with claude code -- Adam]
+    Graph::edge_descriptor edgeOf(uint64_t srcDpid, uint64_t dstDpid)
+    {
+        const auto e = m_monitor->findEdgeBySrcAndDstDpid({srcDpid, dstDpid});
+        EXPECT_TRUE(e.has_value())
+            << "edge " << srcDpid << " -> " << dstDpid << " not in the graph";
+        return e.value();
     }
 
     void addDirectedEdge(uint64_t srcDpid, uint64_t dstDpid, bool up)
@@ -547,10 +567,85 @@ class LinkTransitionEndpointsTest : public ::testing::Test
 
     static constexpr const char* kPayload =
         R"({"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1})";
+    /// What both handlers answer a missing reverse edge with, asserted as the two facts it has to
+    /// carry -- the reverse edge is missing, and nothing was changed -- and not as one string, so
+    /// that rewording the rest of the sentence leaves the cases green.
+    /// [Co-developed with claude code -- Adam]
+    static void expectRefusalBody(const std::string& body, const std::string& label = "")
+    {
+        EXPECT_NE(body.find("reverse edge missing"), std::string::npos)
+            << label << " body: " << body;
+        EXPECT_NE(body.find("nothing was changed"), std::string::npos)
+            << label << " body: " << body;
+    }
+
+    /// A lone forward edge (no reverse) that is down, and what holds it down.
+    struct LoneForward
+    {
+        uint64_t src;
+        uint64_t dst;
+        bool reported;
+        bool injected;
+    };
+
+    /// Adds one lone forward edge per way a direction can be down -- a failure Ryu reported, a
+    /// declaration nothing reported, an injection -- and returns them. [Co-developed with claude
+    /// code -- Adam]
+    std::vector<LoneForward> addDeclaredLoneForwards()
+    {
+        addDirectedEdge(1, 5, /*up=*/true);
+        addDirectedEdge(2, 6, /*up=*/true);
+        addDirectedEdge(3, 7, /*up=*/true);
+        m_monitor->setEdgeDownByReportedFailure(edgeOf(1, 5)); // declared + reported
+        m_monitor->setEdgeDownByDeclaration(edgeOf(2, 6));     // declared, nothing reported
+        m_monitor->setEdgeDownByInjection(edgeOf(3, 7));       // declared + injected
+        return {{1, 5, true, false}, {2, 6, false, false}, {3, 7, false, true}};
+    }
+
+    /// Posts the report for each lone forward from addDeclaredLoneForwards() to `target`: every
+    /// one is refused (500, the refusal body) and left exactly as found -- still down, still
+    /// declared, the same reported and injected notes -- with no event emitted.
+    /// [Co-developed with claude code -- Adam]
+    void expectLoneForwardsRefusedAsFound(const char* target)
+    {
+        const std::vector<LoneForward> forwards = addDeclaredLoneForwards();
+        HttpSessionTestPeer peer(m_monitor, m_bus);
+        for (const LoneForward& c : forwards)
+        {
+            const std::string label = std::to_string(c.src) + " -> " + std::to_string(c.dst);
+            const auto e = edgeOf(c.src, c.dst);
+            // The precondition, so that a fixture that stopped declaring anything cannot pass.
+            ASSERT_FALSE(edgeIsUp(c.src, c.dst)) << label;
+            ASSERT_TRUE(m_monitor->getEdgeDeclaredDown(e)) << label;
+            ASSERT_EQ(m_monitor->getEdgeFailureReported(e), c.reported) << label;
+            ASSERT_EQ(m_monitor->getEdgeInjected(e), c.injected) << label;
+
+            const std::string payload = R"({"src_dpid":)" + std::to_string(c.src) +
+                                        R"(,"src_interface":1,"dst_dpid":)" +
+                                        std::to_string(c.dst) + R"(,"dst_interface":1})";
+            const auto& res = peer.send(http::verb::post, target, payload);
+            const unsigned status = res.result_int();
+            const std::string body = res.body();
+
+            EXPECT_EQ(status, 500u) << label << " body: " << body;
+            expectRefusalBody(body, label);
+            EXPECT_FALSE(edgeIsUp(c.src, c.dst)) << label << ": the edge's up state changed";
+            EXPECT_TRUE(m_monitor->getEdgeDeclaredDown(e))
+                << label << ": the declaration was withdrawn";
+            EXPECT_EQ(m_monitor->getEdgeFailureReported(e), c.reported)
+                << label << ": the failure report was spent or invented";
+            EXPECT_EQ(m_monitor->getEdgeInjected(e), c.injected)
+                << label << ": the injection note changed";
+        }
+        EXPECT_EQ(m_failureEvents, 0);
+        EXPECT_EQ(m_recoveryEvents, 0);
+    }
 
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<EventBus> m_bus;
     std::shared_ptr<TopologyAndFlowMonitor> m_monitor;
+    int m_failureEvents = 0;
+    int m_recoveryEvents = 0;
 };
 
 TEST_F(LinkTransitionEndpointsTest, AFailureWithBothDirectionsPresentTakesBothDownAndAnswers200)
@@ -566,25 +661,66 @@ TEST_F(LinkTransitionEndpointsTest, AFailureWithBothDirectionsPresentTakesBothDo
     EXPECT_FALSE(edgeIsUp(5, 1));
 }
 
-TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingIsNotReportedAsSuccess)
+// [Co-developed with claude code -- Adam]
+// The positive control for the event counts below: a request that DOES go through emits one
+// event per direction. Without it, "the refusal emitted 0" could be a counter that never counts.
+TEST_F(LinkTransitionEndpointsTest, AFailureWithBothDirectionsPresentEmitsOneEventPerDirection)
 {
-    // The regression: this answered 200 "link failure processed" with the graph left holding a
-    // lone down edge. The forward direction is still processed -- that part of the work is real
-    // -- but the status line has to say the pair is broken.
+    addDirectedEdge(1, 5, /*up=*/true);
+    addDirectedEdge(5, 1, /*up=*/true);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/link_failure_detected", kPayload);
+
+    ASSERT_EQ(res.result_int(), 200u) << "body: " << res.body();
+    EXPECT_EQ(m_failureEvents, 2) << "the counter must see the events the endpoint emits";
+    EXPECT_EQ(m_recoveryEvents, 0);
+}
+
+// [Co-developed with claude code -- Adam]
+// This answered 200 "link failure processed", then 500 after marking the reported direction down
+// and emitting its event. The reverse is now looked up first: the status line says the pair is
+// broken AND the graph is as the caller left it.
+TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingIsRefusedWithNothingChanged)
+{
     addDirectedEdge(1, 5, /*up=*/true);
     HttpSessionTestPeer peer(m_monitor, m_bus);
 
     const auto& res = peer.send(http::verb::post, "/ndt/link_failure_detected", kPayload);
 
     EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
-    EXPECT_NE(res.body().find("reverse edge missing"), std::string::npos) << res.body();
-    EXPECT_FALSE(edgeIsUp(1, 5)) << "the reported direction must still be marked down";
-    // [Co-developed with claude code -- Adam] And marked down as REPORTED, not merely declared:
-    // its own recovery report has to be able to pair with it and withdraw it.
-    const auto fwd = m_monitor->findEdgeBySrcAndDstDpid({1, 5});
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_TRUE(m_monitor->getEdgeFailureReported(*fwd))
-        << "the reported direction was declared down without the report that pairs with it";
+    expectRefusalBody(res.body());
+    EXPECT_TRUE(edgeIsUp(1, 5))
+        << "the reported direction was marked down although nothing may change";
+    const auto fwd = edgeOf(1, 5);
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd)) << "a declaration was written";
+    EXPECT_FALSE(m_monitor->getEdgeFailureReported(fwd))
+        << "a failure report was recorded for a request that was refused";
+    EXPECT_FALSE(m_monitor->getEdgeInjected(fwd));
+}
+
+// [Co-developed with claude code -- Adam]
+// The failure endpoint over the same three lone forward edges as the recovery table below, each
+// already down: a failure Ryu reported, a declaration nothing reported, an injection. The old
+// code emitted an event for each; for the bare declaration and the injection it also recorded a
+// failure report on them, which would have let a later recovery report withdraw a declaration
+// someone else wrote. They stay down, declared, and flagged exactly as found.
+TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingLeavesADownEdgeAsItFound)
+{
+    expectLoneForwardsRefusedAsFound("/ndt/link_failure_detected");
+}
+
+// [Co-developed with claude code -- Adam]
+TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingEmitsNoEvent)
+{
+    addDirectedEdge(1, 5, /*up=*/true);
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/link_failure_detected", kPayload);
+
+    ASSERT_EQ(res.result_int(), 500u) << "body: " << res.body();
+    EXPECT_EQ(m_failureEvents, 0) << "a link-failure event was emitted for a refused request";
+    EXPECT_EQ(m_recoveryEvents, 0);
 }
 
 TEST_F(LinkTransitionEndpointsTest, ARecoveryWithBothDirectionsPresentBringsBothUpAndAnswers200)
@@ -600,7 +736,12 @@ TEST_F(LinkTransitionEndpointsTest, ARecoveryWithBothDirectionsPresentBringsBoth
     EXPECT_TRUE(edgeIsUp(5, 1));
 }
 
-TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsNotReportedAsSuccess)
+// [Co-developed with claude code -- Adam]
+// The recovery report used to be applied to the forward direction before the 500: an edge that
+// carried nothing was raised. Now the reverse is looked up first and nothing is applied. No
+// event is asserted separately: this endpoint emits none (see the TODO in handleLinkRecovery),
+// so the counts here are a guard for the day it does, and not what turns the case red on its own.
+TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsRefusedWithNothingChanged)
 {
     addDirectedEdge(1, 5, /*up=*/false);
     HttpSessionTestPeer peer(m_monitor, m_bus);
@@ -608,8 +749,27 @@ TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsNotRepor
     const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kPayload);
 
     EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
-    EXPECT_NE(res.body().find("reverse edge missing"), std::string::npos) << res.body();
-    EXPECT_TRUE(edgeIsUp(1, 5)) << "the reported direction must still be marked up";
+    expectRefusalBody(res.body());
+    EXPECT_FALSE(edgeIsUp(1, 5))
+        << "the reported direction was marked up although nothing may change";
+    const auto fwd = edgeOf(1, 5);
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd));
+    EXPECT_FALSE(m_monitor->getEdgeFailureReported(fwd));
+    EXPECT_FALSE(m_monitor->getEdgeInjected(fwd));
+    EXPECT_EQ(m_failureEvents, 0);
+    EXPECT_EQ(m_recoveryEvents, 0);
+}
+
+// [Co-developed with claude code -- Adam]
+// The three things a forward direction can carry when its reverse is missing, one lone edge each.
+// A failure Ryu reported is the one the old code applied: the recovery report paired with it,
+// spent it, withdrew the declaration and raised the edge, and then answered 500. The declaration
+// nothing reported and the injection were left as they were by the old code too; they are here
+// so that "nothing was changed" is asserted for every declaration the forward can carry, not
+// only the one that happened to change.
+TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingLeavesTheDeclarationItFound)
+{
+    expectLoneForwardsRefusedAsFound("/ndt/link_recovery_detected");
 }
 
 // --- F-8: what /ndt/get_graph_data says about where the headroom figure came from -------------
@@ -1484,9 +1644,9 @@ TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryOutsideMininetWithdrawsTheDecl
 }
 
 /**
- * The injection endpoints refuse BEFORE changing anything when the pair is broken, unlike their
- * notification siblings. An injection that half-happened would leave the graph and the machine's
- * qdisc tree in a state the caller did not ask for and cannot name.
+ * The injection endpoints refuse BEFORE changing anything when the pair is broken, as their
+ * notification siblings now do. An injection that half-happened would leave the graph and the
+ * machine's qdisc tree in a state the caller did not ask for and cannot name.
  */
 TEST_F(DeclaredLinkFailureWireTest, InjectWithNoSuchEdgeChangesNothing)
 {

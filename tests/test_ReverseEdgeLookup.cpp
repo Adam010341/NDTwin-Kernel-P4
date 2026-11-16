@@ -11,8 +11,8 @@
  * FlowLinkUsageCollector writes through that descriptor on the sFlow ingest path
  * (`touchEdgeFlow(edgeOpt.value(), key)`), so per-edge flow bookkeeping ran on an invalid edge
  * whenever the graph held only one direction of a link. That state is reachable and acknowledged:
- * 7f738e6 exists precisely to report half-processed link transitions. It is a dropped error flag,
- * not a race, so no sanitizer flags it and nothing logs.
+ * the link-report endpoints answer 500 and change nothing when it is found. It is a dropped error
+ * flag, not a race, so no sanitizer flags it and nothing logs.
  *
  * The expectations here are the function's own signature: it returns an optional, and an optional
  * is how a lookup says "not found". Both directions are covered -- a missing reverse must be

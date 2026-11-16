@@ -689,7 +689,7 @@ class PowerTest(SdkTest):
 
 
 class PowerOnTest(SdkTest):
-    """`power_on` against the fake's copy of the kernel's action=on (HttpSession.cpp:2064-2102).
+    """`power_on` against the fake's copy of the kernel's action=on (HttpSession.cpp:2057-2095).
     [Co-developed with claude code -- Adam]"""
 
     def test_power_on_sends_action_on_and_reads_the_state_back(self):

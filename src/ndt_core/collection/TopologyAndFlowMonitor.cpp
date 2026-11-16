@@ -3599,8 +3599,8 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPortNoLock(
             // edge_descriptor wrapped in an *engaged* optional, which every caller then treats
             // as a real edge. FlowLinkUsageCollector writes through this one on the sFlow
             // ingest path (touchEdgeFlow), so a graph holding only the forward direction of a
-            // link -- reachable, which is why 7f738e6 exists to report half-processed link
-            // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
+            // link -- reachable, which is why the link-report endpoints answer 500 for it and
+            // change nothing -- had per-edge flow bookkeeping running on an invalid descriptor.
             // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
             //
             // Reported through KeyedFailureLog, not at DEBUG. The first version of this used
@@ -3650,8 +3650,8 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPort(
             // edge_descriptor wrapped in an *engaged* optional, which every caller then treats
             // as a real edge. FlowLinkUsageCollector writes through this one on the sFlow
             // ingest path (touchEdgeFlow), so a graph holding only the forward direction of a
-            // link -- reachable, which is why 7f738e6 exists to report half-processed link
-            // transitions -- had per-edge flow bookkeeping running on an invalid descriptor.
+            // link -- reachable, which is why the link-report endpoints answer 500 for it and
+            // change nothing -- had per-edge flow bookkeeping running on an invalid descriptor.
             // No sanitizer flags an unchecked `.second`; it is a dropped error flag, not a race.
             //
             // Reported through KeyedFailureLog, not at DEBUG. The first version of this used

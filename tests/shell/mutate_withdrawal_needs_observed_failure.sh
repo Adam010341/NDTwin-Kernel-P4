@@ -26,13 +26,19 @@
 #             /ndt/inject_link_recovery withdraws the declaration and raises the edge under the
 #             same one. M48 .. M56, W9 .. W13. On one CPU a split is found only when a preemption
 #             lands inside it (1 run in 5 measured for the withdrawal), so run this on several CPUs.
-#   lone side the missing-reverse branch of /ndt/link_failure_detected still records the report
-#             with its declaration. M57.
+#   lone side a missing reverse edge is refused with nothing changed: /ndt/link_failure_detected
+#             and /ndt/link_recovery_detected look the reverse up first and, when it is absent,
+#             write nothing, emit no event and answer 500 with one body. M57 .. M63, W14, W15.
+#             Until 2026-11-16 M57 was "link_failure_detected with no reverse edge records a plain
+#             declaration": it pinned the half-applied write that branch used to make, and with the
+#             refusal that write and its anchor are gone. M57 now names the first of the refusal
+#             mutants, so a result recorded earlier under "M57" is about the old mutation.
 #
 # [Co-developed with claude code -- Adam]
 #
 # Covers tests/test_PollDoesNotResurrect.cpp (DeclaredLinkFailureTest, the B-6 second-round cases),
 # tests/test_HttpSessionRouting.cpp (DeclaredLinkFailureWireTest, the second-round and dpid-0 cases) and
+# tests/test_HttpSessionRouting.cpp (LinkTransitionEndpointsTest, the missing-reverse cases) and
 # tests/test_NetemLinkFault.cpp (ResidualNetemSweepTest).
 #
 # WHAT THE DEFECT WAS -- and this one was MEASURED ON A LIVE FABRIC, not reasoned about
@@ -61,8 +67,10 @@
 #         log written before the outcome is known or written the same way for all three outcomes,
 #         and the sweep narrowed back to link ends, blind to unfamiliar interfaces, calling
 #         everything a link, or reading one device at a time again.
-#   2. RELAXING PAST the fix must ALSO be caught             (M11 .. M18, M25)
+#   2. RELAXING PAST the fix must ALSO be caught             (M11 .. M18, M25, M62, M63)
 #      -- and every one of these is a bigger outage than the defect:
+#         * a missing-reverse refusal that fires when both directions are present answers 500 to
+#           every link report and changes nothing, which is the notification path switched off;
 #         * a recovery report that NEVER withdraws makes every real link outage permanent;
 #         * a pairing rule that also refuses edges nobody declared down stops the endpoint
 #           raising links at all -- it is one of only two writers that ever does;
@@ -347,7 +355,23 @@ add_anchor "recovery-pair" "$TFM" '    const auto fwdOutcome = applyReportedLink
     const auto revOutcome = applyReportedLinkRecoveryNoLock(rev);'
 add_anchor "recovery-call" "$HS"  '    const auto [fwdOutcome, revOutcome] =
         m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value(), revOpt.value());'
-add_anchor "notify-lone"   "$HS"  '        m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());'
+# [Co-developed with claude code -- Adam] The missing-reverse branches. Each anchor is the reverse
+# lookup and the `if (!revOpt)` that follows it: the injection endpoints test `.has_value()`, so
+# neither matches there, and the failure and recovery handlers name their dpids differently.
+add_anchor "lone-failure"  "$HS"  '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt)
+    {'
+add_anchor "lone-recovery" "$HS"  '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
+    if (!revOpt)
+    {'
+add_anchor "lone-failure-body" "$HS" '                           data->srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";'
+add_anchor "lone-recovery-body" "$HS" '                           srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";'
 add_anchor "log-decline-text" "$HS" '                               "declaration was retained and the link is still down. POST "
                                "/ndt/inject_link_recovery to withdraw it",'
 
@@ -1353,14 +1377,102 @@ mutate "the recovery report applies the two directions apart again" \
     const auto revOutcome = applyReportedLinkRecoveryNoLock(rev);' \
     DeclaredLinkFailureWireTest.AFailureReportAndItsRecoveryWriteBothDirectionsUnderOneLock
 
-# M57. The missing-reverse branch of /ndt/link_failure_detected, the one place that endpoint still
-#      writes a single direction, records a plain declaration instead of a reported failure, so its
-#      own recovery report can no longer withdraw it.
-mutate "link_failure_detected with no reverse edge records a plain declaration" \
+# M57 .. M63. A missing reverse edge is refused with nothing changed. [Co-developed with claude code -- Adam]
+#      The forward direction used to be written (and, for the failure report, its event emitted)
+#      before the 500; each of M57 .. M61 puts one such side effect back into the branch, or the
+#      old body, and the named case has to go red. The event is asserted apart from the state
+#      because a write and an emit are separate decisions. M62 and M63 go the other way: the
+#      refusal is made unconditional, so it fires with both directions present.
+#
+# M57. /ndt/link_failure_detected marks the reported direction down before it refuses.
+mutate "link_failure_detected with no reverse edge writes the reported direction before refusing" \
     "$HS" \
-    '        m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());' \
-    '        m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());' \
-    LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingIsNotReportedAsSuccess
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt)
+    {' \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt)
+    {
+        m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());' \
+    LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingIsRefusedWithNothingChanged \
+    LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingLeavesADownEdgeAsItFound
+
+# M58. /ndt/link_failure_detected emits the reported direction's event before it refuses.
+mutate "link_failure_detected with no reverse edge emits the reported direction's event" \
+    "$HS" \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt)
+    {' \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt)
+    {
+        m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                               .payload = LinkFailureEventData{fwdOpt.value()}});' \
+    LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingEmitsNoEvent \
+    LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingLeavesADownEdgeAsItFound
+
+# M59. /ndt/link_recovery_detected applies the report to the forward direction before it refuses.
+mutate "link_recovery_detected with no reverse edge applies the report to the reported direction" \
+    "$HS" \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
+    if (!revOpt)
+    {' \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
+    if (!revOpt)
+    {
+        (void)m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value());' \
+    LinkTransitionEndpointsTest.ARecoveryWhoseReverseEdgeIsMissingIsRefusedWithNothingChanged \
+    LinkTransitionEndpointsTest.ARecoveryWhoseReverseEdgeIsMissingLeavesTheDeclarationItFound
+
+# M60. /ndt/link_failure_detected answers the body that said the reported direction was marked down.
+mutate "link_failure_detected with no reverse edge answers the old half-applied body" \
+    "$HS" \
+    '                           data->srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";' \
+    '                           data->srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; the reported direction was marked down, its reverse was not"})";' \
+    LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingIsRefusedWithNothingChanged
+
+# M61. The same for /ndt/link_recovery_detected.
+mutate "link_recovery_detected with no reverse edge answers the old half-applied body" \
+    "$HS" \
+    '                           srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";' \
+    '                           srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; the reported direction was applied, its reverse was not"})";' \
+    LinkTransitionEndpointsTest.ARecoveryWhoseReverseEdgeIsMissingIsRefusedWithNothingChanged \
+    LinkTransitionEndpointsTest.ARecoveryWhoseReverseEdgeIsMissingLeavesTheDeclarationItFound
+
+# M62. /ndt/link_failure_detected refuses every request, not only the one whose reverse is missing.
+mutate "link_failure_detected refuses even when the reverse edge is present" \
+    "$HS" \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt)
+    {' \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (true)
+    {' \
+    LinkTransitionEndpointsTest.AFailureWithBothDirectionsPresentTakesBothDownAndAnswers200 \
+    LinkTransitionEndpointsTest.AFailureWithBothDirectionsPresentEmitsOneEventPerDirection
+
+# M63. The same for /ndt/link_recovery_detected.
+mutate "link_recovery_detected refuses even when the reverse edge is present" \
+    "$HS" \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
+    if (!revOpt)
+    {' \
+    '    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
+    if (true)
+    {' \
+    LinkTransitionEndpointsTest.ARecoveryWithBothDirectionsPresentBringsBothUpAndAnswers200
 
 # ================================================================================================
 # 6. the widenings -- these MUST survive
@@ -1499,6 +1611,31 @@ widen "the recovery link writer releases and retakes the lock before writing any
     m_graphMutex->lock();
     const auto fwdOutcome = applyReportedLinkRecoveryNoLock(fwd);'
 
+# W14, W15. [Co-developed with claude code -- Adam] The control for M60 and M61: each refusal body is
+#     REWORDED while it still says both facts, the reverse edge is missing and nothing was
+#     changed. The cases assert those two facts and not the sentence; one that reddens here is
+#     pinning the sentence, and the next person to improve it would have to edit a test.
+widen "the failure endpoint's refusal body is reworded (it still says both facts)" \
+    "$HS" \
+    '                           data->srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";' \
+    '                           data->srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology, so nothing was changed"})";'
+widen "the recovery endpoint's refusal body is reworded (it still says both facts)" \
+    "$HS" \
+    '                           srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";' \
+    '                           srcDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology, so nothing was changed"})";'
+
 # ================================================================================================
 # 7. restore and verdict
 # ================================================================================================
@@ -1557,4 +1694,6 @@ echo "  reported link as injected is caught as well. Neither note can be written
 echo "  declaration again, an injection of an edge that was not injected re-arms the poll's"
 echo "  advice, no link endpoint can write the two directions of its link apart again, and"
 echo "  inject_link_recovery cannot withdraw a declaration apart from raising the edge again."
+echo "  A missing reverse edge cannot make either notification endpoint write, emit or answer"
+echo "  the half-applied body again, and neither refuses a request whose two directions are there."
 exit 0

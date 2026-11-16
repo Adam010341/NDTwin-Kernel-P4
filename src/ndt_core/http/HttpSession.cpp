@@ -926,27 +926,24 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
     // setEdgeDownByInjection's body instead, and the `injected` note that writes is what makes an
     // injection immune to a recovery report, a Ryu restart's included (B-23).
     //
-    // The reverse edge is looked up before anything is written, so that both directions can be
-    // written under one lock (setLinkDownByReportedFailure). The reply to a missing reverse is
-    // unchanged: the reported direction is still marked down and its event emitted.
+    // The reverse edge is looked up BEFORE anything is written, so that both directions can be
+    // written under one lock (setLinkDownByReportedFailure) and so that a missing reverse changes
+    // nothing: no declaration, no report note, no event. The reply to it is a 500 that says so.
     // [Co-developed with claude code -- Adam]
     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
     if (!revOpt)
     {
-        m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());
-        m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
-                               .payload = LinkFailureEventData{fwdOpt.value()}});
         // [Co-developed with claude code -- Adam]
-        // Answered 200 "link failure processed" here for months. Every loader and discovery
-        // path inserts edges in pairs, so a graph holding s->d without d->s is the kernel's own
-        // state gone inconsistent -- hence 500, not 404: the sibling branch above uses 404 for
-        // "nothing was done", and by this point the reported direction HAS been marked down and
-        // its event emitted. The body says which half happened, because a caller that only reads
-        // the status line otherwise repeats the fault-injection run against a graph the kernel
-        // itself no longer believes.
+        // Answered 200 "link failure processed" here for months, and then 500 after marking the
+        // reported direction down and emitting its event. Every loader and discovery path inserts
+        // edges in pairs, so a graph holding s->d without d->s is the kernel's own state gone
+        // inconsistent -- hence 500, not 404: the sibling branch above uses 404 for "no such
+        // edge". Refused with nothing changed, the way handleInjectLinkFailure refuses it, so a
+        // caller that repeats the request after the graph is repaired starts from the state it
+        // had.
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "link failure {}:{} -> {}:{}: reverse edge {} -> {} is missing from "
-                           "the topology; forward direction marked down, reverse untouched",
+                           "the topology; nothing was changed",
                            data->srcDpid,
                            data->srcInterface,
                            data->dstDpid,
@@ -955,7 +952,7 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
                            data->srcDpid);
         res.result(http::status::internal_server_error);
         res.body() =
-            R"({"error":"reverse edge missing from the topology; the reported direction was marked down, its reverse was not"})";
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";
         return;
     }
     m_topologyAndFlowMonitor->setLinkDownByReportedFailure(fwdOpt.value(), revOpt.value());
@@ -1031,8 +1028,8 @@ enum class RecoveryLogOutcome
  *       two dpids but not the ports, from the monitor rather than the endpoint. That line WAS
  *       already there at 04:33:37.198 and it did not stop the INFO above it from reading as a
  *       success; a log whose two lines contradict each other is not a log that says what happened.
- * @note The reverse-edge-missing branch (500) keeps its own WARN, which already names the outcome
- *       it got rather than the one it assumed, and does not reach here.
+ * @note The reverse-edge-missing branch (500) looks the reverse up first, changes nothing, and
+ *       keeps its own WARN, which says nothing was changed; it does not reach here.
  */
 void
 logLinkRecoveryOutcome(RecoveryLogOutcome outcome,
@@ -1139,33 +1136,29 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     // report pairs with a failure the control plane reported. See applyReportedLinkRecovery.
     //
     // Both directions under one lock, so the reverse edge is looked up first. A missing reverse
-    // still applies the report to the forward direction alone and answers as it always did.
+    // changes nothing: the report is applied to neither direction.
     // [Co-developed with claude code -- Adam]
     // TODO: Emit LinkRecoveryDetected event
     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
     if (!revOpt)
     {
-        const auto fwdOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value());
         // Same shape and same reasoning as handleLinkFailure above: edges exist in pairs, so a
-        // missing reverse is kernel-state inconsistency, and by now the forward direction has
-        // already been acted on -- report the half that happened. [Co-developed with claude code -- Adam]
-        // "applied" rather than "marked up", because the forward direction may have kept a
-        // declaration this report could not pair with. Saying "marked up" would be this branch
-        // reporting the outcome it assumed rather than the one it got.
+        // missing reverse is kernel-state inconsistency, and it is refused before the forward
+        // direction is touched -- no withdrawal, no edge raised, no declaration spent. Answered
+        // 500 with nothing changed, as handleInjectLinkRecovery does.
+        // [Co-developed with claude code -- Adam]
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "link recovery {}:{} -> {}:{}: reverse edge {} -> {} is missing from "
-                           "the topology; forward direction applied ({}), reverse untouched",
+                           "the topology; nothing was changed",
                            srcDpid,
                            srcInterface,
                            dstDpid,
                            dstInterface,
                            dstDpid,
-                           srcDpid,
-                           fwdOutcome == LinkRecoveryOutcome::Applied ? "marked up"
-                                                                     : "declaration retained");
+                           srcDpid);
         res.result(http::status::internal_server_error);
         res.body() =
-            R"({"error":"reverse edge missing from the topology; the reported direction was applied, its reverse was not"})";
+            R"({"error":"reverse edge missing from the topology; nothing was changed"})";
         return;
     }
     const auto [fwdOutcome, revOutcome] =
@@ -1282,9 +1275,9 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     if (!revOpt.has_value())
     {
         // Same reasoning as handleLinkFailure: edges exist in pairs, so a missing reverse is the
-        // kernel's own state gone inconsistent. Refused BEFORE anything is changed here, unlike
-        // the notification path -- an injection that half-happened would leave both the graph and
-        // the machine's qdisc tree in a state the caller did not ask for and cannot name.
+        // kernel's own state gone inconsistent. Refused BEFORE anything is changed here, as the
+        // notification path is too -- an injection that half-happened would leave both the graph
+        // and the machine's qdisc tree in a state the caller did not ask for and cannot name.
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "inject link failure {} -> {}: reverse edge is missing from the "
                            "topology; nothing was injected",
