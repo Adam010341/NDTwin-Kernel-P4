@@ -275,7 +275,7 @@ documents the false positive as deliberate (`include/ndt_core/collection/FlowLin
 graph.
 
 **Why.** The usage fields are always numeric (`src/ndt_core/http/HttpSession.cpp:1650-1651`); the
-silence is carried only by `telemetry_status` (`:1641`;
+silence is carried only by `telemetry_status` (`:1634`;
 `src/ndt_core/collection/FlowLinkUsageCollector.cpp:2007-2027`).
 
 **What to do.** Read `silent` as "cannot tell": it covers a broken telemetry path and a switch with
