@@ -576,9 +576,11 @@ FLOW_RECORD = Obj({
     "ended_at_ms": Int(min=0),
     # [Co-developed with claude code -- Adam]
     # Sections 4 and 30: the switches on `path` whose table view is incomplete, in path order.
-    # OPTIONAL: absent when no switch on the path has a `flow_stats` record (an OVS fabric, an
-    # unread proxy) and on every kernel built before the key. A list when present, `[]` included;
-    # never null, which a consumer could not tell from "absent".
+    # OPTIONAL: absent when the proxy has no `flow_stats` record for any switch on the fabric (an
+    # OVS fabric, an unread proxy), when the path has no switch on it, and on every kernel built
+    # before the key. A list when present, `[]` included; never null, which a consumer could not
+    # tell from "absent". A switch with no record, beside switches that have one, is listed with a
+    # null `unrendered_entries`.
     "path_unconfirmed_at": List(Obj({"dpid": Int(min=0), "unrendered_entries": Any_()})),
 })
 
