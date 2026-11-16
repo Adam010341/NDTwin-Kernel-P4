@@ -104,7 +104,10 @@ class AnInPortTheKeyCannotHoldTest(unittest.TestCase):
     # port 1 and cut 2.5 to 2, so the rule installed was not the one sent. The literals are parsed
     # from text, as they arrive; 2.0 and 2e0 are floats once parsed. [Co-developed with claude code -- Adam]
     WIRE_BOOLS = ("true", "false")
-    WIRE_FLOATS = ("2.5", "2.0", "2e0", "0.0", "511.0", "-0.0")
+    # NaN, Infinity, -Infinity and 1e400 are floats after json.loads too.
+    # [Co-developed with claude code -- Adam]
+    WIRE_FLOATS = ("2.5", "2.0", "2e0", "0.0", "511.0", "-0.0",
+                   "NaN", "Infinity", "-Infinity", "1e400")
 
     def call_wire(self, handler_name, text):
         raw = ('{"dpid": 1, "match": {"in_port": %s, "nw_dst": "10.0.0.4"}, '
