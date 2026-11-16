@@ -285,7 +285,7 @@ class FakeKernel:
                                              "message": f"no table named {table!r}"}}
         if method == "GET" and self.power_state[self.mgmt_ip[dpid]]["admin_state"] == "off":
             # The proxy's answer for a switch whose bmv2 is gone (p4_proxy/proxy_agent/
-            # api_routes.py:1633-1635; seen on bmv2 1.15.5, 2026-11-11 UTC).
+            # api_routes.py, read_table_entry; seen on bmv2 1.15.5, 2026-11-11 UTC).
             # [Co-developed with claude code -- Adam]
             return 503, "proxy", {"detail": {
                 "error": "table not read", "dpid": dpid, "table": TABLE,
