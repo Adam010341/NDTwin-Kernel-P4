@@ -475,7 +475,7 @@ the kernel has read the first hides it; the count may be short when the journal 
 or read, and is unknown (null) when the push itself failed.
 
 **Why.** The proxy pushes the pipeline to each switch at startup and readopt, which empties its tables
-(`p4_proxy/proxy_agent/main.py:2336-2345`, `TopologyManager._note_in_journal` and the `set_forwarding_pipeline_config()` call in `TopologyManager.readopt_switch`, both in `p4_proxy/proxy_agent/topology_manager.py`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
+(`startup` in `p4_proxy/proxy_agent/main.py`, where it calls `close_ryu_generation` after the push, `TopologyManager._note_in_journal` and the `set_forwarding_pipeline_config()` call in `TopologyManager.readopt_switch`, both in `p4_proxy/proxy_agent/topology_manager.py`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
 requests and not the reasons for them. The kernel reads the record on its regular poll of the proxy and logs it at
 ERROR (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:797-805`;
 `src/ndt_core/power_management/P4RulesLost.cpp:99-103`); `get_graph_data` serves it on the switch node
