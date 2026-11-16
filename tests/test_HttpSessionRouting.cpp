@@ -37,6 +37,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -1337,10 +1338,10 @@ TEST_F(DispatchStatusEndpointTest, TheRouteAcceptsAQueryStringAtAll)
 
 // --- a request's own failures, with the proxy's reason ----------------------------------------
 // [Co-developed with claude code -- Adam]
-// Measured on a package fabric: POST /ndt/install_flow_entry answered 200 `queued`, and
-// ?request_id= answered `dispatch_failed 1`, `rejected_by_switch 1` and nothing else. The proxy's
-// refusal -- 501 `unsupported_on_p4`, reason `owned_by_package`, and a remedy -- was only in the
-// process-wide `recent_failures`, which carried no request id, and in kernel.log.
+// Measured on a package fabric on 2026-11-15: POST /ndt/install_flow_entry answered 200
+// `queued`, and ?request_id= answered `dispatch_failed 1`, `rejected_by_switch 1` and nothing
+// else. The proxy's refusal -- 501 `unsupported_on_p4`, reason `owned_by_package`, and a remedy --
+// was only in the process-wide `recent_failures`, which carried no request id, and in kernel.log.
 
 namespace
 {
@@ -1361,12 +1362,15 @@ ownedByPackageRefusal()
         .withRefusal(refusal);
 }
 
-/// GET @p target until `counters.dispatched` reaches @p dispatched: the stub is called before the
-/// sender records the outcome, so the last record can land just after waitForCalls returns.
+/// GET @p target until @p ready holds of the body. The stub is called before the sender records
+/// the outcome, so the last record can land just after waitForCalls returns, and DispatchOutcomeLog
+/// ::record() bumps `dispatched` first, then the bucket and request tallies, then pushes the
+/// record, then counts what the ring dropped. Each test therefore waits for the very field it
+/// asserts on, never for `counters.dispatched`.
 nlohmann::json
-statusOnceRecorded(const std::shared_ptr<Controller>& controller,
-                   const std::string& target,
-                   uint64_t dispatched)
+statusWhen(const std::shared_ptr<Controller>& controller,
+           const std::string& target,
+           const std::function<bool(const nlohmann::json&)>& ready)
 {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     nlohmann::json body;
@@ -1374,14 +1378,22 @@ statusOnceRecorded(const std::shared_ptr<Controller>& controller,
     {
         HttpSessionTestPeer peer(controller);
         body = nlohmann::json::parse(peer.send(http::verb::get, target).body(), nullptr, false);
-        if (!body.is_discarded() && body.contains("counters") &&
-            body.at("counters").value("dispatched", uint64_t{0}) >= dispatched)
+        if (!body.is_discarded() && ready(body))
         {
             return body;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     } while (std::chrono::steady_clock::now() < deadline);
     return body;
+}
+
+/// Ready once the array at @p key of the body holds at least @p n elements.
+std::function<bool(const nlohmann::json&)>
+arrayHolds(const std::string& key, size_t n)
+{
+    return [key, n](const nlohmann::json& body) {
+        return body.contains(key) && body.at(key).is_array() && body.at(key).size() >= n;
+    };
 }
 
 } // namespace
@@ -1394,8 +1406,8 @@ TEST_F(DispatchStatusEndpointTest, ARequestIdAnswerCarriesItsOwnFailureAndThePro
                                  .withProgrammingRefused(true)
                                  .withRefusal(OpResult::Refusal{"switch", "", "", ""})));
 
-    const auto first =
-        statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status?request_id=1", 1);
+    const auto first = statusWhen(
+        fx.controller, "/ndt/get_flow_dispatch_status?request_id=1", arrayHolds("failures", 1));
     RecordProperty("request_1_body", first.dump());
     ASSERT_TRUE(first.contains("failures")) << first.dump();
     ASSERT_EQ(first.at("failures").size(), 1u) << first.dump();
@@ -1411,8 +1423,8 @@ TEST_F(DispatchStatusEndpointTest, ARequestIdAnswerCarriesItsOwnFailureAndThePro
     // The bucket keeps its name; the record says who refused.
     EXPECT_EQ(first.at("switch_outcome").value("rejected_by_switch", 0u), 1u);
 
-    const auto second =
-        statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status?request_id=2", 1);
+    const auto second = statusWhen(
+        fx.controller, "/ndt/get_flow_dispatch_status?request_id=2", arrayHolds("failures", 1));
     ASSERT_EQ(second.at("failures").size(), 1u) << second.dump();
     EXPECT_EQ(second.at("failures").at(0).value("refused_by", std::string{}), "switch");
     EXPECT_FALSE(second.at("failures").at(0).contains("reason"))
@@ -1425,8 +1437,11 @@ TEST_F(DispatchStatusEndpointTest, ARequestThatFailedNothingHasAnEmptyList)
     ASSERT_TRUE(fx.run(3, 2, OpResult::success()));
     ASSERT_TRUE(fx.run(4, 1, ownedByPackageRefusal()));
 
-    const auto body =
-        statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status?request_id=3", 2);
+    // Request 4's failure must be in the ring before request 3 is asked, or "it did not leak"
+    // proves nothing: wait on the process-wide list, then read request 3's own answer.
+    statusWhen(fx.controller, "/ndt/get_flow_dispatch_status", arrayHolds("recent_failures", 1));
+    const auto body = statusWhen(
+        fx.controller, "/ndt/get_flow_dispatch_status?request_id=3", arrayHolds("failures", 0));
     ASSERT_TRUE(body.contains("failures")) << body.dump();
     EXPECT_EQ(body.at("failures"), nlohmann::json::array())
         << "request 4's failure leaked into request 3's answer";
@@ -1438,7 +1453,8 @@ TEST_F(DispatchStatusEndpointTest, TheProcessWideRecordsCarryTheirRequestId)
     DispatchFixture fx;
     ASSERT_TRUE(fx.run(5, 1, ownedByPackageRefusal()));
 
-    const auto body = statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status", 1);
+    const auto body = statusWhen(
+        fx.controller, "/ndt/get_flow_dispatch_status", arrayHolds("recent_failures", 1));
     ASSERT_EQ(body.at("recent_failures").size(), 1u) << body.dump();
     const auto& rec = body.at("recent_failures").at(0);
     EXPECT_EQ(rec.value("request_id", 0u), 5u);
@@ -1454,12 +1470,21 @@ TEST_F(DispatchStatusEndpointTest, AnEvictedFailureIsCountedNotHidden)
     const uint64_t ring = DispatchOutcomeLog::kDefaultCapacity;
     ASSERT_TRUE(fx.run(7, ring, OpResult::failure(502, "full").withProgrammingRefused(true)));
 
-    const auto body = statusOnceRecorded(fx.controller, "/ndt/get_flow_dispatch_status", ring + 1);
-    ASSERT_EQ(body.value("recent_failures_evicted", 0u), 1u) << "the ring did not overflow";
+    // `recent_failures_evicted` is bumped inside the lock that drops the record, and the dropped
+    // record's request is charged after it: wait for the request's own `failures_not_retained`,
+    // which is the last thing record() does and the field this test asserts.
+    const auto body = statusWhen(fx.controller,
+                                 "/ndt/get_flow_dispatch_status?request_id=6",
+                                 [](const nlohmann::json& b) {
+                                     return b.value("failures_not_retained", 0u) >= 1u;
+                                 });
+    ASSERT_EQ(body.value("failures_not_retained", 0u), 1u) << "the ring did not overflow";
 
     HttpSessionTestPeer peer(fx.controller);
-    const auto own = nlohmann::json::parse(
-        peer.send(http::verb::get, "/ndt/get_flow_dispatch_status?request_id=6").body());
+    const auto all = nlohmann::json::parse(
+        peer.send(http::verb::get, "/ndt/get_flow_dispatch_status").body());
+    EXPECT_EQ(all.value("recent_failures_evicted", 0u), 1u) << "the ring did not overflow";
+    const auto& own = body;
     EXPECT_EQ(own.at("counters").value("dispatch_failed", 0u), 1u);
     EXPECT_EQ(own.at("failures"), nlohmann::json::array());
     EXPECT_EQ(own.value("failures_not_retained", 0u), 1u)

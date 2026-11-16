@@ -399,8 +399,9 @@ each_mutation() {
 
     # --- D: a request's own failures, and who refused -------------------------------------
     # [Co-developed with claude code -- Adam]
-    # Measured on a package fabric: ?request_id= said `dispatch_failed 1` and nothing else, while
-    # the proxy's `owned_by_package` sat in the process-wide list with no request id on it.
+    # Measured on a package fabric on 2026-11-15: ?request_id= said `dispatch_failed 1` and
+    # nothing else, while the proxy's `owned_by_package` sat in the process-wide list with no
+    # request id on it.
 
     "$m" "19. a failure record forgets which request it came from" cpp "$OUT" \
         '        rec.requestId = job.requestId;' \
@@ -489,6 +490,11 @@ each_mutation() {
         '            if (!value->empty())' \
         '            if (true)' \
         'DispatchStatusEndpointTest.ARequestIdAnswerCarriesItsOwnFailureAndTheProxysReason' ''
+
+    "$m" "35. a field of the refusal is kept at any length" cpp "$BASE" \
+        '                into = briefly(it->get<std::string>(), kRefusalFieldLimit);' \
+        '                into = briefly(it->get<std::string>(), kRefusalFieldLimit * 1000);' \
+        'RoutingStrategyFixture.AFieldOfTheRefusalIsCutAt512BytesAndMarked' ''
 
     # --- declared-uncovered -------------------------------------------------------------------
     # Run, reported, and NOT counted as a survivor -- with the reason stated, because an exemption

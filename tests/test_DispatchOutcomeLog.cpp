@@ -524,7 +524,7 @@ TEST(DispatchOutcomeLogTest, TheOldestRequestAgesOutAndTheLogSaysHowMany)
 // [Co-developed with claude code -- Adam]
 // The per-request answer used to carry counts only: `dispatch_failed 1` and no reason, while the
 // proxy's reason sat in the process-wide list with no request id on it. Measured on a package
-// fabric: a destination-route install answered 200 `queued`, ?request_id= said
+// fabric on 2026-11-15: a destination-route install answered 200 `queued`, ?request_id= said
 // `rejected_by_switch 1`, and the proxy's `owned_by_package` was in neither.
 
 namespace

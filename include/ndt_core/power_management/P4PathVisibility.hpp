@@ -15,20 +15,24 @@
 // So the kernel does two things with that count, and neither changes the path itself:
 //
 //   - each switch node of /ndt/get_graph_data carries the proxy's `flow_stats` object verbatim;
-//   - each flow row with a non-empty path carries `path_unconfirmed_at`: in path order, every
-//     switch on the path whose count is not 0 (a null count included), as
-//     {"dpid": <dpid>, "unrendered_entries": <the proxy's value>}. The first element is the switch
-//     at which the twin stops being able to confirm the path. `[]` means every switch on the path
-//     that has a record said it left nothing out.
+//   - each flow row with a path that has a switch on it carries `path_unconfirmed_at`: in path
+//     order, every switch on the path whose count is not 0 (a null count included), as
+//     {"dpid": <dpid>, "unrendered_entries": <the proxy's value>}. A switch on the path that has
+//     no record, while other switches on the fabric do, is listed too, with a null count: nobody
+//     said it hides nothing. The first element is the switch at which the twin stops being able
+//     to confirm the path. `[]` means every switch on the path had a record and said 0, that is,
+//     left out no row it counts.
 //
 // ABSENCE IS THE BASELINE, as for `capabilities` (P4Capabilities.hpp): a row carries no
-// `path_unconfirmed_at` when no switch on its path has a `flow_stats` record -- an OVS fabric, a
-// proxy too old to report, or a proxy the kernel could not read on its last attempt. Nobody said,
-// so nothing is claimed either way.
+// `path_unconfirmed_at` when the proxy has no `flow_stats` record for any switch on the fabric --
+// an OVS fabric, a proxy too old to report, or a proxy the kernel could not read on its last
+// attempt. Nobody said, so nothing is claimed either way. A row whose path has no switch on it
+// carries none either.
 //
 // What it does not cover: a drop done in pipeline code with no table row behind it (a register, a
-// counter-driven branch) is invisible to the proxy's count too. A switch reporting 0 has no
-// unrendered rows; it is not proof the program forwards what its route table says.
+// counter-driven branch) is invisible to the proxy's count too. On NDTwin's own pipeline the proxy
+// also leaves out, uncounted, a row with no usable match. So 0 means "left out no row it counts",
+// not proof that the program forwards what its route table says.
 #pragma once
 
 #include <nlohmann/json.hpp>
@@ -54,15 +58,19 @@ FlowStatsByDpid fromSwitchState(const std::optional<nlohmann::json>& payload);
 void attachToNode(nlohmann::json& node, const VertexProperties& vertex, const FlowStatsByDpid& stats);
 
 /**
- * @brief Adds `path_unconfirmed_at` to each flow row whose path crosses a switch with a record.
+ * @brief Adds `path_unconfirmed_at` to each flow row whose path crosses a switch.
  *
  * @param rows  The array getFlowInfoJson / getTopKFlowInfoJson returned. Anything else is left as
  *              it is.
- * @param stats What the proxy last said, per dpid.
+ * @param stats What the proxy last said, per dpid. When it is empty nothing is marked.
  *
- * The first and last elements of a `path` are the two hosts (their IPs), never dpids, and are
- * never looked up: on a small fabric a host's address and a dpid can be the same integer. A row
- * with an empty path, or whose switches have no record, gets no key.
+ * A path element is a host, and is never looked up, only when it is the one the row names: the
+ * first element when its `node` is the row's `src_ip`, the last when its `node` is the row's
+ * `dst_ip` and its `interface` is 0 (that is how the walk writes both ends: on a small fabric a
+ * host's address and a dpid can be the same integer). The walk can stop at a host that does not
+ * own the destination address and push no destination element, and then the path ends at a
+ * switch; so every other element, the last included, is scanned like a switch. A row with an
+ * empty path, or with no switch on it, gets no key.
  */
 void annotateFlowRows(nlohmann::json& rows, const FlowStatsByDpid& stats);
 

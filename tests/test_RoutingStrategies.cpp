@@ -627,6 +627,37 @@ TEST_F(RoutingStrategyFixture, AProxyRefusalAtTheTopLevelIsReadToo)
     EXPECT_EQ(r.refusal.remedy, "");
 }
 
+TEST_F(RoutingStrategyFixture, AFieldOfTheRefusalIsCutAt512BytesAndMarked)
+{
+    // The words come from another process and sit in a ring of up to 2000 records, so each is
+    // capped: 512 bytes, then "...", and a line break becomes a space. A remedy of exactly 512
+    // bytes is not cut.
+    const std::string longRemedy = "first line\nsecond line" + std::string(578, 'r'); // 600 bytes
+    ASSERT_EQ(longRemedy.size(), 600u);
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = json{{"detail",
+                          {{"outcome", "unsupported_on_p4"},
+                           {"reason", "owned_by_package"},
+                           {"remedy", longRemedy}}}}
+                        .dump() +
+                    "\n501";
+
+    const OpResult r = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+
+    std::string expected = longRemedy.substr(0, 512);
+    expected[expected.find('\n')] = ' ';
+    expected += "...";
+    EXPECT_EQ(r.refusal.remedy.size(), 515u) << "512 bytes of the remedy and the three-dot mark";
+    EXPECT_EQ(r.refusal.remedy, expected);
+    EXPECT_EQ(r.refusal.remedy.substr(r.refusal.remedy.size() - 3), "...");
+    EXPECT_EQ(r.refusal.remedy.find('\n'), std::string::npos);
+
+    const std::string exact(512, 'e');
+    s.cannedReply = json{{"detail", {{"remedy", exact}}}}.dump() + "\n501";
+    EXPECT_EQ(s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0).refusal.remedy, exact)
+        << "a field that fits is kept whole";
+}
+
 TEST_F(RoutingStrategyFixture, AWriteTheSwitchDidNotTakeIsTheSwitchsRefusal)
 {
     // 502 is the proxy's code for "I wrote and the switch refused" (FIXED-ISSUES C-6).

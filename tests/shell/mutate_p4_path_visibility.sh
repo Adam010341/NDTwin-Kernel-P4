@@ -79,8 +79,8 @@ add "V1: a null count is read as 'nothing left out'" \
 
 add "V2: the two hosts at the ends of the path are looked up as dpids" \
     "$PATHS" \
-    '        for (std::size_t i = 1; i + 1 < path.size(); ++i)' \
-    '        for (std::size_t i = 0; i < path.size(); ++i)' \
+    '            if (isSource || isDestination)' \
+    '            if (false && (isSource || isDestination))' \
     'P4PathVisibility.TheEndpointsAreHostsAndAreNeverLookedUp'
 
 add "V3: a switch that hides nothing is listed too" \
@@ -95,11 +95,11 @@ add "V3: a switch that hides nothing is listed too" \
             }' \
     'P4PathVisibility.APathWhoseSwitchesHideNothingIsAnEmptyList'
 
-add "V4: the key is written when nobody on the path said anything" \
+add "V4: the key is written for a path with no switch on it" \
     "$PATHS" \
-    '        if (anyRecord)' \
-    '        if (anyRecord || true)' \
-    'P4PathVisibility.NoRecordForAnySwitchOnThePathMeansNoKey'
+    '        if (anySwitch)' \
+    '        if (anySwitch || true)' \
+    'P4PathVisibility.AnEmptyPathGetsNoKey'
 
 add "V5: the record is read from the wrong key" \
     "$PATHS" \
@@ -149,6 +149,47 @@ add "V11: get_detected_top_k_flow_data never marks its rows" \
     '    p4paths::annotateFlowRows(j, p4FlowStatsOf(m_deviceConfigurationAndPowerManager));' \
     '    // MUTANT: top-k rows never marked' \
     'P4FlowStatsWire.TheTopKRowsMarkAPathThroughASwitchHidingRows'
+
+add "V12: the switches are listed in reverse path order" \
+    "$PATHS" \
+    '            unconfirmed.push_back({{"dpid", dpid}, {"unrendered_entries", count}});' \
+    '            unconfirmed.insert(unconfirmed.begin(), nlohmann::json{{"dpid", dpid}, {"unrendered_entries", count}});' \
+    'P4PathVisibility.TheSwitchesAreListedInPathOrderSoTheFirstIsWhereConfirmationStops'
+
+add "V13: the last path element is skipped as a host without asking whose it is" \
+    "$PATHS" \
+    '            const bool isDestination = i != 0 && i + 1 == path.size() &&
+                                       holds(row, "dst_ip", dpid) && interfaceIsZero(hop);' \
+    '            const bool isDestination = i != 0 && i + 1 == path.size() &&
+                                       (holds(row, "dst_ip", dpid) || interfaceIsZero(hop) || true);' \
+    'P4PathVisibility.APathThatEndsAtASwitchIsScannedToItsEnd'
+
+add "V14: the last element is a host whenever its node is the destination, whatever its port" \
+    "$PATHS" \
+    '            const bool isDestination = i != 0 && i + 1 == path.size() &&
+                                       holds(row, "dst_ip", dpid) && interfaceIsZero(hop);' \
+    '            const bool isDestination = i != 0 && i + 1 == path.size() &&
+                                       holds(row, "dst_ip", dpid) && (interfaceIsZero(hop) || true);' \
+    'P4PathVisibility.ALastElementWithAnEgressPortIsASwitchEvenIfItsNodeIsTheDestination'
+
+add "V15: the first path element is skipped as a host without asking whose it is" \
+    "$PATHS" \
+    '            const bool isSource = i == 0 && holds(row, "src_ip", dpid);' \
+    '            const bool isSource = i == 0 && (holds(row, "src_ip", dpid) || true);' \
+    'P4PathVisibility.APathThatDoesNotStartAtItsSourceHostIsScannedFromItsFirstElement'
+
+add "V16: a switch with no record, beside switches that have one, is passed over" \
+    "$PATHS" \
+    '                unconfirmed.push_back({{"dpid", dpid}, {"unrendered_entries", nullptr}});
+                continue;' \
+    '                continue;' \
+    'P4PathVisibility.ASwitchWithNoRecordBesideSwitchesThatHaveOneIsListedAsNull'
+
+add "V17: the key is written when the proxy described no switch at all" \
+    "$PATHS" \
+    '    if (!rows.is_array() || stats.empty())' \
+    '    if (!rows.is_array())' \
+    'P4PathVisibility.NoRecordForAnySwitchOnTheFabricMeansNoKey'
 
 add "C1: control -- a comment beside the count check (must stay green)" \
     "$PATHS" \

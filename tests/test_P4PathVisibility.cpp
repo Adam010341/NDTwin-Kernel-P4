@@ -8,11 +8,15 @@
  *
  *   - a switch node MAY carry `flow_stats`, the proxy's per-switch object from
  *     GET /p4/switch_state, verbatim;
- *   - a flow row whose path crosses at least one switch with such a record carries
- *     `path_unconfirmed_at`: in path order, each of those switches whose `unrendered_entries` is
- *     not 0 (null included), as {"dpid", "unrendered_entries"}; `[]` when all of them said 0;
- *   - a row whose switches have no record, or whose path is empty, carries no such key;
- *   - the first and last path elements are hosts and are never looked up.
+ *   - a flow row whose path has a switch on it, while the proxy has a record for some switch,
+ *     carries `path_unconfirmed_at`: in path order, each switch on the path whose
+ *     `unrendered_entries` is not 0 (null included), as {"dpid", "unrendered_entries"}, and a
+ *     switch with no record while others have one, with a null count; `[]` when every switch on
+ *     the path had a record and said 0;
+ *   - when the proxy has no record for any switch, or the path is empty, there is no such key;
+ *   - the first path element is the source host when its node is the row's src_ip, the last is
+ *     the destination host when its node is the row's dst_ip and its interface is 0; hosts are
+ *     never looked up, and any other element is scanned like a switch, the last included.
  *
  * The numbers in the first case are the ones a live firewall run read (switch 1 hiding 8 rows of
  * its ACL table, switches 2-4 hiding none, the path h3 -> s2 -> s3 -> s1 -> h1). The wiring --
@@ -48,10 +52,10 @@ hop(std::uint64_t node, std::uint32_t interface)
 /// One flow row in the shape getFlowInfoJson emits it, trimmed to the keys this code reads and a
 /// few it must leave alone.
 json
-row(const json& path)
+row(const json& path, std::uint64_t srcIp = kH3, std::uint64_t dstIp = kH1)
 {
-    return json{{"src_ip", kH3},
-                {"dst_ip", kH1},
+    return json{{"src_ip", srcIp},
+                {"dst_ip", dstIp},
                 {"src_port", 40000},
                 {"dst_port", 5001},
                 {"protocol_id", 6},
@@ -80,9 +84,12 @@ firewallStats()
 }
 
 json
-annotatedOne(const json& path, const p4paths::FlowStatsByDpid& stats)
+annotatedOne(const json& path,
+             const p4paths::FlowStatsByDpid& stats,
+             std::uint64_t srcIp = kH3,
+             std::uint64_t dstIp = kH1)
 {
-    json rows = json::array({row(path)});
+    json rows = json::array({row(path, srcIp, dstIp)});
     p4paths::annotateFlowRows(rows, stats);
     return rows.at(0);
 }
@@ -166,8 +173,9 @@ TEST(P4PathVisibility, TheSwitchesAreListedInPathOrderSoTheFirstIsWhereConfirmat
 
 TEST(P4PathVisibility, APathWhoseSwitchesHideNothingIsAnEmptyList)
 {
-    // NDTwin's own pipeline: every switch renders all it holds. `[]` is an answer -- every switch
-    // on the path said so -- and it must not be confused with "nobody said" (no key).
+    // NDTwin's own pipeline: every switch left out no row it counts. `[]` is an answer -- every
+    // switch on the path had a record and said 0 -- and it must not be confused with "nobody
+    // said" (no key).
     const json got = annotatedOne(firewallPath(),
                                   {{1, count(0)}, {2, count(0)}, {3, count(0)}, {4, count(0)}});
     ASSERT_TRUE(got.contains("path_unconfirmed_at")) << got.dump();
@@ -187,12 +195,33 @@ TEST(P4PathVisibility, ANullCountIsListed)
                            {{"dpid", 1}, {"unrendered_entries", nullptr}}}));
 }
 
-TEST(P4PathVisibility, NoRecordForAnySwitchOnThePathMeansNoKey)
+TEST(P4PathVisibility, ASwitchWithNoRecordBesideSwitchesThatHaveOneIsListedAsNull)
 {
-    // The proxy describes switches 7 and 8, neither of which is on this path. Nobody on the path
-    // said anything, so the row says nothing either: an OVS fabric reads exactly like this.
-    const json got = annotatedOne(firewallPath(), {{7, count(3)}, {8, count(0)}});
-    EXPECT_FALSE(got.contains("path_unconfirmed_at")) << got.dump();
+    // The proxy describes switches 1, 2 and 4 and says each hides nothing; it has no record for
+    // switch 3, which is on the path. Nobody said s3 hides nothing, so it is listed as
+    // unconfirmed with a null count rather than passed over as if it had said 0.
+    const json got = annotatedOne(firewallPath(), {{1, count(0)}, {2, count(0)}, {4, count(0)}});
+    ASSERT_TRUE(got.contains("path_unconfirmed_at")) << got.dump();
+    EXPECT_EQ(got.at("path_unconfirmed_at"),
+              json::array({{{"dpid", 3}, {"unrendered_entries", nullptr}}}));
+
+    // The proxy describes switches 7 and 8, neither of which is on this path: every switch on the
+    // path is then one nobody described.
+    const json none = annotatedOne(firewallPath(), {{7, count(3)}, {8, count(0)}});
+    ASSERT_TRUE(none.contains("path_unconfirmed_at")) << none.dump();
+    EXPECT_EQ(none.at("path_unconfirmed_at"),
+              json::array({{{"dpid", 2}, {"unrendered_entries", nullptr}},
+                           {{"dpid", 3}, {"unrendered_entries", nullptr}},
+                           {{"dpid", 1}, {"unrendered_entries", nullptr}}}));
+}
+
+TEST(P4PathVisibility, NoRecordForAnySwitchOnTheFabricMeansNoKey)
+{
+    // The proxy described no switch at all: an OVS fabric, a proxy too old to report, or one the
+    // kernel could not read. Nobody said anything, so the row says nothing either.
+    json rows = json::array({row(firewallPath())});
+    p4paths::annotateFlowRows(rows, {});
+    EXPECT_FALSE(rows.at(0).contains("path_unconfirmed_at")) << rows.dump();
 }
 
 TEST(P4PathVisibility, TheEndpointsAreHostsAndAreNeverLookedUp)
@@ -200,10 +229,44 @@ TEST(P4PathVisibility, TheEndpointsAreHostsAndAreNeverLookedUp)
     // Hosts whose address integers are also dpids with records, as on a small fabric where 1 is
     // a dpid and a reading of 1.0.0.0. Only s2 is a switch on this path and it hides nothing.
     const json path = json::array({hop(5, 1), hop(2, 3), hop(6, 0)});
-    const json got = annotatedOne(path, {{5, count(4)}, {2, count(0)}, {6, count(9)}});
+    const json got = annotatedOne(path, {{5, count(4)}, {2, count(0)}, {6, count(9)}}, 5, 6);
     ASSERT_TRUE(got.contains("path_unconfirmed_at")) << got.dump();
     EXPECT_EQ(got.at("path_unconfirmed_at"), json::array())
         << "a host's address was looked up as a dpid";
+}
+
+TEST(P4PathVisibility, APathThatEndsAtASwitchIsScannedToItsEnd)
+{
+    // The walk reached a host that does not own the destination address, stopped without a
+    // destination element, and committed h3 -> s2 -> s1. s1 is the last element and hides 8.
+    const json path = json::array({hop(kH3, 1), hop(2, 4), hop(1, 1)});
+    const json got = annotatedOne(path, firewallStats());
+    ASSERT_TRUE(got.contains("path_unconfirmed_at")) << got.dump();
+    EXPECT_EQ(got.at("path_unconfirmed_at"),
+              json::array({{{"dpid", 1}, {"unrendered_entries", 8}}}))
+        << "the last switch of a path that has no destination host was skipped";
+}
+
+TEST(P4PathVisibility, ALastElementWithAnEgressPortIsASwitchEvenIfItsNodeIsTheDestination)
+{
+    // The destination host is written with interface 0. An element whose node equals dst_ip but
+    // that has an egress port is not that host: here dpid 5 is also the destination address.
+    const json path = json::array({hop(kH3, 1), hop(2, 4), hop(5, 3)});
+    const json got = annotatedOne(path, {{2, count(0)}, {5, count(7)}}, kH3, 5);
+    ASSERT_TRUE(got.contains("path_unconfirmed_at")) << got.dump();
+    EXPECT_EQ(got.at("path_unconfirmed_at"),
+              json::array({{{"dpid", 5}, {"unrendered_entries", 7}}}));
+}
+
+TEST(P4PathVisibility, APathThatDoesNotStartAtItsSourceHostIsScannedFromItsFirstElement)
+{
+    // The first element is not the row's source host (src_ip is h3): it is a switch, dpid 1.
+    const json path = json::array({hop(1, 3), hop(2, 4), hop(kH1, 0)});
+    const json got = annotatedOne(path, firewallStats());
+    ASSERT_TRUE(got.contains("path_unconfirmed_at")) << got.dump();
+    EXPECT_EQ(got.at("path_unconfirmed_at"),
+              json::array({{{"dpid", 1}, {"unrendered_entries", 8}}}))
+        << "the first element was skipped without asking whose address it is";
 }
 
 TEST(P4PathVisibility, AnEmptyPathGetsNoKey)
