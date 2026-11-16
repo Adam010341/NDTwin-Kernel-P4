@@ -332,10 +332,10 @@ class TopologyAndFlowMonitor
      *
      * [Co-developed with claude code -- Adam]
      * doc/FIXED-ISSUES.md B-6. /ndt/link_failure_detected, and nothing else, writes this (both
-     * directions through setLinkDownByReportedFailure, one alone when the reverse edge is missing):
-     * it is Ryu's notification endpoint, so a call to it is the twin being TOLD a link broke.
-     * /ndt/inject_link_failure writes setEdgeDownByInjection's body instead -- an operator asking
-     * for a link to be down is not the control plane observing that it is.
+     * directions through setLinkDownByReportedFailure; a missing reverse edge is refused first and
+     * nothing is written): it is Ryu's notification endpoint, so a call to it is the twin being
+     * TOLD a link broke. /ndt/inject_link_failure writes setEdgeDownByInjection's body instead --
+     * an operator asking for a link to be down is not the control plane observing that it is.
      *
      * The difference is spent by applyReportedLinkRecovery: one report, one withdrawal.
      *
