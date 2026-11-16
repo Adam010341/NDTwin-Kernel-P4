@@ -1340,7 +1340,7 @@ class TopologyManager:
         remembered from here, so nothing on this path has to be snapshotted.
 
         `idle_timeout` has no producer. The kernel omits the field for 0 and -1
-        (HttpRoutingStrategyBase.cpp:181), the TE app's live path sends no timeout key at all
+        (HttpRoutingStrategyBase.cpp:409), the TE app's live path sends no timeout key at all
         and its disabled path sends 0, and the OVS control plane never sets one either -- so
         nothing in this system asks for ageing in either fabric. Honouring it would mean
         annotating ipv4_lpm in ndtwin_switch.p4 (all ten tables compile with

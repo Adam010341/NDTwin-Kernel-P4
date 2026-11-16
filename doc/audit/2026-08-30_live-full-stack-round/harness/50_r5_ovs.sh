@@ -112,7 +112,7 @@ say "F-5 -- a rejected rule reported as installed, then silently vanishing"
 # prerequisite, so OVS refuses it -- correct switch behaviour, which is what makes the finding
 # sharp rather than weak.
 #
-# ⚠️ SINCE 08-18 THE KERNEL GAINED A PRE-QUEUE SHAPE CHECK (HttpSession.cpp:914-958, which
+# ⚠️ SINCE 08-18 THE KERNEL GAINED A PRE-QUEUE SHAPE CHECK (HttpSession.cpp:2431-2480, which
 # answers 400 with "nothing was queued" for entries that cannot form a rule).  If it now rejects
 # this at the front door, the southbound is never entered and F-5's mechanism is UNREACHABLE by
 # this route -- which is a real answer, not a fix, and must be recorded as such.
@@ -137,7 +137,7 @@ BAD_RESP="$(cat "$OUT/http/f5_ovs_invalid.body" 2>/dev/null || true)"
 info "invalid rule -> curl_rc=$RC_B http=$CODE_B  body: $BAD_RESP"
 
 if [[ "$CODE_B" == "400" ]]; then
-    verdict5 F-5 unreachable "the kernel now refuses the 08-18 request at its pre-queue shape check (HTTP 400, HttpSession.cpp:914-958): nothing was queued, so the switch never saw it and the ~8 s phantom window cannot open. The 08-18 defect was in what happens AFTER the switch says no; this route no longer gets that far. To re-reach it you need a rule that is shape-valid to the kernel and still refused by OVS. Body: $BAD_RESP"
+    verdict5 F-5 unreachable "the kernel now refuses the 08-18 request at its pre-queue shape check (HTTP 400, HttpSession.cpp:2431-2480): nothing was queued, so the switch never saw it and the ~8 s phantom window cannot open. The 08-18 defect was in what happens AFTER the switch says no; this route no longer gets that far. To re-reach it you need a rule that is shape-valid to the kernel and still refused by OVS. Body: $BAD_RESP"
 else
     : > "$OUT/f5_ovs_samples.tsv"
     printf 'elapsed_s\tswitch\tryu\tkernel\tkernel_actions_shape\n' >> "$OUT/f5_ovs_samples.tsv"

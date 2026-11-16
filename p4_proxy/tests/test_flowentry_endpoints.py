@@ -296,7 +296,7 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
     That is what these tests pin, and only that. They do NOT assert a refusal: a 200 -> 400 here
     is a breaking change for a caller that does not read status codes, which this project has.
     The disclosure is additive, so the kernel -- whose only check on this body is
-    `status == "error"`, HttpRoutingStrategyBase.cpp:123-125 -- cannot see the difference.
+    `status == "error"`, HttpRoutingStrategyBase.cpp:268-270 -- cannot see the difference.
 
     The topology is stubbed: which table a match compiles to is decided by `needs_five_tuple` on
     the match alone, so driving a real TopologyManager would add a gRPC dependency without adding

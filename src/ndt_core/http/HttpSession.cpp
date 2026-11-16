@@ -1780,7 +1780,7 @@ HttpSession::handleGetDetectedTopKFlowData(http::response<http::string_body>& re
     // FIXED-ISSUES B-x, second half. The same default as the flow-data endpoint, because the
     // measured harm here is worse: at the churn working point the default k = 50 was returning
     // ~45 rows of rate-0 corpses, and median 4 of the top 10 rows were ended flows. The document
-    // calls this endpoint "Top-K active flows" (doc/2026-01-02_ndt_api.md:2395); with this
+    // calls this endpoint "Top-K active flows" (doc/2026-01-02_ndt_api.md:4610); with this
     // default it is.
     sflow::FlowLivenessFilter filter = HttpSession::kFlowDataApiDefault;
     if (!readLivenessFilter(res, filter))

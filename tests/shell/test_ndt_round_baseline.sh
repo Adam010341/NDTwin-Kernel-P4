@@ -84,7 +84,7 @@ KNOB="$FIX/p4_proxy/mininet/host_count_override"
 printf '128\n' > "$KNOB"
 printf 'baseline\n' > "$FIX/src/Thing.cpp"
 printf 'readme\n'   > "$FIX/README.md"
-# As the real repo does (.gitignore:21). It matters here: the round baseline lives under
+# As the real repo does (.gitignore:26). It matters here: the round baseline lives under
 # .test_run/, and an untracked baseline file would add a line to `git status --porcelain` --
 # the very count these cases are about. The three below are group 8's `--check` fixtures, for
 # the same reason: they describe the machine, not the working tree, and a file this suite
