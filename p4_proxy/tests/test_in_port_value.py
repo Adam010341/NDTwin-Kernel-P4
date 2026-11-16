@@ -13,7 +13,8 @@ now runs the real encoder over every in_port spelling first, so the answer is a 
 switch is not written.
 
 The protocol and L4 port keys (ip_proto, tp_src, tp_dst and their spellings) get the same check;
-tests/test_l4_match_values.py covers them.
+tests/test_l4_match_values.py covers them. A JSON boolean and a JSON float are refused for in_port
+too (`true` was port 1, 2.5 was port 2).
 
 The check runs ahead of the writer's own refusals, so a read-only client (an `external` fabric,
 409) answers 400 for a bad in_port; a valid in_port there still answers 409.
@@ -99,6 +100,50 @@ class AnInPortTheKeyCannotHoldTest(unittest.TestCase):
                         self.call(handler, bad)
         self.assertEqual(self.stub.requests, [], "a refused in_port reached the wire")
 
+    # A JSON boolean and a JSON float are not a switch port number either: int() read `true` as
+    # port 1 and cut 2.5 to 2, so the rule installed was not the one sent. The literals are parsed
+    # from text, as they arrive; 2.0 and 2e0 are floats once parsed. [Co-developed with claude code -- Adam]
+    WIRE_BOOLS = ("true", "false")
+    WIRE_FLOATS = ("2.5", "2.0", "2e0", "0.0", "511.0", "-0.0")
+
+    def call_wire(self, handler_name, text):
+        raw = ('{"dpid": 1, "match": {"in_port": %s, "nw_dst": "10.0.0.4"}, '
+               '"actions": [{"type": "OUTPUT", "port": 3}], "priority": 100}' % text)
+
+        class WireRequest:
+            async def json(self_inner):
+                return json.loads(raw)
+
+        return asyncio.run(getattr(api_routes, handler_name)(WireRequest()))
+
+    def refused_on_the_wire(self, texts, kind):
+        for verb, handler, _ in self.HANDLERS:
+            for text in texts:
+                with self.subTest(verb=verb, in_port=text):
+                    with self.assertRaises(HTTPException) as caught:
+                        self.call_wire(handler, text)
+                    self.assertEqual(caught.exception.status_code, 400)
+                    detail = caught.exception.detail
+                    self.assertEqual(detail["fields"], ["in_port"])
+                    self.assertIn(f"match field in_port carries {kind}, which is not a switch "
+                                  f"port number from 0 to 511 ", detail["message"])
+                    self.assertIn("No rule was", detail["message"])
+        self.assertEqual(self.stub.requests, [], "a refused in_port reached the wire")
+
+    def test_a_json_boolean_in_port_is_refused_with_400_on_every_verb(self):
+        self.refused_on_the_wire(self.WIRE_BOOLS, "a bool")
+
+    def test_a_json_float_in_port_is_refused_with_400_on_every_verb(self):
+        self.refused_on_the_wire(self.WIRE_FLOATS, "a float")
+
+    def test_the_same_port_as_an_integer_or_a_digit_string_still_goes_through(self):
+        for verb, handler, _ in self.HANDLERS:
+            for text in ("2", '"2"', '" 2 "'):
+                with self.subTest(verb=verb, in_port=text):
+                    before = len(self.stub.requests)
+                    self.call_wire(handler, text)
+                    self.assertEqual(len(self.stub.requests), before + 1)
+
     def test_the_message_names_the_value_that_was_sent(self):
         with self.assertRaises(HTTPException) as caught:
             self.call("add_flow_entry", 512)
@@ -130,7 +175,8 @@ class AnInPortTheKeyCannotHoldTest(unittest.TestCase):
         client.arbitration = False
         self.topo.add_switch(2, client)
         for verb, handler, _ in self.HANDLERS:
-            for in_port, status in ((512, 400), (70000, 400), ("abc", 400), (2, 409)):
+            for in_port, status in ((512, 400), (70000, 400), ("abc", 400), (True, 400),
+                                    (2.0, 400), (2, 409)):
                 with self.subTest(verb=verb, in_port=in_port):
                     body = self.body(in_port)
                     body["dpid"] = 2

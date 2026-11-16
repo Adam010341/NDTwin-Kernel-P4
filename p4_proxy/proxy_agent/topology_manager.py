@@ -154,7 +154,8 @@ class MalformedMatchValueError(UnsupportedMatchError):
     present but empty or null, and the two spellings of one field (nw_dst / ipv4_dst,
     nw_src / ipv4_src) carrying different addresses. The same class covers a number the
     flow_5tuple keys cannot hold: an in_port outside 0-511, a protocol outside 0-255 and an L4
-    port outside 0-65535, or one that is no number at all. [Co-developed with claude code -- Adam]
+    port outside 0-65535, one that is no number at all, and a JSON boolean or a JSON float
+    (`true`, `80.5`, `80.0`), which is named by its type. [Co-developed with claude code -- Adam]
 
     Reachable from in-repo code, not just hand-written curl: IntentTranslator.cpp:359-362 copies
     the validation agent's `ipv4_dst` into `nw_dst` verbatim, and validation_agent_prompt.txt:113
@@ -351,6 +352,22 @@ L4_VALUED_MATCH_FIELDS = frozenset(
 )
 
 
+def _not_a_json_integer(field, value, action, noun, p4_key):
+    """The refusal for a JSON boolean or a JSON float where the key wants a whole number.
+
+    [Co-developed with claude code -- Adam]
+    Names the field and the type of the value ("a bool", "a float"), as every non-string value
+    is named, and says what is accepted instead.
+    """
+    from proxy_agent.p4_client import P4RuntimeClient
+    bits = P4RuntimeClient._FIVE_TUPLE_KEY_BITS[p4_key]
+    return MalformedMatchValueError(
+        field, value, action,
+        expected=f"{noun} from 0 to {(1 << bits) - 1} (the key is {bits} bits wide) written as "
+                 f"a JSON integer; a boolean, or a number written with a fraction or an "
+                 f"exponent such as 80.0, is refused")
+
+
 def _check_numeric_key_value(field, value, action, noun):
     """MalformedMatchValueError unless the 5-tuple encoder takes this value for `field`.
 
@@ -360,9 +377,20 @@ def _check_numeric_key_value(field, value, action, noun):
     width table the encoder uses (_FIVE_TUPLE_KEY_BITS), not written out a second time. Imported
     here and not at the top: p4_client is the heavy module (gRPC, protobuf) and only a match that
     names one of these keys needs it.
+
+    The encoder reads what int() reads, which is more than a JSON integer: `true` as 1 (so
+    `"ip_proto": true` was protocol 1, ICMP) and a float cut to its whole part (`"tp_dst": 80.5`
+    was port 80, `6.9` was TCP). Neither is what the caller wrote, so a value of Python type bool
+    or float is refused before the encoder is asked, as the kernel's check of `priority` refuses
+    both (FlowJob.hpp) and parse_eth_type refuses a bool. `80.0` and `6e0` are floats once the
+    body is parsed and are refused with them. Strings are not narrowed here.
     """
     from proxy_agent.p4_client import P4RuntimeClient
     p4_key = FIVE_TUPLE_FIELD_MAP[field]
+    if isinstance(value, bool):
+        raise _not_a_json_integer(field, value, action, noun, p4_key)
+    if isinstance(value, float):
+        raise _not_a_json_integer(field, value, action, noun, p4_key)
     try:
         P4RuntimeClient._encode_5tuple_value(p4_key, value)
     except (ValueError, OverflowError, TypeError, OSError):
@@ -376,7 +404,8 @@ def _check_in_port_value(field, value, action):
     """MalformedMatchValueError unless the 5-tuple encoder takes this in_port.
 
     [Co-developed with claude code -- Adam]
-    The accepted set is 0-511, or a numeric string of one.
+    The accepted set is a JSON integer from 0 to 511, or a numeric string of one; a boolean and
+    a float are refused (see _check_numeric_key_value).
     """
     _check_numeric_key_value(field, value, action, "a switch port number")
 
@@ -385,12 +414,13 @@ def _check_l4_value(field, value, action):
     """MalformedMatchValueError unless the 5-tuple encoder takes this protocol or L4 port.
 
     [Co-developed with claude code -- Adam]
-    The accepted set is what the encoder takes for in_port, at the key's own width: whatever
-    int() reads as 0-255 (the protocol) or 0-65535 (a port) -- an int, a bool, a float, a digit
-    string with or without surrounding blanks, a sign or underscores. A string with a dot goes
-    through socket.inet_aton: one it reads comes out four bytes wide, which no one-byte or
-    two-byte key takes (ValueError), and one it cannot read ("a.b", "1.2.3.4.5") raises OSError,
-    so a dotted string is refused whatever it spells.
+    The accepted set is what the encoder takes for in_port, at the key's own width, less the two
+    types that are not a JSON integer: an int, or a digit string with or without surrounding
+    blanks, a sign or underscores, that int() reads as 0-255 (the protocol) or 0-65535 (a port).
+    A bool and a float (`true`, `80.5`, `80.0`, `6e0`) are refused whatever their value. A string
+    with a dot goes through socket.inet_aton: one it reads comes out four bytes wide, which no
+    one-byte or two-byte key takes (ValueError), and one it cannot read ("a.b", "1.2.3.4.5")
+    raises OSError, so a dotted string is refused whatever it spells.
     """
     noun = "a protocol number" if FIVE_TUPLE_FIELD_MAP[field] == "hdr.ipv4.protocol" \
         else "a port number"
@@ -428,7 +458,10 @@ def check_match_values(match_dict, action):
     tcp_dst / udp_dst) are checked the same way as in_port, at their own widths (bit<8> and
     bit<16>): `int(value).to_bytes(width)` in _encode_5tuple_value used to raise ValueError for
     "abc" and OverflowError for 70000 out of the handler, a 500 on all three verbs. They are
-    checked here whatever the value, ahead of the writer (FIXED-ISSUES B-22).
+    checked here whatever the value, ahead of the writer (FIXED-ISSUES B-22). A JSON boolean and
+    a JSON float (`true`, `80.5`, `80.0`, `6e0`) are refused for in_port and for these keys: int()
+    would have read `true` as 1 (protocol 1 is ICMP) and cut `80.5` to port 80, which is not what
+    the caller wrote. A digit string is still read as the number it spells.
 
     in_port is covered since the 5-tuple mask fix. The key is bit<9>, and the writer refuses 512
     and up with an OverflowError raised while it builds the request, which no handler catches (a
