@@ -10,8 +10,9 @@
 #   A  the counters are named for what they count      `dispatched_ok`, not `succeeded`
 #   B  a second group answers about the SWITCH         accepted/rejected/unknown, unknown on OVS
 #   C  a caller can ask about its own POST             ?request_id=<id>
-#   D  ... and learn why it failed                      its own `failures`, who refused, the
-#                                                      far end's outcome/reason/remedy
+#   D  ... and learn why it failed                      its own `failures`, who refused (nobody,
+#                                                      when nothing answered), the far end's
+#                                                      outcome/reason/remedy
 #                                                      [Co-developed with claude code -- Adam]
 #
 #   cpp       tests/test_DispatchOutcomeLog.cpp     the classification and the per-request tallies
@@ -495,6 +496,15 @@ each_mutation() {
         '                into = briefly(it->get<std::string>(), kRefusalFieldLimit);' \
         '                into = briefly(it->get<std::string>(), kRefusalFieldLimit * 1000);' \
         'RoutingStrategyFixture.AFieldOfTheRefusalIsCutAt512BytesAndMarked' ''
+
+    # Nothing answered, and a refusal is recorded anyway. A caller reading `refused_by` would go
+    # looking for a proxy's reason that was never given, for a request no proxy saw. Empty is the
+    # claim: nobody refused (OpResult::Refusal).
+    "$m" "36. a request nothing answered is recorded as the proxy's refusal" cpp "$BASE" \
+        '            " within " + std::to_string(REQUEST_TIMEOUT_SECONDS) + "s");' \
+        '            " within " + std::to_string(REQUEST_TIMEOUT_SECONDS) + "s");
+        result.refusal.by = "proxy"; // MUTANT' \
+        'RoutingStrategyFixture.NothingAnsweredMeansNobodyRefused' ''
 
     # --- declared-uncovered -------------------------------------------------------------------
     # Run, reported, and NOT counted as a survivor -- with the reason stated, because an exemption
