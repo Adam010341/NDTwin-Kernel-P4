@@ -283,7 +283,7 @@ class SourcePreprocessorTest(unittest.TestCase):
     """
 
     def test_a_double_slash_inside_a_string_is_not_a_comment(self):
-        # DeviceConfigurationAndPowerManager.cpp:838 and friends build curl command lines.
+        # DeviceConfigurationAndPowerManager.cpp:320 and friends build curl command lines.
         code = preprocess('auto url = "http://host:8000/relay"; keepThis();')
         self.assertIn("keepThis();", code)
 
@@ -293,7 +293,7 @@ class SourcePreprocessorTest(unittest.TestCase):
         self.assertIn("keepThis();", code)
 
     def test_a_raw_string_is_blanked_including_its_braces(self):
-        # HttpSession.cpp:415 etc: R"({"error":"..."})" -- braces that must not be counted.
+        # HttpSession.cpp:894 etc: R"({"error":"..."})" -- braces that must not be counted.
         code = preprocess('res.body() = R"({"error":"x"})"; keepThis();')
         self.assertIn("keepThis();", code)
         self.assertNotIn("error", code)
@@ -301,7 +301,7 @@ class SourcePreprocessorTest(unittest.TestCase):
         self.assertEqual(code.count("}"), 0)
 
     def test_a_regex_raw_string_survives_backslashes(self):
-        # DeviceConfigurationAndPowerManager.cpp:955: R"(INTEGER:\s*(\d+))"
+        # DeviceConfigurationAndPowerManager.cpp:1498: R"(INTEGER:\s*(\d+))"
         code = preprocess('static const std::regex re(R"(INTEGER:\\s*(\\d+))"); keepThis();')
         self.assertIn("keepThis();", code)
         self.assertNotIn("INTEGER", code)

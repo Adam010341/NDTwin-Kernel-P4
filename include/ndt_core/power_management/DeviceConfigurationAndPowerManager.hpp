@@ -38,6 +38,8 @@ struct VertexProperties;
 #include "ndt_core/power_management/P4Capabilities.hpp"
 // [Co-developed with claude code -- Adam] Per-switch `ryu_rules_lost`, from the same read.
 #include "ndt_core/power_management/P4RulesLost.hpp"
+// [Co-developed with claude code -- Adam] Per-switch `flow_stats`, from the same read.
+#include "ndt_core/power_management/P4PathVisibility.hpp"
 #include <mutex> // for mutex (m_p4CapabilitiesMutex)
 
 using json = nlohmann::json;
@@ -371,6 +373,19 @@ class DeviceConfigurationAndPowerManager
      * for a record is logged once per record id, by pollP4SwitchState.
      */
     p4loss::RecordsByDpid p4RulesLostSnapshot() const;
+
+    /**
+     * @brief What the proxy last said each bmv2 switch's latest flow render left out, keyed by
+     *        dpid (P4PathVisibility.hpp).
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * The `flow_stats` object of every switch, read, replaced and withdrawn exactly as
+     * p4CapabilitiesSnapshot's record is, on the same tick. /ndt/get_graph_data puts each one on
+     * its switch's node, and the two flow-data endpoints mark the paths that cross a switch whose
+     * `unrendered_entries` is not 0.
+     */
+    p4paths::FlowStatsByDpid p4FlowStatsSnapshot() const;
 
   protected:
     /**
@@ -1229,6 +1244,8 @@ class DeviceConfigurationAndPowerManager
     /// [Co-developed with claude code -- Adam]
     p4loss::RecordsByDpid m_p4RulesLost;
     p4loss::Announcer m_p4RulesLostAnnouncer;
+    /// The `flow_stats` records, under the same mutex. [Co-developed with claude code -- Adam]
+    p4paths::FlowStatsByDpid m_p4FlowStats;
 
     // Helpers for TESTBED mode
     bool setPowerStateTestbed(const SwitchInfo& si, const std::string& action);

@@ -320,7 +320,7 @@ FIXTURES = {
     # [Co-developed with claude code -- Adam]
     # min=-1, matching spec.py. These fixtures carry their own copy of each schema rather than
     # reading spec.py's, and this copy had drifted narrower than the one the contract test
-    # actually runs: spec.py:502 is Num(min=-1, max=100) with a comment explaining that -1 is
+    # actually runs: spec.py:2068 is Num(min=-1, max=100) with a comment explaining that -1 is
     # the documented "unavailable" sentinel, while this said min=0 and would have rejected it.
     # A self-test whose purpose is "prove the schemas accept what the kernel documents" cannot
     # do that against a schema the kernel does not use.
@@ -337,7 +337,7 @@ FIXTURES = {
         {"10.10.10.10": 28, "10.10.10.3": 27, "10.10.10.9": -1}),
     # Mixed int/string values are intentional: the kernel explains why a reading is absent by
     # model, and reports the numeric sentinel when it has no reading at all. The down switch is
-    # -1 here, not "The switch is down." -- spec.py:511-513 records that no current build emits
+    # -1 here, not "The switch is down." -- spec.py:2077-2079 records that no current build emits
     # that string, so keeping it as the only unavailable case pinned a shape that is gone.
     "get_temperature": (
         MapOf(OneOf(Num(), Str()), key_check=is_ipv4_string),

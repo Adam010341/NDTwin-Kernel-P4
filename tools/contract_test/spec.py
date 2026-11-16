@@ -248,7 +248,7 @@ DOWN_REASONS = ("none", "switch-unreachable", "declared")
 #
 #   this file      DOWN_REASONS, DECLARED, and the two link-reply schemas   (4)
 #   the kernel     downReasonToString (common_types/GraphTypes.hpp, the enum's wire form),
-#                  HttpSession.cpp:564 (a raw-string reply) and :836 (a json object)  (3)
+#                  HttpSession.cpp:986,990 (a raw-string reply) and :1303-1305 (a json object)  (3)
 #
 # A fourth reason added to the enum would give the two hardcoded C++ replies nothing to say
 # about it and would fail the structural check here, in the two schemas that never mention
@@ -485,6 +485,11 @@ GRAPH_NODE = Obj({
     # has already grown once (`link_discovery: "heartbeat"`), and pinning them here would make
     # the kernel's contract test a second, lagging copy of the proxy's list.
     "capabilities": Obj({}, strict=False),
+    # [Co-developed with claude code -- Adam]
+    # doc/2026-01-02_ndt_api.md section 3, `flow_stats`: a bmv2 switch's flow-render record, copied
+    # verbatim from the P4 proxy. Same rules as `capabilities`: optional, an object when present,
+    # its keys the proxy's. `unrendered_entries` is an integer or null (schema.py has no Null type).
+    "flow_stats": Obj({}, optional={"unrendered_entries": Any_()}, strict=False),
 })
 
 GRAPH_EDGE = Obj({
@@ -569,6 +574,14 @@ FLOW_RECORD = Obj({
     "liveness": Str(nonempty=True),
     "last_seen_ms": Int(min=0),
     "ended_at_ms": Int(min=0),
+    # [Co-developed with claude code -- Adam]
+    # Sections 4 and 30: the switches on `path` whose table view is incomplete, in path order.
+    # OPTIONAL: absent when the proxy has no `flow_stats` record for any switch on the fabric (an
+    # OVS fabric, an unread proxy), when the path has no switch on it, and on every kernel built
+    # before the key. A list when present, `[]` included; never null, which a consumer could not
+    # tell from "absent". A switch with no record, beside switches that have one, is listed with a
+    # null `unrendered_entries`.
+    "path_unconfirmed_at": List(Obj({"dpid": Int(min=0), "unrendered_entries": Any_()})),
 })
 
 # Ryu /stats/flow shape. actions are STRINGS ("OUTPUT:1") -- Classifier.cpp parses only
@@ -613,6 +626,15 @@ DISPATCH_FAILURE = Obj({
     # received), which is different from an error status and must not be schema-rejected.
     "controller_status": Int(min=0),
     "message": Str(),
+}, optional={
+    # [Co-developed with claude code -- Adam]
+    # Section 42. The POST the job came from, and who refused it with the far end's own words.
+    # Optional: a kernel built before them emits none, and the four words appear only when said.
+    "request_id": Int(min=0),
+    "refused_by": Str(allowed=("switch", "proxy", "controller")),
+    "outcome": Str(),
+    "reason": Str(),
+    "remedy": Str(),
 })
 
 DISPATCH_STATUS = Obj({
@@ -693,6 +715,11 @@ DISPATCH_STATUS_FOR_REQUEST = Obj({
 }, optional={
     "dispatcher_running": Bool(),
     "detail": Str(),
+    # [Co-developed with claude code -- Adam]
+    # This request's failure records and how many of them the ring has since dropped. Optional
+    # only because a kernel built before them emits neither.
+    "failures": List(DISPATCH_FAILURE),
+    "failures_not_retained": Int(min=0),
 })
 
 
@@ -2541,7 +2568,7 @@ ENDPOINTS = [
     # Its sibling parses the body with an unguarded json::parse, so the 400 here comes from
     # buildResponse's `catch (const json::exception&)` rather than from a validator. That is the
     # difference this check exists for: the same malformed body reaches the two endpoints by
-    # different routes, and the other route has answered 500 before (HttpSession.cpp:2753).
+    # different routes, and the other route has answered 500 before (HttpSession.cpp:2814).
     dict(name="link_recovery_detected__malformed_json", method="POST",
          path="/ndt/link_recovery_detected", raw_body="{this is not json",
          category=ERRORPATH, expect_status=[400],

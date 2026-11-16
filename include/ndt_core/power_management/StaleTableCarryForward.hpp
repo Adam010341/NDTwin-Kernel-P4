@@ -37,7 +37,7 @@
  * ### Why deleting is worse than it looks
  *
  * Every consumer asks the same question the same way -- walk the array, match on `dpid`:
- * `HttpSession.cpp:622` serves the array verbatim; `IntentTranslator.cpp:1069` and
+ * `HttpSession.cpp:1802` serves the array verbatim; `IntentTranslator.cpp:1069` and
  * `LLMAgent.cpp:275` read it whole; `tools/contract_test/spec.py:295` (`inv_tables_non_empty`),
  * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and the live-acceptance probe
  * all iterate and skip non-matching
@@ -68,7 +68,7 @@
  * ### The distinction this must never lose
  *
  * Only switches whose read was **attempted and failed** are carried forward. A switch skipped
- * because it is down (`DeviceConfigurationAndPowerManager.cpp:1027`) was never read, is not in
+ * because it is down (`DeviceConfigurationAndPowerManager.cpp:1608`) was never read, is not in
  * the unread list, and must stay out: carrying those forward would keep a dead switch's rules
  * alive indefinitely, which is the optimistic direction of FIXED-ISSUES F-4/F-16 -- a worse
  * failure than the one being fixed here.
@@ -97,14 +97,14 @@ inline constexpr const char* kLastErrorField = "last_error";
 inline constexpr const char* kNeverReadField = "never_read";
 
 /// Empty body: the control plane did not answer at all (connection refused, or curl printed
-/// nothing). DeviceConfigurationAndPowerManager.cpp:1073.
+/// nothing). DeviceConfigurationAndPowerManager.cpp:1692.
 inline constexpr const char* kUnreadNoResponse = "no_response";
 
-/// A non-empty body that will not parse as JSON. DeviceConfigurationAndPowerManager.cpp:1095.
+/// A non-empty body that will not parse as JSON. DeviceConfigurationAndPowerManager.cpp:1726.
 inline constexpr const char* kUnreadUnparseable = "unparseable";
 
 /// The control plane answered "I could not read this switch" ({"error": ...}).
-/// DeviceConfigurationAndPowerManager.cpp:1125.
+/// DeviceConfigurationAndPowerManager.cpp:1757.
 inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 
 /// A body that parses, and whose per-switch value is still not a list of rules -- an object, a
@@ -115,7 +115,7 @@ inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 inline constexpr const char* kUnreadWrongShape = "wrong_shape";
 
 /// Empty *and* slower than kFlowStatsSuspectSeconds: Ryu's stats timeout, not an empty table.
-/// DeviceConfigurationAndPowerManager.cpp:1143.
+/// DeviceConfigurationAndPowerManager.cpp:1794.
 inline constexpr const char* kUnreadSuspectTimeout = "suspect_timeout";
 
 /**

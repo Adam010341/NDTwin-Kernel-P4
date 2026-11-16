@@ -28,7 +28,7 @@ the narrower copy rejects the one value the API document singles out. It could n
 a real -1 response, and after the F-1 fix a real MININET response is -1 for every switch.
 
 The temperature fixture had the same shape of problem in its sample rather than its schema: it
-carried "The switch is down.", which spec.py:511-513 records as no longer emitted by any current
+carried "The switch is down.", which spec.py:2077-2079 records as no longer emitted by any current
 build, and did not carry the -1 that replaced it in 2026-08-18.
 
 Lives in tests/python/ rather than p4_proxy/tests/ for the reason test_contract_spec.py gives:
@@ -138,7 +138,7 @@ class SelfTestFixtureMatchesTheShippedSchemaTest(unittest.TestCase):
                     f"self-test cannot tell whether the schema admits one")
 
     def test_the_dead_switch_is_down_string_is_not_still_being_pinned(self):
-        # spec.py:511-513 records that no current build emits it; a fixture that keeps it as its
+        # spec.py:2077-2079 records that no current build emits it; a fixture that keeps it as its
         # only unavailable case pins a shape the kernel stopped producing in 2026-08-18.
         self.assertNotIn("The switch is down.",
                          list(fixture_sample("get_temperature").values()))

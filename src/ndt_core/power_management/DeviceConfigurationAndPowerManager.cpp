@@ -807,11 +807,15 @@ DeviceConfigurationAndPowerManager::pollP4SwitchState()
     // Replaced on every tick, including the ones that asked nothing or got nothing back: an empty
     // record is what makes get_graph_data omit the key, and omitting it is the only answer the
     // kernel has when it cannot read the proxy (P4Capabilities.hpp).
+    // [Co-developed with claude code -- Adam] `flow_stats` too: how many rows of each switch the
+    // proxy's flow render left out, which is what tells a path through it from a confirmed one.
+    p4paths::FlowStatsByDpid flowStats = p4paths::fromSwitchState(payload);
     p4caps::CapabilitiesByDpid capabilities = p4caps::fromSwitchState(payload);
     {
         std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
         m_p4Capabilities = std::move(capabilities);
         m_p4RulesLost = std::move(rulesLost);
+        m_p4FlowStats = std::move(flowStats);
     }
     return payload;
 }
@@ -828,6 +832,14 @@ DeviceConfigurationAndPowerManager::p4RulesLostSnapshot() const
 {
     std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
     return m_p4RulesLost;
+}
+
+// [Co-developed with claude code -- Adam]
+p4paths::FlowStatsByDpid
+DeviceConfigurationAndPowerManager::p4FlowStatsSnapshot() const
+{
+    std::lock_guard<std::mutex> lock(m_p4CapabilitiesMutex);
+    return m_p4FlowStats;
 }
 
 /** @brief A plausible synthetic power draw in mW for a simulated switch. See the header for why.
@@ -1180,8 +1192,8 @@ DeviceConfigurationAndPowerManager::buildRelayPowerCommand(const std::string& gw
     // [Co-developed with claude code -- Adam]
     // doc/FIXED-ISSUES.md B-2b sweep. `action` is the only value in the whole remaining shell
     // population that originates in an HTTP request: it is the `action` query parameter of
-    // POST /ndt/set_switches_power_state (HttpSession.cpp:712). It is checked against exactly
-    // {"on","off"} twice before it gets here -- at the HTTP boundary (HttpSession.cpp:714) and
+    // POST /ndt/set_switches_power_state (HttpSession.cpp:2128). It is checked against exactly
+    // {"on","off"} twice before it gets here -- at the HTTP boundary (HttpSession.cpp:2130) and
     // fifteen lines above the call (setPowerStateTestbed) -- so it was not exploitable.
     //
     // It is migrated anyway, because "not exploitable" here rests on a two-element allowlist two

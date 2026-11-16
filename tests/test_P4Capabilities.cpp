@@ -68,11 +68,14 @@
 #include <spdlog/sinks/ringbuffer_sink.h>
 
 #include "common_types/GraphTypes.hpp"
+#include "common_types/SFlowType.hpp"
 #include "event_system/EventBus.hpp"
+#include "ndt_core/collection/FlowLinkUsageCollector.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/http/HttpSession.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "ndt_core/power_management/P4Capabilities.hpp"
+#include "ndt_core/power_management/P4PathVisibility.hpp"
 #include "ndt_core/power_management/P4RulesLost.hpp"
 #include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
@@ -104,13 +107,36 @@ class HttpSessionP4CapabilitiesTestPeer
     {
     }
 
+    /// With a flow collector too, for the two flow-data endpoints. [Co-developed with claude code -- Adam]
+    HttpSessionP4CapabilitiesTestPeer(std::shared_ptr<TopologyAndFlowMonitor> monitor,
+                                      std::shared_ptr<DeviceConfigurationAndPowerManager> manager,
+                                      std::shared_ptr<sflow::FlowLinkUsageCollector> collector)
+        : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
+                                                  std::move(monitor),
+                                                  nullptr,        // EventBus
+                                                  utils::MININET, // mode
+                                                  std::move(collector),
+                                                  nullptr, // FlowRoutingManager
+                                                  std::move(manager),
+                                                  nullptr, // ApplicationManager
+                                                  nullptr, // SimulationRequestManager
+                                                  nullptr, // IntentTranslator
+                                                  nullptr, // HistoricalDataManager
+                                                  nullptr, // Controller
+                                                  nullptr)) // LockManager
+    {
+    }
+
     /// The body of GET /ndt/get_graph_data, parsed.
-    nlohmann::json getGraphData()
+    nlohmann::json getGraphData() { return get("/ndt/get_graph_data"); }
+
+    /// The body of GET @p target, parsed. [Co-developed with claude code -- Adam]
+    nlohmann::json get(const std::string& target)
     {
         m_session->m_req = {};
         m_session->m_req.version(11);
         m_session->m_req.method(http::verb::get);
-        m_session->m_req.target("/ndt/get_graph_data");
+        m_session->m_req.target(target);
         m_session->m_req.prepare_payload();
 
         m_response = m_session->buildResponse();
@@ -896,4 +922,281 @@ TEST_F(P4RulesLostWire, TheSwitchNodeCarriesTheRecordVerbatim)
         EXPECT_EQ(node.at("ryu_rules_lost"), lossRecord("g2", 3));
     }
     EXPECT_EQ(carried, 1);
+}
+
+// === 5. `flow_stats` and `path_unconfirmed_at` -- what the twin cannot read of a switch ==========
+//
+// [Co-developed with claude code -- Adam]
+// The proxy renders only the bound route table of a package's pipeline for the path walk, and
+// counts every other row it left out as `flow_stats.unrendered_entries` on GET /p4/switch_state.
+// The kernel copies the record onto the switch's /ndt/get_graph_data node and marks each flow row
+// of /ndt/get_detected_flow_data and /ndt/get_detected_top_k_flow_data whose path crosses a switch
+// whose count is not 0. The pure functions are in test_P4PathVisibility.cpp; these are the 1 Hz
+// poll and the three endpoints. The numbers are a firewall run's: s1 hides 8 rows, the others 0.
+
+namespace sflow
+{
+
+/// Puts a row with a known path in the collector's flow table (the friend seam in
+/// FlowLinkUsageCollector.hpp). Only the path walk writes paths otherwise, from live samples.
+class FlowRowsTestPeer
+{
+  public:
+    static void addRow(FlowLinkUsageCollector& collector,
+                       std::uint32_t srcIp,
+                       std::uint32_t dstIp,
+                       std::uint16_t srcPort,
+                       Path path)
+    {
+        FlowKey key{};
+        key.srcIP = srcIp;
+        key.dstIP = dstIp;
+        key.srcPort = srcPort;
+        key.dstPort = 5001;
+        key.protocol = 6;
+        FlowInfo info;
+        info.startTime = utils::getCurrentTimeMillisSystemClock();
+        info.endTime = info.startTime;
+        info.flowPath = std::move(path);
+        std::unique_lock<std::shared_mutex> lock(collector.m_flowInfoTableMutex);
+        collector.m_flowInfoTable[key] = std::move(info);
+    }
+};
+
+} // namespace sflow
+
+namespace
+{
+
+/// Host addresses as the collector keys them (network byte order): 10.0.3.3 and 10.0.1.1.
+constexpr std::uint32_t kH3 = 50528266;
+constexpr std::uint32_t kH1 = 16842762;
+
+json
+entryCounting(json unrendered)
+{
+    json e = entryWith(kForeignOwned);
+    e["flow_stats"] = {{"unrendered_entries", std::move(unrendered)}};
+    return e;
+}
+
+/// The firewall run's switch_state, on this fixture's four switches: s1 hides 8, s2, s3 and s10 0.
+json
+firewallSwitchState()
+{
+    return switchState({{"1", entryCounting(8)},
+                        {"2", entryCounting(0)},
+                        {"3", entryCounting(0)},
+                        {"10", entryCounting(0)}});
+}
+
+class P4FlowStatsPoll : public LoadedFabric
+{
+};
+
+class P4FlowStatsWire : public LoadedFabric
+{
+  protected:
+    /// A collector holding two flows: h3 -> s2 -> s3 -> s1 -> h1, which crosses s1, and
+    /// h3 -> s2 -> s3 -> h1's neighbour, which does not.
+    std::shared_ptr<sflow::FlowLinkUsageCollector> collectorWithTwoFlows()
+    {
+        auto collector = std::make_shared<sflow::FlowLinkUsageCollector>(
+            m_monitor, nullptr, std::make_shared<EventBus>(), utils::MININET, nullptr);
+        sflow::FlowRowsTestPeer::addRow(*collector,
+                                        kH3,
+                                        kH1,
+                                        40000,
+                                        {{kH3, 1}, {2, 4}, {3, 1}, {1, 1}, {kH1, 0}});
+        sflow::FlowRowsTestPeer::addRow(
+            *collector, kH3, kH1, 40001, {{kH3, 1}, {2, 4}, {3, 2}, {kH1, 0}});
+        return collector;
+    }
+
+    /// The rows of @p body by source port.
+    static std::map<int, json> bySourcePort(const json& body)
+    {
+        std::map<int, json> out;
+        for (const json& r : body)
+        {
+            out[r.at("src_port").get<int>()] = r;
+        }
+        return out;
+    }
+
+    /// Both endpoints, asked the same way, each with the expected marking.
+    void expectBothEndpointsMark(HttpSessionP4CapabilitiesTestPeer& peer)
+    {
+        for (const std::string target : {"/ndt/get_detected_flow_data?liveness=all",
+                                         "/ndt/get_detected_top_k_flow_data?liveness=all"})
+        {
+            const json body = peer.get(target);
+            RecordProperty(target.find("top_k") != std::string::npos ? "top_k_body" : "flow_body",
+                           body.dump());
+            ASSERT_TRUE(body.is_array()) << target << ": " << body.dump();
+            const auto rows = bySourcePort(body);
+            ASSERT_EQ(rows.size(), 2u) << target << ": " << body.dump();
+
+            const json& through = rows.at(40000);
+            ASSERT_TRUE(through.contains("path_unconfirmed_at")) << target << ": " << through.dump();
+            EXPECT_EQ(through.at("path_unconfirmed_at"),
+                      json::array({{{"dpid", 1}, {"unrendered_entries", 8}}}))
+                << target;
+            const json& around = rows.at(40001);
+            ASSERT_TRUE(around.contains("path_unconfirmed_at")) << target << ": " << around.dump();
+            EXPECT_EQ(around.at("path_unconfirmed_at"), json::array())
+                << target << ": every switch on this path said it hides nothing";
+        }
+    }
+};
+
+} // namespace
+
+TEST_F(P4FlowStatsPoll, AnAllBmv2FabricRecordsWhatTheProxySaid)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = firewallSwitchState();
+    m_manager->pollP4SwitchState();
+
+    const p4paths::FlowStatsByDpid expected = {{1, {{"unrendered_entries", 8}}},
+                                               {2, {{"unrendered_entries", 0}}},
+                                               {3, {{"unrendered_entries", 0}}},
+                                               {10, {{"unrendered_entries", 0}}}};
+    EXPECT_EQ(m_manager->p4FlowStatsSnapshot(), expected);
+}
+
+TEST_F(P4FlowStatsPoll, AnUnreadableProxyWithdrawsTheRecord)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = firewallSwitchState();
+    m_manager->pollP4SwitchState();
+    ASSERT_EQ(m_manager->p4FlowStatsSnapshot().size(), 4u);
+
+    m_manager->answer = std::nullopt;
+    m_manager->pollP4SwitchState();
+
+    EXPECT_TRUE(m_manager->p4FlowStatsSnapshot().empty())
+        << "kept a count from a proxy the kernel can no longer read";
+}
+
+TEST_F(P4FlowStatsWire, EachSwitchNodeCarriesItsFlowStats)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    {
+        std::unique_lock lock(*m_graphMutex);
+        boost::add_vertex(hostVertex(1), *m_graph);
+    }
+    m_manager->answer = switchState({{"1", entryCounting(8)}, {"2", entryCounting(nullptr)}});
+    m_manager->pollP4SwitchState();
+
+    const json body = HttpSessionP4CapabilitiesTestPeer{m_monitor, m_manager}.getGraphData();
+
+    std::map<std::uint64_t, json> switches;
+    for (const json& node : body.at("nodes"))
+    {
+        if (node.at("vertex_type").get<int>() == static_cast<int>(VertexType::HOST))
+        {
+            EXPECT_FALSE(node.contains("flow_stats")) << "a host carried flow_stats";
+            continue;
+        }
+        switches[node.at("dpid").get<std::uint64_t>()] = node;
+    }
+    ASSERT_EQ(switches.size(), 4u);
+    ASSERT_TRUE(switches.at(1).contains("flow_stats")) << switches.at(1).dump();
+    EXPECT_EQ(switches.at(1).at("flow_stats"), (json{{"unrendered_entries", 8}}));
+    ASSERT_TRUE(switches.at(2).contains("flow_stats")) << switches.at(2).dump();
+    EXPECT_EQ(switches.at(2).at("flow_stats"), (json{{"unrendered_entries", nullptr}}));
+    EXPECT_FALSE(switches.at(3).contains("flow_stats")) << "the proxy said nothing of switch 3";
+    EXPECT_FALSE(switches.at(10).contains("flow_stats"));
+}
+
+TEST_F(P4FlowStatsWire, AnOvsFabricServesNone)
+{
+    ASSERT_NO_FATAL_FAILURE(load("OVS"));
+    m_manager->answer = firewallSwitchState();
+    m_manager->pollP4SwitchState();
+
+    auto collector = collectorWithTwoFlows();
+    HttpSessionP4CapabilitiesTestPeer peer{m_monitor, m_manager, collector};
+    // Bound first: a range-for does not keep alive the temporary a member call is made on.
+    const json graph = peer.getGraphData();
+    for (const json& node : graph.at("nodes"))
+    {
+        EXPECT_FALSE(node.contains("flow_stats")) << node.dump();
+    }
+    for (const std::string target : {"/ndt/get_detected_flow_data?liveness=all",
+                                     "/ndt/get_detected_top_k_flow_data?liveness=all"})
+    {
+        const json body = peer.get(target);
+        ASSERT_EQ(body.size(), 2u) << target << ": " << body.dump();
+        for (const json& r : body)
+        {
+            EXPECT_FALSE(r.contains("path_unconfirmed_at"))
+                << target << ": nobody said anything, so the row must not either: " << r.dump();
+        }
+    }
+}
+
+TEST_F(P4FlowStatsWire, TheDetectedFlowRowsMarkAPathThroughASwitchHidingRows)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = firewallSwitchState();
+    m_manager->pollP4SwitchState();
+
+    auto collector = collectorWithTwoFlows();
+    HttpSessionP4CapabilitiesTestPeer peer{m_monitor, m_manager, collector};
+    const json body = peer.get("/ndt/get_detected_flow_data?liveness=all");
+    const auto rows = bySourcePort(body);
+    ASSERT_EQ(rows.size(), 2u) << body.dump();
+    ASSERT_TRUE(rows.at(40000).contains("path_unconfirmed_at")) << body.dump();
+    EXPECT_EQ(rows.at(40000).at("path_unconfirmed_at"),
+              json::array({{{"dpid", 1}, {"unrendered_entries", 8}}}));
+    EXPECT_EQ(rows.at(40000).at("path").size(), 5u) << "the path itself must not change";
+}
+
+TEST_F(P4FlowStatsWire, TheTopKRowsMarkAPathThroughASwitchHidingRows)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = firewallSwitchState();
+    m_manager->pollP4SwitchState();
+
+    auto collector = collectorWithTwoFlows();
+    HttpSessionP4CapabilitiesTestPeer peer{m_monitor, m_manager, collector};
+    const json body = peer.get("/ndt/get_detected_top_k_flow_data?liveness=all");
+    const auto rows = bySourcePort(body);
+    ASSERT_EQ(rows.size(), 2u) << body.dump();
+    ASSERT_TRUE(rows.at(40000).contains("path_unconfirmed_at")) << body.dump();
+    EXPECT_EQ(rows.at(40000).at("path_unconfirmed_at"),
+              json::array({{{"dpid", 1}, {"unrendered_entries", 8}}}));
+}
+
+TEST_F(P4FlowStatsWire, BothFlowEndpointsAgreeAndTheMarkIsTheOnlyChange)
+{
+    ASSERT_NO_FATAL_FAILURE(load("BMv2"));
+    m_manager->answer = firewallSwitchState();
+    m_manager->pollP4SwitchState();
+
+    auto collector = collectorWithTwoFlows();
+    HttpSessionP4CapabilitiesTestPeer peer{m_monitor, m_manager, collector};
+    expectBothEndpointsMark(peer);
+
+    // The same rows served by a kernel with no power manager -- every build before this key.
+    // Erasing the mark must give back exactly those rows (telemetry_health and the liveness
+    // stamps aside, which move with the clock).
+    HttpSessionP4CapabilitiesTestPeer baseline{m_monitor, nullptr, collector};
+    auto strip = [](json rows) {
+        for (json& r : rows)
+        {
+            r.erase("path_unconfirmed_at");
+            r.erase("telemetry_health");
+            r.erase("liveness");
+        }
+        return bySourcePort(rows);
+    };
+    const json before = baseline.get("/ndt/get_detected_flow_data?liveness=all");
+    for (const json& r : before)
+    {
+        EXPECT_FALSE(r.contains("path_unconfirmed_at")) << "no manager, yet a row was marked";
+    }
+    EXPECT_EQ(strip(peer.get("/ndt/get_detected_flow_data?liveness=all")), strip(before));
 }

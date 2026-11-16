@@ -662,7 +662,7 @@ def _priority_disclosure(match):
     The same two fields add_flow_entry already returns, derived by the same predicate the
     topology branches on so they cannot drift from where the rule actually went. Additive, so
     the kernel -- whose only check on this body is `status == "error"`,
-    HttpRoutingStrategyBase.cpp:123-125 -- cannot see the difference.
+    HttpRoutingStrategyBase.cpp:268-270 -- cannot see the difference.
 
     They describe the TABLE's capability, not this request: a priority-less delete against
     ipv4_lpm reports `priority_honoured: false` even though it asked for nothing, exactly as
@@ -776,7 +776,7 @@ async def add_flow_entry(request: Request):
     # caller that does not read status codes, and this project has one. Additive fields cost
     # that caller nothing: the kernel's
     # only check on this body is `status == "error"`
-    # (src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:123-125).
+    # (src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:268-270).
     #
     # Derived from the match by the same predicate route_flow branches on, so it cannot drift
     # from where the rule actually went -- the property a capability answer needs, at

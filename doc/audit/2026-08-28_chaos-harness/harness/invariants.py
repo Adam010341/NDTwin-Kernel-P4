@@ -127,9 +127,9 @@ def inv01_powercycle_latency(ip: str) -> Finding:
 
     and both halves of that line were wrong, independently and fatally:
 
-      * **GET.** `HttpSession.cpp:189` registers the route under `http::verb::post` alone, so
+      * **GET.** `HttpSession.cpp:448` registers the route under `http::verb::post` alone, so
         the request fell through the whole if/else-if chain to a 404.
-      * **`dpid=`.** `handleSetSwitchesPowerState` (`HttpSession.cpp:866-867`) reads `ip` and
+      * **`dpid=`.** `handleSetSwitchesPowerState` (`HttpSession.cpp:2127-2128`) reads `ip` and
         `action` with `utils::queryParam` and answers 400 `Missing or invalid ip/action`
         without an `ip`. Even as a POST it would have done nothing.
 

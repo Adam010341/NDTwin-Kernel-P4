@@ -197,6 +197,11 @@ add_executable(
   # /ndt/get_graph_data node -- and absent, never invented, whenever the kernel has none to copy.
   test_P4Capabilities.cpp
 
+  # [Co-developed with claude code -- Adam] doc/2026-01-02_ndt_api.md sections 3 and 4: each P4
+  # switch's `flow_stats`, and `path_unconfirmed_at` on the flow rows whose path crosses a switch
+  # whose tables the twin cannot fully read. The pure functions; the wiring is in the file above.
+  test_P4PathVisibility.cpp
+
   # [Co-developed with claude code -- Adam] The /ndt/p4 routes: relayed to a fake proxy on a
   # loopback port with method, query and body intact, the proxy's status and body handed back
   # unchanged, and nothing relayed off the allowlist or on a fabric with no P4 switch.

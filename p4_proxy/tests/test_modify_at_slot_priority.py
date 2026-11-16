@@ -116,7 +116,7 @@ def a_fabric(client1=None, client2=None):
 
 
 def body(dpid=1, priority=None, port=DETOUR_PORT, dst=DST):
-    """What the kernel builds for TE's and ESA's modify (HttpRoutingStrategyBase.cpp:307-386)."""
+    """What the kernel builds for TE's and ESA's modify (HttpRoutingStrategyBase.cpp:417-457)."""
     out = {"actions": [{"port": port, "type": "OUTPUT"}], "dpid": dpid,
            "match": {"eth_type": 2048, "ipv4_dst": dst}}
     if priority is not None:
@@ -212,7 +212,7 @@ class AModifyAtTheSlotsPriorityIsHonouredTest(SlotTestCase):
     def test_a_modify_naming_no_priority_is_untouched_by_the_record(self):
         # makeModifyJob's 0 ("no priority named"): the proxy edits whatever entry the slot holds,
         # as before, with no record needed. (On OVS the kernel sends this as a priority-0 STRICT
-        # modify, HttpRoutingStrategyBase.cpp:371-386, which is why the 501 remedy does not
+        # modify, HttpRoutingStrategyBase.cpp:438-456, which is why the 501 remedy does not
         # advise it.)
         _, c1, _ = self.fabric(refill=False)
         out = modify(body(priority=0))

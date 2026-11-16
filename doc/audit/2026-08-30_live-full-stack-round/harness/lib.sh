@@ -785,7 +785,7 @@ ndt_status() {
 # be able to produce a green result. `verdict5` refuses any value outside the three.
 #
 # EVIDENCE is mandatory and free text, and it must name what was OBSERVED, not what was
-# concluded. "spec.py:502 reads Num(min=-1, max=100)" is evidence; "the schema is fixed" is not.
+# concluded. "spec.py:2068 reads Num(min=-1, max=100)" is evidence; "the schema is fixed" is not.
 # =================================================================================================
 verdict5() {
     local finding="$1" v="$2" evidence="${3:-}"

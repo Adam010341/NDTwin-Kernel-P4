@@ -79,6 +79,67 @@ briefly(const std::string& text, size_t limit = 200)
     return out;
 }
 
+// [Co-developed with claude code -- Adam]
+// Who refused a request the far end answered with a non-2xx. On P4 the proxy's own convention
+// decides it: 502 is "the switch refused the write" (FIXED-ISSUES C-6), and every other refusal
+// is raised before any switch is asked -- a 501 `unsupported_on_p4`, a 400 for a match it cannot
+// encode, a 409 for a read-only control plane. On OpenFlow it is Ryu, whatever the code.
+const char*
+refuserOf(int status, bool adjudicatingPlane)
+{
+    if (!adjudicatingPlane)
+    {
+        return "controller";
+    }
+    return status == 502 ? "switch" : "proxy";
+}
+
+/// Each string field is capped like `message`, but well past the 200 bytes that cut the remedy
+/// off: the reply comes from another process and is kept in a ring of up to 2000 records.
+constexpr size_t kRefusalFieldLimit = 512;
+
+// [Co-developed with claude code -- Adam]
+// The far end's `outcome`, `reason` and `remedy`, from the whole reply rather than from the 200
+// bytes `message` keeps. The P4 proxy sends them inside `detail` (FastAPI's HTTPException) or, for
+// a request it could not use, at the top level; both are read, `detail` first. Anything that is
+// not a JSON object, or a field that is not a string, is left empty: nothing here is invented.
+OpResult::Refusal
+refusalFrom(const std::string& responseBody, const char* by)
+{
+    OpResult::Refusal refusal;
+    refusal.by = by;
+    if (responseBody.empty())
+    {
+        return refusal;
+    }
+    try
+    {
+        const json parsed = json::parse(responseBody);
+        if (!parsed.is_object())
+        {
+            return refusal;
+        }
+        const auto detailIt = parsed.find("detail");
+        const json& words =
+            (detailIt != parsed.end() && detailIt->is_object()) ? *detailIt : parsed;
+        const auto take = [&words](const char* key, std::string& into) {
+            const auto it = words.find(key);
+            if (it != words.end() && it->is_string())
+            {
+                into = briefly(it->get<std::string>(), kRefusalFieldLimit);
+            }
+        };
+        take("outcome", refusal.outcome);
+        take("reason", refusal.reason);
+        take("remedy", refusal.remedy);
+    }
+    catch (const json::exception&)
+    {
+        // Not JSON: who refused is still known, the words are not.
+    }
+    return refusal;
+}
+
 } // namespace
 
 utils::CommandOutcome
@@ -184,6 +245,8 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
                           status,
                           std::string(describe()) + " returned HTTP " + std::to_string(status) +
                               (responseBody.empty() ? "" : ": " + briefly(responseBody)))
+                          .withRefusal(refusalFrom(
+                              responseBody, refuserOf(status, successConfirmsProgramming())))
                           .withProgrammingRefused(successConfirmsProgramming());
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "{} failed: {}",
@@ -216,6 +279,10 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
                                       std::to_string(status) + " response: " +
                                       briefly(responseBody))
                                   .withProgrammingRefused(successConfirmsProgramming());
+                // [Co-developed with claude code -- Adam] This proxy wrote and the switch did
+                // not take it, as a 502 from a current one does.
+                result.refusal = refusalFrom(
+                    responseBody, successConfirmsProgramming() ? "switch" : "controller");
                 SPDLOG_LOGGER_WARN(Logger::instance(),
                                    "{} failed: {}",
                                    operation,

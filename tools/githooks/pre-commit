@@ -46,7 +46,7 @@ branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo '(detached)'
 #   .gitignore    the per-round keeper that says where the raw went. Excluding it would make the
 #                 signpost unplaceable.
 #
-#   *.gz *.zst    a compressed archive is the form .gitignore:42 already tells people to commit
+#   *.gz *.zst    a compressed archive is the form .gitignore:56 already tells people to commit
 #     *.tar.gz    ("Commit the .gz, keep the plain file local"), and 17 such files are tracked
 #                 today under 2026-08-19_failover-provenance/. It is also not the thing this
 #                 rule exists to stop: the complaint was 115k lines of diff, and a gz adds none.
