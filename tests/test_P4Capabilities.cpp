@@ -1118,7 +1118,9 @@ TEST_F(P4FlowStatsWire, AnOvsFabricServesNone)
 
     auto collector = collectorWithTwoFlows();
     HttpSessionP4CapabilitiesTestPeer peer{m_monitor, m_manager, collector};
-    for (const json& node : peer.getGraphData().at("nodes"))
+    // Bound first: a range-for does not keep alive the temporary a member call is made on.
+    const json graph = peer.getGraphData();
+    for (const json& node : graph.at("nodes"))
     {
         EXPECT_FALSE(node.contains("flow_stats")) << node.dump();
     }
