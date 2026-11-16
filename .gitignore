@@ -7,6 +7,8 @@ setting/AppConfig.hpp
 
 # Build and Debug Caches
 build/
+# the Release build tree CI configures (.github/workflows/ci.yml)
+build-release/
 bin/
 cmake-build-debug/
 .idea/
