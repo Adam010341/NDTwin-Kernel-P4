@@ -550,7 +550,7 @@ def bmv2_process_count() -> int:
 # reported a finding that was a misdiagnosis of its own bug.
 #
 # The harness sent `{"lockName": "chaos_probe"}`. The handler reads **`type`**
-# (`HttpSession.cpp:1918`, and the same in renew at `:1974` and release at `:2011`), so
+# (`HttpSession.cpp:1918`, and the same in renew at `:1967` and release at `:2004`), so
 # `lockName` was never read at all and every call silently fell back to
 # `DEFAULT_LOCK_TYPE_STR = "routing_lock"` (`LockManager.hpp:27`).
 #
