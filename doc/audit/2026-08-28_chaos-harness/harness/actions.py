@@ -310,7 +310,7 @@ def _c06_undo() -> None:
     ❌ **RETRACTED, and the retraction is the lesson.** This used to read "`lockName` does NOT
     namespace -- acquiring alpha blocks beta, there is one global routing lock". That was a
     misdiagnosis of *this harness's own bug*: it sent `lockName`, the handler reads `type`
-    (`HttpSession.cpp:1925`), so both requests carried no type and both defaulted to
+    (`HttpSession.cpp:1918`), so both requests carried no type and both defaulted to
     `routing_lock`. Names work fine -- `stringToLockType` (`LockManager.hpp:38-43`) returns
     `Unknown` for anything unrecognised and the acquire is refused. Corrected by reading the
     code.
@@ -325,7 +325,7 @@ def _c06_undo() -> None:
 
 # The route, spelled once. POST /ndt/historical_logging with `state` as a QUERY parameter --
 # the handler reads utils::queryParam(target, "state") and IGNORES the body
-# (HttpSession.cpp:2084), which is why nothing is sent in it.
+# (HttpSession.cpp:2077), which is why nothing is sent in it.
 #
 # 🔴 RETRACTED AND REWRITTEN 2026-09-03 (FIXED-ISSUES G-3): an earlier write-up of this control
 # reported a defect in the kernel that was a defect in the harness.
