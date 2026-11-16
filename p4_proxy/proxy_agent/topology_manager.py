@@ -431,8 +431,8 @@ def _check_l4_value(field, value, action):
 
 
 #: The key whose width an OUTPUT action's port is held to: standard_metadata.ingress_port, bit<9>,
-#: the same 0-511 the in_port match takes. ndtwin_switch.p4's forwarding actions take the port as
-#: bit<9> too (the `port` parameter of forward and forward_l2). [Co-developed with claude code -- Adam]
+#: the same 0-511 the in_port match takes. ndtwin_switch.p4's forwarding action takes the port as
+#: bit<9> too (the `port` parameter of ipv4_forward). [Co-developed with claude code -- Adam]
 OUTPUT_PORT_KEY = "standard_metadata.ingress_port"
 
 
@@ -454,7 +454,8 @@ def checked_output_port(actions_dict, action):
     one that was garbage was ignored before and is refused now, so what the journal records
     is a request the proxy would have accepted whole. An OUTPUT action with no `port`, or a null
     one, is not a bad port: it is the action list with no OUTPUT action, which the callers
-    already answer (501, or a drop on flow_5tuple).
+    already answer (a 501, or, for an empty action list on a match that names more than a
+    destination, the drop route_flow writes on flow_5tuple).
 
     FlowRequestUnusable 400 `malformed action`, naming a number that is not a float as itself
     and any other value by its type (a float is "a float", never its value). Nothing has been
