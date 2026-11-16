@@ -27,8 +27,8 @@
 #
 # The last section is a count, not an exercise, and says so: in this change's scope, what is left
 # of that home directory must equal the root helper tools/test_workflow/ndtwin-lab or ndt's copy
-# of it, an anchor into a doc/audit harness, a compiler's output, or a recorded build line. The
-# count is per file, so it catches an added occurrence, not a swapped one. Adding another turns it red.
+# of it, an anchor into a doc/audit harness, or a compiler's output. The count is per file, so it
+# catches an added occurrence, not a swapped one. Adding another turns it red.
 #
 # Run:  bash tests/shell/test_defaults_follow_the_checkout.sh
 set -uo pipefail
@@ -235,8 +235,9 @@ fi
 # file:count. Each remaining occurrence is one of: a copy of a default of the root helper
 # tools/test_workflow/ndtwin-lab (which users reinstall, so it is not edited here) or of ndt's copy
 # of it, whether anchored on by a gate or pinned by a config suite; an anchor into a doc/audit
-# harness (mutate_drive_exercise.sh); a compiler's output in a fixture (test_convert.py); or the
-# configure line of the one binary a recovered build record describes (manifest_backfill.sh).
+# harness (mutate_drive_exercise.sh); or a compiler's output in a fixture (test_convert.py).
+# manifest_backfill.sh is in the list below with no entry here: its configure line shows the
+# venv path as a placeholder, so the count for it is 0. [Co-developed with claude code -- Adam]
 EXPECTED='
 tests/shell/mutate_drive_exercise.sh:1
 tests/shell/mutate_g7_ndtwin_lab_config.sh:1
@@ -247,7 +248,6 @@ tests/shell/mutate_ndtwin_lab_ntg_dir.sh:1
 tests/shell/test_ndt_ntg_mode.sh:1
 tests/shell/test_ndtwin_lab_config.sh:6
 tools/p4_exercise/tests/test_convert.py:1
-tools/test_workflow/manifest_backfill.sh:1
 '
 TOUCHED='
 intelligent_router.py

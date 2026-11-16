@@ -76,6 +76,9 @@ fi
 version="$("$BIN" --version 2>&1 | head -1)"
 [[ -n "$version" ]] || version="(unreadable)"
 
+# [Co-developed with claude code -- Adam] The configure line in the manifest below shows the
+# original build's python venv path as a placeholder, <p4dev-python-venv>, not as a path in
+# anyone's home directory.
 tee "$MANIFEST" >/dev/null <<EOF
 # RECONSTRUCTED MANIFEST -- not written at build time.
 #
@@ -91,7 +94,7 @@ tee "$MANIFEST" >/dev/null <<EOF
 built:     2026-08-15T07:11:36Z          # mtime of the installed binary, +0800 15:11:36
 source:    /tmp/bmv2-fast-src            # gone; was a --local clone of behavioral-model
 commit:    f0b7d201                      # embedded in --version, tree still at this HEAD
-configure: --prefix=$PREFIX --with-pi --with-thrift --with-python_prefix=/home/adam/p4dev-python-venv --disable-logging-macros --disable-elogger CXXFLAGS=-O3 -g -DNDEBUG -march=native -fno-semantic-interposition CFLAGS=-O3 -g -DNDEBUG -march=native
+configure: --prefix=$PREFIX --with-pi --with-thrift --with-python_prefix=<p4dev-python-venv> --disable-logging-macros --disable-elogger CXXFLAGS=-O3 -g -DNDEBUG -march=native -fno-semantic-interposition CFLAGS=-O3 -g -DNDEBUG -march=native
 
 version:   $version
 sha256:    $actual_sha
