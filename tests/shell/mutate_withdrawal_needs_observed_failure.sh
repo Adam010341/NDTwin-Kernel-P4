@@ -37,8 +37,8 @@
 # [Co-developed with claude code -- Adam]
 #
 # Covers tests/test_PollDoesNotResurrect.cpp (DeclaredLinkFailureTest, the B-6 second-round cases),
-# tests/test_HttpSessionRouting.cpp (DeclaredLinkFailureWireTest, the second-round and dpid-0 cases,
-# and LinkTransitionEndpointsTest, the missing-reverse cases) and
+# tests/test_HttpSessionRouting.cpp (DeclaredLinkFailureWireTest, the second-round and dpid-0 cases) and
+# tests/test_HttpSessionRouting.cpp (LinkTransitionEndpointsTest, the missing-reverse cases) and
 # tests/test_NetemLinkFault.cpp (ResidualNetemSweepTest).
 #
 # WHAT THE DEFECT WAS -- and this one was MEASURED ON A LIVE FABRIC, not reasoned about
