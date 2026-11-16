@@ -519,7 +519,8 @@ class LinkTransitionEndpointsTest : public ::testing::Test
                                                              utils::MININET);
         // [Co-developed with claude code -- Adam] The bus is observable: a handler counts what
         // the endpoint emits, so "no event" is a measured zero rather than an absence of
-        // assertions. Registered after the monitor, which may register its own.
+        // assertions. Nothing under src/ registers a handler for these two events, so the counts
+        // are the endpoint's own.
         m_bus->registerHandler(EventType::LinkFailureDetected,
                                [this](const Event&) { ++m_failureEvents; });
         m_bus->registerHandler(EventType::LinkRecoveryDetected,
@@ -566,10 +567,79 @@ class LinkTransitionEndpointsTest : public ::testing::Test
 
     static constexpr const char* kPayload =
         R"({"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1})";
-    /// The body both handlers answer a missing reverse edge with. One string, asserted whole.
+    /// What both handlers answer a missing reverse edge with, asserted as the two facts it has to
+    /// carry -- the reverse edge is missing, and nothing was changed -- and not as one string, so
+    /// that rewording the rest of the sentence leaves the cases green.
     /// [Co-developed with claude code -- Adam]
-    static constexpr const char* kRefusal =
-        R"({"error":"reverse edge missing from the topology; nothing was changed"})";
+    static void expectRefusalBody(const std::string& body, const std::string& label = "")
+    {
+        EXPECT_NE(body.find("reverse edge missing"), std::string::npos)
+            << label << " body: " << body;
+        EXPECT_NE(body.find("nothing was changed"), std::string::npos)
+            << label << " body: " << body;
+    }
+
+    /// A lone forward edge (no reverse) that is down, and what holds it down.
+    struct LoneForward
+    {
+        uint64_t src;
+        uint64_t dst;
+        bool reported;
+        bool injected;
+    };
+
+    /// Adds one lone forward edge per way a direction can be down -- a failure Ryu reported, a
+    /// declaration nothing reported, an injection -- and returns them. [Co-developed with claude
+    /// code -- Adam]
+    std::vector<LoneForward> addDeclaredLoneForwards()
+    {
+        addDirectedEdge(1, 5, /*up=*/true);
+        addDirectedEdge(2, 6, /*up=*/true);
+        addDirectedEdge(3, 7, /*up=*/true);
+        m_monitor->setEdgeDownByReportedFailure(edgeOf(1, 5)); // declared + reported
+        m_monitor->setEdgeDownByDeclaration(edgeOf(2, 6));     // declared, nothing reported
+        m_monitor->setEdgeDownByInjection(edgeOf(3, 7));       // declared + injected
+        return {{1, 5, true, false}, {2, 6, false, false}, {3, 7, false, true}};
+    }
+
+    /// Posts the report for each lone forward from addDeclaredLoneForwards() to `target`: every
+    /// one is refused (500, the refusal body) and left exactly as found -- still down, still
+    /// declared, the same reported and injected notes -- with no event emitted.
+    /// [Co-developed with claude code -- Adam]
+    void expectLoneForwardsRefusedAsFound(const char* target)
+    {
+        const std::vector<LoneForward> forwards = addDeclaredLoneForwards();
+        HttpSessionTestPeer peer(m_monitor, m_bus);
+        for (const LoneForward& c : forwards)
+        {
+            const std::string label = std::to_string(c.src) + " -> " + std::to_string(c.dst);
+            const auto e = edgeOf(c.src, c.dst);
+            // The precondition, so that a fixture that stopped declaring anything cannot pass.
+            ASSERT_FALSE(edgeIsUp(c.src, c.dst)) << label;
+            ASSERT_TRUE(m_monitor->getEdgeDeclaredDown(e)) << label;
+            ASSERT_EQ(m_monitor->getEdgeFailureReported(e), c.reported) << label;
+            ASSERT_EQ(m_monitor->getEdgeInjected(e), c.injected) << label;
+
+            const std::string payload = R"({"src_dpid":)" + std::to_string(c.src) +
+                                        R"(,"src_interface":1,"dst_dpid":)" +
+                                        std::to_string(c.dst) + R"(,"dst_interface":1})";
+            const auto& res = peer.send(http::verb::post, target, payload);
+            const unsigned status = res.result_int();
+            const std::string body = res.body();
+
+            EXPECT_EQ(status, 500u) << label << " body: " << body;
+            expectRefusalBody(body, label);
+            EXPECT_FALSE(edgeIsUp(c.src, c.dst)) << label << ": the edge's up state changed";
+            EXPECT_TRUE(m_monitor->getEdgeDeclaredDown(e))
+                << label << ": the declaration was withdrawn";
+            EXPECT_EQ(m_monitor->getEdgeFailureReported(e), c.reported)
+                << label << ": the failure report was spent or invented";
+            EXPECT_EQ(m_monitor->getEdgeInjected(e), c.injected)
+                << label << ": the injection note changed";
+        }
+        EXPECT_EQ(m_failureEvents, 0);
+        EXPECT_EQ(m_recoveryEvents, 0);
+    }
 
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<EventBus> m_bus;
@@ -619,7 +689,7 @@ TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingIsRefusedWi
     const auto& res = peer.send(http::verb::post, "/ndt/link_failure_detected", kPayload);
 
     EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
-    EXPECT_EQ(res.body(), kRefusal);
+    expectRefusalBody(res.body());
     EXPECT_TRUE(edgeIsUp(1, 5))
         << "the reported direction was marked down although nothing may change";
     const auto fwd = edgeOf(1, 5);
@@ -629,6 +699,18 @@ TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingIsRefusedWi
     EXPECT_FALSE(m_monitor->getEdgeInjected(fwd));
 }
 
+// [Co-developed with claude code -- Adam]
+// The failure endpoint over the same three lone forward edges as the recovery table below, each
+// already down: a failure Ryu reported, a declaration nothing reported, an injection. The old
+// code emitted an event for each; for the bare declaration and the injection it also recorded a
+// failure report on them, which would have let a later recovery report withdraw a declaration
+// someone else wrote. They stay down, declared, and flagged exactly as found.
+TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingLeavesADownEdgeAsItFound)
+{
+    expectLoneForwardsRefusedAsFound("/ndt/link_failure_detected");
+}
+
+// [Co-developed with claude code -- Adam]
 TEST_F(LinkTransitionEndpointsTest, AFailureWhoseReverseEdgeIsMissingEmitsNoEvent)
 {
     addDirectedEdge(1, 5, /*up=*/true);
@@ -667,7 +749,7 @@ TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsRefusedW
     const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kPayload);
 
     EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
-    EXPECT_EQ(res.body(), kRefusal);
+    expectRefusalBody(res.body());
     EXPECT_FALSE(edgeIsUp(1, 5))
         << "the reported direction was marked up although nothing may change";
     const auto fwd = edgeOf(1, 5);
@@ -687,50 +769,7 @@ TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingIsRefusedW
 // only the one that happened to change.
 TEST_F(LinkTransitionEndpointsTest, ARecoveryWhoseReverseEdgeIsMissingLeavesTheDeclarationItFound)
 {
-    addDirectedEdge(1, 5, /*up=*/true);
-    addDirectedEdge(2, 6, /*up=*/true);
-    addDirectedEdge(3, 7, /*up=*/true);
-    m_monitor->setEdgeDownByReportedFailure(edgeOf(1, 5)); // declared + reported
-    m_monitor->setEdgeDownByDeclaration(edgeOf(2, 6));     // declared, nothing reported
-    m_monitor->setEdgeDownByInjection(edgeOf(3, 7));       // declared + injected
-    HttpSessionTestPeer peer(m_monitor, m_bus);
-
-    struct Case
-    {
-        uint64_t src;
-        uint64_t dst;
-        bool reported;
-        bool injected;
-    };
-    const Case cases[] = {{1, 5, true, false}, {2, 6, false, false}, {3, 7, false, true}};
-    for (const Case& c : cases)
-    {
-        const std::string label = std::to_string(c.src) + " -> " + std::to_string(c.dst);
-        const auto e = edgeOf(c.src, c.dst);
-        // The precondition, so that a fixture that stopped declaring anything cannot pass.
-        ASSERT_TRUE(m_monitor->getEdgeDeclaredDown(e)) << label;
-        ASSERT_EQ(m_monitor->getEdgeFailureReported(e), c.reported) << label;
-        ASSERT_EQ(m_monitor->getEdgeInjected(e), c.injected) << label;
-
-        const std::string payload = R"({"src_dpid":)" + std::to_string(c.src) +
-                                    R"(,"src_interface":1,"dst_dpid":)" + std::to_string(c.dst) +
-                                    R"(,"dst_interface":1})";
-        const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", payload);
-        const unsigned status = res.result_int();
-        const std::string body = res.body();
-
-        EXPECT_EQ(status, 500u) << label << " body: " << body;
-        EXPECT_EQ(body, kRefusal) << label;
-        EXPECT_FALSE(edgeIsUp(c.src, c.dst)) << label << ": the edge was raised";
-        EXPECT_TRUE(m_monitor->getEdgeDeclaredDown(e))
-            << label << ": the declaration was withdrawn";
-        EXPECT_EQ(m_monitor->getEdgeFailureReported(e), c.reported)
-            << label << ": the failure report was spent or invented";
-        EXPECT_EQ(m_monitor->getEdgeInjected(e), c.injected)
-            << label << ": the injection note changed";
-    }
-    EXPECT_EQ(m_failureEvents, 0);
-    EXPECT_EQ(m_recoveryEvents, 0);
+    expectLoneForwardsRefusedAsFound("/ndt/link_recovery_detected");
 }
 
 // --- F-8: what /ndt/get_graph_data says about where the headroom figure came from -------------
@@ -1605,9 +1644,9 @@ TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryOutsideMininetWithdrawsTheDecl
 }
 
 /**
- * The injection endpoints refuse BEFORE changing anything when the pair is broken, unlike their
- * notification siblings. An injection that half-happened would leave the graph and the machine's
- * qdisc tree in a state the caller did not ask for and cannot name.
+ * The injection endpoints refuse BEFORE changing anything when the pair is broken, as their
+ * notification siblings now do. An injection that half-happened would leave the graph and the
+ * machine's qdisc tree in a state the caller did not ask for and cannot name.
  */
 TEST_F(DeclaredLinkFailureWireTest, InjectWithNoSuchEdgeChangesNothing)
 {

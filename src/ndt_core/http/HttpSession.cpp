@@ -1275,9 +1275,9 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     if (!revOpt.has_value())
     {
         // Same reasoning as handleLinkFailure: edges exist in pairs, so a missing reverse is the
-        // kernel's own state gone inconsistent. Refused BEFORE anything is changed here, unlike
-        // the notification path -- an injection that half-happened would leave both the graph and
-        // the machine's qdisc tree in a state the caller did not ask for and cannot name.
+        // kernel's own state gone inconsistent. Refused BEFORE anything is changed here, as the
+        // notification path is too -- an injection that half-happened would leave both the graph
+        // and the machine's qdisc tree in a state the caller did not ask for and cannot name.
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "inject link failure {} -> {}: reverse edge is missing from the "
                            "topology; nothing was injected",

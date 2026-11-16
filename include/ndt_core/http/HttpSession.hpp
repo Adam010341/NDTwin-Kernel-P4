@@ -196,13 +196,16 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @brief Handles a link-failure notification sent by the Ryu controller.
      *
      * This HTTP handler is invoked by Ryu when a link-down event is detected in the OpenFlow
-     * network (e.g., port/link failure). It parses the request payload, marks the corresponding
-     * directed edge(s) as DOWN in the topology monitor (both directions if present), and emits
-     * LinkFailureDetected events on the internal event bus.
+     * network (e.g., port/link failure). It parses the request payload and looks up the reported
+     * edge and then its reverse, before anything is written. With both present it marks both
+     * directed edges DOWN in the topology monitor and emits a LinkFailureDetected event for each
+     * on the internal event bus.
      *
      * Error responses:
      * - 400 Bad Request if the payload is invalid
      * - 404 Not Found if the referenced edge is not found in the current topology
+     * - 500 Internal Server Error if the reverse edge is missing (the kernel's own topology is
+     *   inconsistent): nothing was changed and no event was emitted
      *
      * @param[out] res HTTP response returned to Ryu (status code + JSON body).
      *
@@ -215,12 +218,15 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *
      * This HTTP handler is invoked by Ryu when it detects that a previously failed link
      * between two switches/ports has come back up. It validates the JSON payload, looks up
-     * the corresponding topology edge(s), marks them UP in the topology monitor (forward
-     * direction and reverse direction if present), and returns a JSON acknowledgement.
+     * the reported edge and then its reverse, before anything is written, applies the report to
+     * both directions in the topology monitor (an edge held down by a declaration that no
+     * reported failure pairs with stays down), and returns a JSON acknowledgement.
      *
      * Error responses:
      * - 400 Bad Request: missing required JSON fields
      * - 404 Not Found: referenced edge does not exist in the current topology
+     * - 500 Internal Server Error: the reverse edge is missing (the kernel's own topology is
+     *   inconsistent); nothing was changed
      *
      * @param[out] res HTTP response returned to Ryu (status code + JSON body).
      *
