@@ -370,7 +370,7 @@ report "M-B46: the in_port check lets the encoder's OverflowError out, so 512 is
 # helper; M-B53 skips a falsy value, the way a `if value:` guard would; M-B54 reports a range one
 # too wide; and M-B55 .. M-B57 take the
 # check off one verb each (add, delete, modify), so a verb that builds the same keys without it is
-# a 500 again.
+# a 500 again. M-B58 and M-B59, below them, are the boolean and the float refusals.
 m=$(mutant b47 "$TOPOMGR" \
     '            _check_l4_value(field, match_dict[field], action)' \
     '            pass')
@@ -439,6 +439,26 @@ m=$(mutant b57 "$TOPOMGR" \
     '        pass')
 report "M-B57: a modify does not check its protocol and port values" "$m" \
        "test_every_spelling_answers_400_on_every_verb_for_a_value_the_key_cannot_hold"
+
+# [Co-developed with claude code -- Adam]
+# M-B58 / M-B59: a JSON boolean and a JSON float are not a whole number. int() read `true` as 1
+# (protocol 1 is ICMP) and cut 80.5 to port 80, so the rule installed was not the one sent. Each
+# mutation puts one of the two readings back, for in_port, the protocol and every port spelling.
+m=$(mutant b58 "$TOPOMGR" \
+    '    if isinstance(value, bool):
+        raise _not_a_json_integer(field, value, action, noun, p4_key)' \
+    '    if False:
+        raise _not_a_json_integer(field, value, action, noun, p4_key)')
+report "M-B58: a JSON boolean is read as 1 or 0 again, so \"ip_proto\": true is ICMP" "$m" \
+       "test_a_json_boolean_is_refused_with_400_on_every_verb_and_spelling"
+
+m=$(mutant b59 "$TOPOMGR" \
+    '    if isinstance(value, float):
+        raise _not_a_json_integer(field, value, action, noun, p4_key)' \
+    '    if False:
+        raise _not_a_json_integer(field, value, action, noun, p4_key)')
+report "M-B59: a JSON float is cut to its whole part again, so \"tp_dst\": 80.5 is port 80" "$m" \
+       "test_a_json_float_is_refused_with_400_on_every_verb_and_spelling"
 
 m=$(mutant b16 "$SHAPE" \
     '                return bytes.fromhex("".join(groups))' \

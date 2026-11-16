@@ -461,7 +461,7 @@ a `ryu_rules_lost` record on that switch's node (an `id`, `cause`, `count`, the 
 calls readopt, `src/ndt_core/power_management/P4PowerStrategy.cpp:155-157`). A readopt counts and lists the
 lost rules: besides the cookie the switch reported before the push, it counts the generation of the
 switch's old client, which a fresh bmv2 does not need to report
-(`p4_proxy/proxy_agent/topology_manager.py:2088-2090`, described at `:1501-1505`); on bmv2 1.15.5
+(`p4_proxy/proxy_agent/topology_manager.py:2121-2123`, described at `:1534-1538`); on bmv2 1.15.5
 (2026-11-11 UTC) two power-ons through the kernel each recorded the one rule installed through
 `/ndt/install_flow_entry`. A proxy restart has no old client: a fresh bmv2 holds no cookie and reports
 nothing, so the record says 0 (`p4_proxy/proxy_agent/main.py:2339-2341`). That 0 is right only when the
@@ -475,8 +475,8 @@ the kernel has read the first hides it; the count may be short when the journal 
 or read, and is unknown (null) when the push itself failed.
 
 **Why.** The proxy pushes the pipeline to each switch at startup and readopt, which empties its tables
-(`p4_proxy/proxy_agent/main.py:2336-2345`, `p4_proxy/proxy_agent/topology_manager.py:1453-1494`,
-`:2092`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
+(`p4_proxy/proxy_agent/main.py:2336-2345`, `p4_proxy/proxy_agent/topology_manager.py:1486-1527`,
+`:2125`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
 requests and not the reasons for them. The kernel reads the record on its regular poll of the proxy and logs it at
 ERROR (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:797-805`;
 `src/ndt_core/power_management/P4RulesLost.cpp:99-103`); `get_graph_data` serves it on the switch node

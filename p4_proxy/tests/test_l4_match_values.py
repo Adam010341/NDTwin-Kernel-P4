@@ -12,6 +12,9 @@ delete and modify all answered **500**. `topology_manager.check_match_values` no
 encoder over every spelling of those keys first, as it does for in_port, so the answer is a 400
 that names the field and the switch is not written.
 
+A JSON boolean and a JSON float (`true`, `80.5`, `80.0`, `6e0`) are refused as well: int() read
+`true` as 1 and cut 80.5 to 80, so the rule that was installed was not the one that was sent.
+
 The control is the other half: a value the encoder took before is still taken, and goes out as the
 same bytes. The bytes are written out below, not computed by the encoder, so a change to the
 encoder's output cannot agree with itself.
@@ -185,7 +188,8 @@ class AnL4ValueTheKeyCannotHoldTest(unittest.TestCase):
         client.arbitration = False
         self.topo.add_switch(2, client)
         for verb, handler, _ in self.HANDLERS:
-            for value, status in (("abc", 400), (65536, 400), (80, 409)):
+            for value, status in (("abc", 400), (65536, 400), (80.0, 400), (True, 400),
+                                  (80, 409)):
                 with self.subTest(verb=verb, value=value):
                     with self.assertRaises(HTTPException) as caught:
                         self.call(handler, "tp_dst", value, dpid=2)
@@ -243,17 +247,113 @@ class AnL4ValueTheKeyCannotHoldTest(unittest.TestCase):
                 self.call("add_flow_entry", field, value)
                 self.assertEqual(self.sent()[field_id], (value_bytes, mask_bytes))
 
-    def test_what_int_reads_stays_accepted_a_bool_a_float_and_a_padded_digit_string(self):
-        # Kept exactly as the encoder took them before: a bool is an int in Python (True is 1), a
-        # float is truncated, and int() trims blanks and reads a sign and underscores. Pinned so
-        # that narrowing the set is a decision and not an accident.
-        cases = ((True, b"\x01"), (False, b"\x00"), (6.0, b"\x06"), (6.9, b"\x06"),
-                 (" 6 ", b"\x06"), ("+6", b"\x06"), ("0_6", b"\x06"), ("-0", b"\x00"))
+    def test_a_padded_or_signed_digit_string_is_still_read_as_the_number_it_spells(self):
+        # Kept exactly as the encoder took them before: int() trims blanks and reads a sign and
+        # underscores. Pinned so that narrowing the strings is a decision and not an accident. A
+        # JSON boolean and a JSON float used to be in this list (`true` as 1, 6.9 as 6); they are
+        # refused now, by the two tests below.
+        cases = ((" 6 ", b"\x06"), ("+6", b"\x06"), ("0_6", b"\x06"), ("-0", b"\x00"))
         for value, value_bytes in cases:
             with self.subTest(value=value):
                 self.call("add_flow_entry", "ip_proto", value)
                 self.assertEqual(self.sent()[4], (value_bytes, b"\xff"))
-        self.assertIsNone(check_match_values({"tp_dst": True, "ip_proto": 6.0}, "installed"))
+        self.assertIsNone(check_match_values({"tp_dst": " 80 ", "ip_proto": "+6"}, "installed"))
+
+    # --- a JSON boolean and a JSON float are not a whole number ------------------------------
+    # [Co-developed with claude code -- Adam]
+    # int() read `true` as 1 (so {"ip_proto": true} installed protocol 1, ICMP) and cut a float to
+    # its whole part ({"tp_dst": 80.5} installed port 80, 6.9 became TCP). The kernel's check of
+    # `priority` refuses both, and so does parse_eth_type for a bool. 80.0 and 6e0 are floats
+    # once the body is parsed, and are refused with them.
+
+    #: The same literals a client writes. `6e0` is parsed, not typed as 6.0, so what the test
+    #: refuses is what json.loads makes of the text on the wire.
+    WIRE_FLOATS = ("80.5", "80.0", "6e0", "6.9", "1.5", "0.0", "1e2", "-0.0")
+    WIRE_BOOLS = ("true", "false")
+
+    def call_wire(self, handler_name, field, text, dpid=1):
+        """The handler, given the value as the text a client sends, not as a Python object."""
+        raw = ('{"dpid": %d, "match": {"%s": %s, "nw_dst": "10.0.0.4"}, '
+               '"actions": [{"type": "OUTPUT", "port": 3}], "priority": 100}' % (dpid, field, text))
+
+        class WireRequest:
+            async def json(self_inner):
+                return json.loads(raw)
+
+        return asyncio.run(getattr(api_routes, handler_name)(WireRequest()))
+
+    def refused_on_the_wire(self, texts, kind):
+        for spellings, _, largest, noun in FAMILIES:
+            for field in spellings:
+                for verb, handler, _ in self.HANDLERS:
+                    for text in texts:
+                        with self.subTest(field=field, verb=verb, value=text):
+                            with self.assertRaises(HTTPException) as caught:
+                                self.call_wire(handler, field, text)
+                            self.assertEqual(caught.exception.status_code, 400)
+                            detail = caught.exception.detail
+                            self.assertEqual(detail["fields"], [field])
+                            message = detail["message"]
+                            self.assertIn(f"match field {field} carries {kind}, which is not "
+                                          f"{noun} from 0 to {largest} ", message)
+                            self.assertIn("No rule was", message)
+        self.assertEqual(self.stub.requests, [], "a refused value reached the wire")
+
+    def test_a_json_boolean_is_refused_with_400_on_every_verb_and_spelling(self):
+        self.refused_on_the_wire(self.WIRE_BOOLS, "a bool")
+
+    def test_a_json_float_is_refused_with_400_on_every_verb_and_spelling(self):
+        self.refused_on_the_wire(self.WIRE_FLOATS, "a float")
+
+    def test_the_check_itself_refuses_a_bool_and_a_float_and_names_the_type(self):
+        # One layer down, without the handler: a handler that swallowed the wrong exception
+        # would not hide a check that stopped raising.
+        for spellings, _, _, _ in FAMILIES:
+            for field in spellings:
+                for value, kind in ((True, "a bool"), (False, "a bool"), (80.5, "a float"),
+                                    (80.0, "a float"), (json.loads("6e0"), "a float")):
+                    with self.subTest(field=field, value=value):
+                        with self.assertRaises(MalformedMatchValueError) as caught:
+                            check_match_values({field: value}, "installed")
+                        self.assertEqual(caught.exception.fields, [field])
+                        self.assertIn(f"carries {kind},", str(caught.exception))
+
+    def test_a_refused_bool_or_float_sits_beside_good_values_and_only_it_is_named(self):
+        body = {"dpid": 1,
+                "match": {"nw_dst": "10.0.0.4", "ip_proto": 6, "tp_src": "1234", "tp_dst": 80.0},
+                "actions": [{"type": "OUTPUT", "port": 3}], "priority": 100}
+        for handler in ("add_flow_entry", "delete_flow_entry", "modify_flow_entry"):
+            with self.subTest(handler=handler):
+                with self.assertRaises(HTTPException) as caught:
+                    asyncio.run(getattr(api_routes, handler)(FakeRequest(body)))
+                self.assertEqual(caught.exception.status_code, 400)
+                self.assertEqual(caught.exception.detail["fields"], ["tp_dst"])
+        self.assertEqual(self.stub.requests, [])
+
+    def test_a_bool_or_float_on_a_rule_with_no_output_action_is_400_and_writes_nothing(self):
+        # The 5-tuple drop path ("actions": []) builds its keys without the OUTPUT branch.
+        for handler in ("add_flow_entry", "delete_flow_entry", "modify_flow_entry"):
+            for field, bad in (("tp_dst", 80.0), ("udp_src", True), ("ip_proto", 6.9)):
+                with self.subTest(handler=handler, field=field, value=bad):
+                    body = self.body(field, bad)
+                    body["actions"] = []
+                    with self.assertRaises(HTTPException) as caught:
+                        asyncio.run(getattr(api_routes, handler)(FakeRequest(body)))
+                    self.assertEqual(caught.exception.status_code, 400)
+                    self.assertEqual(caught.exception.detail["fields"], [field])
+        self.assertEqual(self.stub.requests, [])
+
+    def test_a_whole_number_spelled_with_a_fraction_is_refused_but_the_same_digit_string_is_not(self):
+        # The control for the refusals above: the number is the same, the type is not.
+        for field in ("ip_proto", "tp_dst", "udp_src"):
+            with self.subTest(field=field):
+                for text in ("6.0", "6e0"):
+                    with self.assertRaises(HTTPException):
+                        self.call_wire("add_flow_entry", field, text)
+                before = len(self.stub.requests)
+                self.call_wire("add_flow_entry", field, '"6"')
+                self.call_wire("add_flow_entry", field, "6")
+                self.assertEqual(len(self.stub.requests), before + 2)
 
 
 if __name__ == "__main__":
