@@ -35,6 +35,32 @@ P4RUNTIME = os.path.join(FIXTURES, "p4runtime")
 FIREWALL = os.path.join(FIXTURES, "firewall")
 CALC = os.path.join(FIXTURES, "calc")
 
+# [Co-developed with claude code -- Adam]
+#: The compiler the real-compiler tests run against: $NDTWIN_P4C if set, otherwise whatever
+#: p4c-bm2-ss is on PATH, otherwise None (the same rule as test_telemetry_include.py).
+P4C = os.environ.get("NDTWIN_P4C") or shutil.which("p4c-bm2-ss")
+P4C_USABLE = bool(P4C) and os.path.isfile(P4C) and os.access(P4C, os.X_OK)
+P4C_SKIP_REASON = (
+    f"no usable p4c-bm2-ss ($NDTWIN_P4C={P4C} is not an executable file)" if P4C
+    else "no p4c-bm2-ss (not on PATH, $NDTWIN_P4C unset)")
+
+
+def put_p4c_on_path(case):
+    """Make `p4c-bm2-ss` resolve to P4C for the rest of this test, wherever P4C lives.
+
+    [Co-developed with claude code -- Adam]
+    pre-flight finds the compiler with `shutil.which("p4c-bm2-ss")`, and the tests compile and
+    re-run the advice it prints by that same bare name. A directory holding one symlink, put at
+    the front of PATH, makes all three use the binary $NDTWIN_P4C names instead of whatever else
+    (or nothing) is on PATH, without patching anything in preflight itself.
+    """
+    shim = tempfile.mkdtemp(prefix="p4_exercise_preflight_p4c_")
+    case.addCleanup(shutil.rmtree, shim, True)
+    os.symlink(os.path.abspath(P4C), os.path.join(shim, "p4c-bm2-ss"))
+    patcher = mock.patch.dict(os.environ, {"PATH": shim + os.pathsep + os.environ.get("PATH", "")})
+    patcher.start()
+    case.addCleanup(patcher.stop)
+
 
 def the_proxys_reader():
     """`p4_proxy/mininet/app_package`, imported by path the way common imports its sibling.
@@ -1309,12 +1335,16 @@ class BuildMatchesSource(ExerciseCopyCase):
         self.assertEqual(report.failures, [], report.render())
 
 
-@unittest.skipUnless(shutil.which("p4c-bm2-ss"), "p4c-bm2-ss is not on this machine")
+@unittest.skipUnless(P4C_USABLE, P4C_SKIP_REASON)
 class BuildMatchesSourceWithTheRealCompiler(ExerciseCopyCase):
     """With the real p4c: build, convert, edit the .p4, convert again.
 
     [Co-developed with claude code -- Adam]
     """
+
+    def setUp(self):
+        put_p4c_on_path(self)
+        super().setUp()
 
     def p4c_into_build(self):
         import subprocess
@@ -1431,7 +1461,7 @@ class BuildMatchesSourceWithTheRealCompiler(ExerciseCopyCase):
         self.assertEqual(self.row(report)[0], preflight.PASS, report.render())
 
 
-@unittest.skipUnless(shutil.which("p4c-bm2-ss"), "p4c-bm2-ss is not on this machine")
+@unittest.skipUnless(P4C_USABLE, P4C_SKIP_REASON)
 class ABareStatementNamedByItsLine(unittest.TestCase):
     """For a bare statement p4c makes an action `<stem><line>` and a table `tbl_<stem><line>`.
 
@@ -1466,6 +1496,7 @@ V1Switch(P(), VC(), Ing(), Egr(), CC(), D()) main;
 """
 
     def setUp(self):
+        put_p4c_on_path(self)
         self.tmp = tempfile.mkdtemp(prefix="p4_exercise_preflight_bare_")
         self.addCleanup(shutil.rmtree, self.tmp, True)
         os.makedirs(os.path.join(self.tmp, "build"))
