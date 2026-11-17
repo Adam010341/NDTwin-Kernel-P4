@@ -865,6 +865,288 @@ m=$(mutant m161 "$NDT" \
 report "M161: an empty line in stack.sh's output reaches the drop-list lookup" "$m" \
        "  and an empty line in stack.sh's output raises no bash error"
 
+# [Co-developed with claude code -- Adam]
+# --- a failed 'ndt up' (P4 or OVS) rolls back reading stack.sh's port report the way 'ndt down' does ---
+# `ndt up p4` records `fabric` before `stack`, so the rollback's `stack.sh down` ran while bmv2 was
+# up and every failed fresh bring-up ended "rollback INCOMPLETE ... ndt down --deep"; over a reused
+# fabric, which the rollback never stops, it always did, with --deep advice over that fabric.
+
+# M162 puts the defect back: the rollback does not defer, so the fabric's ports fail it again.
+m=$(mutant m162 "$NDT" \
+    'then deferred="$(stack_down_deferrable_ports "$out")"; fi' \
+    'then :; fi')
+report "M162: a P4 rollback fails on the ports of the fabric it is about to stop" "$m" \
+       "🔴 ports the fabric still held at the stack stage do not make the rollback incomplete"
+
+# M163: a port still held after every stage has run is read as closed -- the honest half gone.
+m=$(mutant m163 "$NDT" \
+    '                       held="${held:+$held }$p"' \
+    '                       :')
+report "M163: a port still held after the rollback is not reported" "$m" \
+       "🔴 a port still held after the fabric was stopped makes the rollback INCOMPLETE"
+
+# M164: a port the second reading cannot read is read as closed.
+m=$(mutant m164 "$NDT" \
+    '                2) unread="${unread:+$unread }$p" ;;' \
+    '                2) : ;;')
+report "M164: a deferred port the rollback cannot re-read passes" "$m" \
+       "🔴 a deferred port that cannot be re-read makes the rollback INCOMPLETE"
+
+# M165 (widening): the fatal ending is hidden from the classifier, so a status that is not only
+# about ports is deferred with them and the ending is lost from the rollback's verdict.
+m=$(mutant m165 "$NDT" \
+    'then deferred="$(stack_down_deferrable_ports "$out")"; fi' \
+    'then deferred="$(stack_down_deferrable_ports "$(grep -vF -- "$STACK_DOWN_FATAL_ENDING" <<<"$out")")"; fi')
+report "M165 (widening): the rollback defers a status that also carries a fatal ending" "$m" \
+       "🔴 a fatal ending beside the ports is still an INCOMPLETE rollback"
+
+# M166: up_p4 exits 0 after a rollback at the stack stage.
+m=$(mutant m166 "$NDT" \
+    '        rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"
+        return 1' \
+    '        rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"
+        return 0')
+report "M166: a failed 'ndt up p4' that rolled back exits 0" "$m" \
+       "a failed fresh 'ndt up p4' is still red"
+
+# M167: up_p4 does not record the fabric it starts, so the rollback leaves that fabric up.
+m=$(mutant m167 "$NDT" \
+    '        # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
+        up_started fabric' \
+    '        # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.')
+report "M167: a fresh P4 rollback does not stop the fabric it started" "$m" \
+       "  it rolled back the fabric and the stack"
+
+# M168 (widening): everything stack.sh said is dropped with the deferred report.
+m=$(mutant m168 "$NDT" \
+    '                    out="$(stack_down_without_port_report "$out")"' \
+    '                    out=""')
+report "M168 (widening): the rollback drops all of stack.sh's output with the port report" "$m" \
+       "  what stack.sh said about anything else is kept"
+
+# M169: M8's edit -- the fabric recorded before the reuse branch -- seen from the rollback's own line.
+m=$(mutant m169 "$NDT" \
+    '    # -- 1. fabric --
+    say "[1/3] bmv2 fabric"' \
+    '    # -- 1. fabric --
+    say "[1/3] bmv2 fabric"
+    up_started fabric')
+report "M169: a reuse rollback says it started the fabric it reused" "$m" \
+       "a reuse rollback rolls back only the stack"
+
+# M170: the reused fabric's ports are counted as left behind.
+m=$(mutant m170 "$NDT" \
+    '                       kept="${kept:+$kept }$p"' \
+    '                       held="${held:+$held }$p"')
+report "M170: the reused fabric's own ports make the rollback incomplete" "$m" \
+       "🔴 the reused fabric's ports do not make the rollback incomplete"
+
+# M171 (widening): every held P4 port is the reused fabric's, the proxy's :8081 included.
+m=$(mutant m171 "$NDT" \
+    '        [[ "$plane" == p4 && "$owner" == "bmv2 "* ]] || continue' \
+    '        [[ "$plane" == p4 ]] || continue')
+report "M171 (widening): a stranger on a P4 port passes as the reused fabric's" "$m" \
+       "🔴 a port the manifest lists but the table does not give to bmv2 is still held"
+
+# M172 (widening): the exception no longer needs the switch manifest at all -- neither its presence nor
+# its port list.
+m=$(mutant m172 "$NDT" \
+    '[[ "${UP_P4_FABRIC:-}" == reused && -e "$MANIFEST" ]] && grep -qx -- "$p" <<<"$mports" && ndt_port_is_bmv2 "$p"' \
+    '[[ "${UP_P4_FABRIC:-}" == reused ]] && ndt_port_is_bmv2 "$p"')
+report "M172 (widening): bmv2 ports are excused with no manifest saying a fabric is up" "$m" \
+       "🔴 without the fabric's manifest its ports are not excused"
+
+# W16 (behaviour-preserving): the manifest-present test alone is dropped. Its port list is read from the same
+# file, so a missing manifest names no port and the port match already refuses; the test is a second guard.
+m=$(mutant w16 "$NDT" \
+    '[[ "${UP_P4_FABRIC:-}" == reused && -e "$MANIFEST" ]] && grep -qx' \
+    '[[ "${UP_P4_FABRIC:-}" == reused ]] && grep -qx')
+report_green "W16 (behaviour-preserving): the exception's manifest-present test dropped, the port match kept" "$m" \
+       "a missing manifest names no port, so the port match refuses it already"
+
+# M173 (widening): a rollback over a reused fabric is always complete.
+m=$(mutant m173 "$NDT" \
+    '    if (( rc == 0 && left == 0 )) && [[ "${UP_P4_FABRIC:-}" == reused ]]; then' \
+    '    if [[ "${UP_P4_FABRIC:-}" == reused ]]; then')
+report "M173 (widening): a reuse rollback is complete whatever was left" "$m" \
+       "🔴 a reuse rollback whose stack did not stop cleanly is INCOMPLETE"
+
+# M174: the reuse advice is gone, so it sends the user to --deep over that fabric again.
+m=$(mutant m174 "$NDT" \
+    '    elif [[ "${UP_P4_FABRIC:-}" == reused ]]; then' \
+    '    elif false; then')
+report "M174: a reuse rollback sends the user to --deep over the fabric it reused" "$m" \
+       "  🔴 and the advice does not send the user to --deep"
+
+# M175: a port left behind is named without its holder.
+m=$(mutant m175 "$NDT" \
+    '                err "    :$p is held by $(ndt_port_holder "$p" "$(ndt_port_proto "$p")")"' \
+    '                :')
+report "M175: a port the rollback left behind is named without its holder" "$m" \
+       "  🔴 with its holder"
+
+# [Co-developed with claude code -- Adam]
+# M176-M178 (widening): the line that says the deferred ports are closed is printed beside a port that is
+# held, unread or the reused fabric's -- one term of its guard dropped at a time.
+m=$(mutant m176 "$NDT" \
+    '        if [[ -z "$held$unread$kept" ]]; then' \
+    '        if [[ -z "$held$unread" ]]; then')
+report "M176 (widening): the ports are called closed beside the reused fabric's" "$m" \
+       "  🔴 and they are not called closed"
+
+m=$(mutant m177 "$NDT" \
+    '        if [[ -z "$held$unread$kept" ]]; then' \
+    '        if [[ -z "$held$kept" ]]; then')
+report "M177 (widening): the ports are called closed beside one it could not read" "$m" \
+       "  🔴 and does not say the ports are closed beside it"
+
+m=$(mutant m178 "$NDT" \
+    '        if [[ -z "$held$unread$kept" ]]; then' \
+    '        if [[ -z "$unread$kept" ]]; then')
+report "M178 (widening): the ports are called closed beside one still held" "$m" \
+       "  🔴 and does not say the ports are closed beside the one that is held"
+
+# M179: the closed ports are not named beside ones that are not.
+m=$(mutant m179 "$NDT" \
+    '        elif [[ -n "$closed" ]]; then' \
+    '        elif false; then')
+report "M179: the ports that closed are not named beside ones that did not" "$m" \
+       "  the port that did close is named"
+
+# M180 (widening): a bmv2-row port counts as the reused fabric's whether or not its manifest lists it.
+m=$(mutant m180 "$NDT" \
+    ' && grep -qx -- "$p" <<<"$mports" && ndt_port_is_bmv2 "$p"; then' \
+    ' && ndt_port_is_bmv2 "$p"; then')
+report "M180 (widening): a holder on a port the fabric's manifest does not list passes" "$m" \
+       "🔴 a holder on a bmv2-row port the fabric's manifest does not list is reported as held, INCOMPLETE"
+
+# M181 (widening): the exception no longer needs the fabric to be one this run REUSED.
+m=$(mutant m181 "$NDT" \
+    '0) if [[ "${UP_P4_FABRIC:-}" == reused && -e "$MANIFEST" ]]' \
+    '0) if [[ -e "$MANIFEST" ]]')
+report "M181 (widening): a manifest a fresh rollback left behind excuses the ports" "$m" \
+       "🔴 a fresh rollback's ports are not excused by a manifest it left behind"
+
+# M182: the success line over a reused fabric says the machine is back as it was.
+m=$(mutant m182 "$NDT" \
+    '    if (( rc == 0 && left == 0 )) && [[ "${UP_P4_FABRIC:-}" == reused ]]; then' \
+    '    if false; then')
+report "M182: a reuse rollback says the machine is back to what it was" "$m" \
+       "🔴 the line names what was stopped, newest first, that they may have been running before, and that the fabric was not stopped"
+
+# M183: the unread ports lose their colons.
+m=$(mutant m183 "$NDT" \
+    '            for p in $unread; do unread_c="${unread_c:+$unread_c }:$p"; done' \
+    '            for p in $unread; do unread_c="${unread_c:+$unread_c }$p"; done')
+report "M183: the ports it could not read are named without their colons" "$m" \
+       "  🔴 every unread port carries its colon, and they are plural"
+
+# M184: a port stack.sh named that the table has no row for is read as closed.
+m=$(mutant m184 "$NDT" \
+    '            if ! pproto="$(ndt_port_proto "$p")"; then unread="${unread:+$unread }$p"; continue; fi' \
+    '            if ! pproto="$(ndt_port_proto "$p")"; then closed="${closed:+$closed }$p"; continue; fi')
+report "M184: a deferred port with no row in the port table passes" "$m" \
+       "🔴 a deferred port with no row in the port table makes the rollback INCOMPLETE"
+
+# [Co-developed with claude code -- Adam]
+# M185 (widening): the whole guard of the "closed now" line is gone, so it is printed whatever is held,
+# unread or kept -- seen here from the cell where a stranger holds the proxy's :8081.
+m=$(mutant m185 "$NDT" \
+    '        if [[ -z "$held$unread$kept" ]]; then' \
+    '        if true; then')
+report "M185 (widening): the ports are called closed whatever is held" "$m" \
+       "  🔴 and does not say the ports are closed beside the ones held"
+
+# M186: the rollback does not stop the heartbeat it recorded.
+# [Co-developed with claude code -- Adam] Re-anchored 2026-11-16: the listing is tested on the flag the
+# stop step sets from the helper's answer (HB_STEP_STOPPED), no longer on a pidfile read before the stop.
+m=$(mutant m186 "$NDT" \
+    '                if heartbeat_stop_step "this bring-up is being rolled back"; then
+                    (( HB_STEP_STOPPED )) && stopped="${stopped:+$stopped, }heartbeat"
+                else
+                    rc=1
+                fi' \
+    '                :')
+report "M186: a reuse rollback leaves the heartbeat it recorded running" "$m" \
+       "  and stops it"
+
+# M187: the heartbeat is listed as stopped whether or not the helper said it stopped a daemon.
+m=$(mutant m187 "$NDT" \
+    '                    (( HB_STEP_STOPPED )) && stopped="${stopped:+$stopped, }heartbeat"' \
+    '                    stopped="${stopped:+$stopped, }heartbeat"')
+report "M187: a heartbeat that never ran is listed as stopped" "$m" \
+       "🔴 the line does not name a heartbeat that never ran (helper rc 3)"
+
+# M192: the stop step says it stopped a daemon whenever a pidfile was there and the helper answered rc 0
+# (the test the listing used before it read the helper's answer): a stale or unreadable pidfile is listed.
+m=$(mutant m192 "$NDT" \
+    '    [[ "$out" == *"heartbeat stopped (pid "* ]] && HB_STEP_STOPPED=1; return 0' \
+    '    HB_STEP_STOPPED=1; return 0')
+report "M192 (widening): a pidfile the helper signalled nothing for is listed as stopped" "$m" \
+       "🔴 the line does not name a heartbeat the helper signalled nothing for (stale)"
+
+# M193: a failed heartbeat stop during a rollback is not counted: the rollback calls itself complete.
+m=$(mutant m193 "$NDT" \
+    '                    (( HB_STEP_STOPPED )) && stopped="${stopped:+$stopped, }heartbeat"
+                else
+                    rc=1
+                fi' \
+    '                    (( HB_STEP_STOPPED )) && stopped="${stopped:+$stopped, }heartbeat"
+                else
+                    :
+                fi')
+report "M193: a heartbeat stop that failed does not make the rollback incomplete" "$m" \
+       "🔴 and is INCOMPLETE"
+
+# M194: the rollback reads stack.sh's stop line for two of its three components only.
+m=$(mutant m194 "$NDT" \
+    "'^[[:space:]]*stopped (kernel|p4_proxy|ryu)\$'" \
+    "'^[[:space:]]*stopped (kernel|p4_proxy)\$'")
+report "M194: stack.sh's stop line for Ryu is not read" "$m" \
+       "🔴 stack.sh's own line for ryu makes the rollback say the stack was stopped"
+
+# M188: the stack is listed as stopped whether or not stack.sh down stopped a component.
+m=$(mutant m188 "$NDT" \
+    "                if grep -Eq '^[[:space:]]*stopped (kernel|p4_proxy|ryu)\$' <<<\"\$out\"; then stopped=" \
+    '                if true; then stopped=')
+report "M188: a stack that was not running is listed as stopped" "$m" \
+       "🔴 a reuse rollback that stopped nothing says no stage stopped anything"
+
+# M189: the line over a reused fabric always lists stages, even when none stopped anything.
+m=$(mutant m189 "$NDT" \
+    '        if [[ -n "$stopped" ]]; then
+            ok "rolled back: stopped $stopped,' \
+    '        if true; then
+            ok "rolled back: stopped $stopped,')
+report "M189: a reuse rollback that stopped nothing prints an empty list" "$m" \
+       "🔴 a reuse rollback that stopped nothing says no stage stopped anything"
+
+# M190: the deferral note claims every other stop has already succeeded.
+m=$(mutant m190 "$NDT" \
+    '                    info "  they are read again after the rollback'"'"'s other stages run."' \
+    '                    info "  they are read again once everything else this bring-up started is stopped."')
+report "M190: the deferral note says the other stops succeeded" "$m" \
+       "  🔴 the note does not claim the other stops succeeded"
+
+# M191: the manifest reader runs in the interpreter's default mode and imports from the working directory.
+m=$(mutant m191 "$NDT" \
+    '    python3 -I -c '"'"'
+import json, sys
+try:
+    with open(sys.argv[1]) as fh:' \
+    '    python3 -c '"'"'
+import json, sys
+try:
+    with open(sys.argv[1]) as fh:')
+report "M191: the manifest reader imports a module from the working directory" "$m" \
+       "🔴 the manifest reader does not import a module from the working directory"
+
+m=$(mutant w15 "$NDT" \
+    '                    info "  they are read again after the rollback'"'"'s other stages run."' \
+    '                    info "  read again after the rest of this rollback has run."')
+report_green "W15 (behaviour-preserving): the rollback's deferral note reworded" "$m" \
+       "the note above the re-read is not the behaviour under test"
+
 
 # --- FIXED-ISSUES G-44: `ndt clean` during a teardown -------------------------------------------
 

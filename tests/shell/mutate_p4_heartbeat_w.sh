@@ -1375,9 +1375,11 @@ m=$(nmutant n09b "$NDT" \
     '        not_verified "the heartbeat daemon (its stop failed; sudo ndtwin-lab heartbeat status says whether it runs)"' \
     '        true')
 nreport "N09b: the claim note does not say what was not verified" "$m" "🔴 and the claim note says what was not verified"
+# [Co-developed with claude code -- Adam] Re-anchored 2026-11-16: the same test, now after the flag
+# (HB_STEP_STOPPED) the rollback reads is cleared; the mutation is the same one, the pidfile test replaced by `true`.
 m=$(nmutant n10 "$NDT" \
-    '    [[ -e "$HB_PIDFILE" || -L "$HB_PIDFILE" ]] || return 0' \
-    '    true')
+    '    HB_STEP_STOPPED=0; [[ -e "$HB_PIDFILE" || -L "$HB_PIDFILE" ]] || return 0' \
+    '    HB_STEP_STOPPED=0; true')
 nreport "N10: the helper is asked to stop whatever the pidfile says" "$m" "🔴 no pidfile: the helper is not asked at all"
 m=$(nmutant n11 "$NDT" \
     'heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop' \
@@ -1390,9 +1392,19 @@ m=$(nmutant n12 "$NDT" \
     '        0) if [[ "$2" == external ]]; then' \
     '        0) heartbeat_stop_step "mutant"; if [[ "$2" == external ]]; then')
 nreport "N12: the bring-up stops the heartbeat it just started" "$m" "  nothing was stopped on the way up"
+# [Co-developed with claude code -- Adam] N13 re-anchored 2026-11-16 on the block as it reads now (the listing
+# tests HB_STEP_STOPPED, set from the helper's answer); the mutation is the same one, the stage's body removed.
 m=$(nmutant n13 "$NDT" \
     '            heartbeat)
-                heartbeat_stop_step "this bring-up is being rolled back" || rc=1
+                # [Co-developed with claude code -- Adam] A stage counts as stopped only when it
+                # stopped something: a heartbeat only when the helper said it stopped a daemon
+                # (recording the stage does not mean a daemon ran, and a stale or unreadable
+                # pidfile makes the helper answer rc 0 having signalled nothing).
+                if heartbeat_stop_step "this bring-up is being rolled back"; then
+                    (( HB_STEP_STOPPED )) && stopped="${stopped:+$stopped, }heartbeat"
+                else
+                    rc=1
+                fi
                 ;;' \
     '            heartbeat)
                 ;;')

@@ -50,6 +50,7 @@
 #
 # Env:  NDT_UNDER_TEST=<path>   (the mutation gate points this at a copy)
 #       NTG_MODULE_UNDER_TEST=<path to ntg_config.py>   (the gate points this at its copy of the module)
+#       STACK_UNDER_TEST=<path to a stack.sh copy>   (only the cells that read stack.sh's own text; a red run uses it)
 # Run:  bash tests/shell/test_ndt_up_down_robust.sh
 set -uo pipefail
 
@@ -1247,7 +1248,7 @@ hasnt "  and nothing is deferred"                         "only on port(s) it di
 # reader is pinned to are the ones stack.sh really prints, each exactly once. A text-only
 # assertion here would keep passing after stack.sh had been reworded, and the fix would then be
 # silently back to "every live P4 teardown is red".
-STACK_REAL="$HERE/../../tools/test_workflow/stack.sh"
+STACK_REAL="${STACK_UNDER_TEST:-$HERE/../../tools/test_workflow/stack.sh}"
 check "  the return-site line is stack.sh's own, and unique" "1" \
       "$(grep -cF "find and stop it, or the next 'up' will report on it:" "$STACK_REAL")"
 check "  so is the foreign-holder line"                   "1" \
@@ -2932,6 +2933,392 @@ OUT="$(export LC_ALL=POSIX LANGUAGE=fr; drive 'eval "fx_$(declare -f sudo)"; sud
 check "topo-stop runs under LC_ALL=C LANGUAGE=C"                           "1" "$(grep -c '^topo-stop LC_ALL=C LANGUAGE=C$' "$FIX/lc.log")"
 check "and so does cleanup"                                                "1" "$(grep -c '^cleanup LC_ALL=C LANGUAGE=C$' "$FIX/lc.log")"
 rm -f "$FIX/lc.log"
+
+# ==========================================================================================
+section "30. a failed 'ndt up' (P4 or OVS) rolls back reading stack.sh's port report the way 'ndt down' does"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# `ndt up p4` records `fabric` before `stack`, and rollback_up unwinds newest first, so its
+# `stack.sh down` runs while the bmv2 fabric is still up and stack.sh names the fabric's ports --
+# the same reading `ndt down` defers at [1/3]. Over a REUSED fabric the rollback never stops that
+# fabric, so its ports stay held for good. Both used to end in "rollback INCOMPLETE ... ndt down
+# --deep", the second over a fabric this run did not start.
+#
+# A fresh bring-up as the machine goes through it: no switch and no bmv2 port before topo-start,
+# ten switches and the two bmv2 ports from topo-start until cleanup, none after. FX_HELD ports are
+# held throughout (an orphan the sweep did not reach); FX_BLIND ports cannot be read.
+P4_FRESH='bmv2_count() { if grep -q " cleanup" "$FIX/sudo.log"; then echo 0; elif grep -q " topo-start" "$FIX/sudo.log"; then echo 10; else echo 0; fi; }
+ndt_port_open() {
+    local e
+    for e in ${FX_BLIND:-}; do [[ "$e" == "$1" ]] && return 2; done
+    for e in ${FX_HELD:-}; do [[ "${e%%:*}" == "$1" ]] && return 0; done
+    grep -q " topo-start" "$FIX/sudo.log" && ! grep -q " cleanup" "$FIX/sudo.log" && [[ " 9091 30051 " == *" $1 "* ]]
+}'
+rollback_part() { sed -n '/^rollback$/,$p' <<<"$1"; }
+# The switch manifest in the shape p4_testbed_topo.py write_manifest writes it: one entry per live
+# switch, its gRPC port 30050+N and its Thrift port 9090+N.
+mk_manifest() {   # mk_manifest <switches>
+    local n="$1" i sep="" out="{"
+    for (( i = 1; i <= n; i++ )); do
+        out+="$sep\"s$i\": {\"pid\": $(( 4000 + i )), \"device_id\": $i, \"grpc_host\": \"127.0.0.1\", \"grpc_port\": $(( 30050 + i )), \"thrift_port\": $(( 9090 + i )), \"log_file\": \"/tmp/s$i.log\", \"argv\": []}"
+        sep=", "
+    done
+    printf '%s}\n' "$out" > "$FIX/manifest.json"
+}
+# stack.sh down's report for the ports named, in STACK_DOWN_LIVE_P4's shape: the table's consequence
+# where the table has a row, the foreign-holder line and its tail, then the advice block.
+down_naming() {   # down_naming <port>...
+    local p c
+    printf 'stopped kernel\n\n'
+    for p in "$@"; do
+        c="$(ndt_cons "$p")"; [[ -n "$c" ]] && printf '  -> %s\n' "$c"
+        printf '  :%s is still listening, held by a process this user cannot see (probably root-owned)\n' "$p"
+        printf "    This script did not start it. The next 'up' would find the port open and\n"
+        printf '    measure the wrong process, so this is reported rather than ignored.\n'
+    done
+    sed -n '/^  find and stop it/,$p' <<<"$STACK_DOWN_LIVE_P4"
+}
+# The state the sections above leave behind is put back to the one the first sections start from:
+# the 4-host knob, one helper copy, no claim, no teardown marker.
+echo 4 > "$FIX/p4_proxy/mininet/host_count_override"
+mk_helpers "helper v2" "helper v2"
+rm -f "$FIX/.test_run/lab.claim" "$DM"
+
+# (a) fresh: stack.sh up fails, stack.sh down names the live bmv2 ports, the fabric stage closes them.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(drive "$P4_FRESH
+up_p4")"; RB="$(rollback_part "$OUT")"
+check "a failed fresh 'ndt up p4' is still red"                      "1" "$(rc_of_out "$OUT")"
+has   "  it rolled back the fabric and the stack"                    "this bring-up started: fabric stack" "$RB"
+has   "🔴 ports the fabric still held at the stack stage do not make the rollback incomplete" \
+      "rolled back: the machine is back to what it was before this 'ndt up'" "$RB"
+hasnt "  no INCOMPLETE"                                              "rollback INCOMPLETE" "$RB"
+hasnt "  and no advice to run --deep"                                "ndt down --deep" "$RB"
+hasnt "  🔴 the fabric's ports are not called somebody else's"       "is still listening, held by" "$RB"
+hasnt "  nor given the 'did not start it' tail"                      "This script did not start it" "$RB"
+has   "  the status is named, with the ports"                        "stack.sh down exited 1 only on port(s) it did not start: 9091 30051" "$RB"
+hasnt "  🔴 the note does not claim the other stops succeeded"       "once everything else this bring-up started is stopped" "$RB"
+has   "  🔴 and the ports are read again, and closed"                "the port(s) stack.sh down named are closed now: 9091 30051" "$RB"
+has   "  what stack.sh said about anything else is kept"             "stopped kernel" "$RB"
+check "  🔴 the second reading is taken after the fabric is swept" "after" \
+      "$(awk '/sweeping the data plane/{s=NR} /named are closed now/{c=NR} END{print (s && c > s) ? "after" : "before"}' <<<"$RB")"
+
+# (a) the honest half: a port still held after the fabric was stopped is left behind.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(FX_HELD="30051:" drive "$P4_FRESH
+up_p4")"; RB="$(rollback_part "$OUT")"
+has   "🔴 a port still held after the fabric was stopped makes the rollback INCOMPLETE" \
+      "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep" "$RB"
+check "  naming only that port"  "rollback: still held after the rollback's stages ran: 30051" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+has   "  🔴 with its holder"                                         ":30051 is held by a process this user cannot see" "$RB"
+hasnt "  and never says the machine is back as it was"               "the machine is back to what it was" "$RB"
+hasnt "  🔴 and does not say the ports are closed beside the one that is held" "named are closed now" "$RB"
+has   "  the port that did close is named"                           "closed now: 9091" "$RB"
+
+# (a) the same, with a stage that failed: the held line does not say the stop succeeded.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; rc_for cleanup 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(FX_HELD="30051:" drive "$P4_FRESH
+up_p4")"; RB="$(rollback_part "$OUT")"
+has   "  a stage that failed is named"                               "cleanup exited 1" "$RB"
+has   "  and a port still held is reported as held after the stages ran" "still held after the rollback's stages ran: 30051" "$RB"
+hasnt "  🔴 never as held after everything was stopped"              "after everything this bring-up started was stopped" "$RB"
+
+# (a) a port the second reading cannot read is not a pass.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(FX_BLIND="9091" drive "$P4_FRESH
+up_p4")"; RB="$(rollback_part "$OUT")"
+has   "🔴 a deferred port that cannot be re-read makes the rollback INCOMPLETE" "rollback INCOMPLETE" "$RB"
+has   "  and says which, as one port"                                "could not re-read :9091, so whether it is still held is unknown -- not a pass" "$RB"
+hasnt "  🔴 and does not say the ports are closed beside it"         "named are closed now" "$RB"
+has   "  the port that did close is named"                           "closed now: 30051" "$RB"
+
+# (a) two ports it cannot read: each with its colon, and the sentence is plural.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(FX_BLIND="9091 30051" drive "$P4_FRESH
+up_p4")"; RB="$(rollback_part "$OUT")"
+has   "  🔴 every unread port carries its colon, and they are plural" "could not re-read :9091 :30051, so whether they are still held is unknown -- not a pass" "$RB"
+hasnt "  nothing is called closed when nothing closed"                "closed now" "$RB"
+
+# (a) a port stack.sh named that the table has no row for cannot be re-read: not a pass either.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$(down_naming 4242)"
+OUT="$(drive "$P4_FRESH
+up_p4")"; RB="$(rollback_part "$OUT")"
+has   "🔴 a deferred port with no row in the port table makes the rollback INCOMPLETE" "rollback INCOMPLETE" "$RB"
+has   "  and says which"                                             "could not re-read :4242" "$RB"
+
+# (a) a status that is not only about ports defers nothing: unchanged, red, with --deep.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL
+$STACK_DOWN_LIVE_P4"
+OUT="$(drive "$P4_FRESH
+up_p4")"; RB="$(rollback_part "$OUT")"
+has   "🔴 a fatal ending beside the ports is still an INCOMPLETE rollback" \
+      "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep" "$RB"
+check "  with stack.sh's own status, as a failure"                   "1" "$(grep -cx '  XX  stack.sh down exited 1' <<<"$RB")"
+hasnt "  and nothing deferred"                                       "only on port(s) it did not start" "$RB"
+
+# (b) reuse: the fabric was up before this run and stays up, holding its bmv2 ports.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive 'up_p4')"; RB="$(rollback_part "$OUT")"
+# (Its rc and that it sweeps nothing are section 2's cells, over the same reuse.)
+has   "a reuse rollback rolls back only the stack"                   "this bring-up started: stack --" "$RB"
+has   "🔴 the reused fabric's ports do not make the rollback incomplete, and the line claims only what was done" \
+      "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+hasnt "  🔴 and it does not say the machine is back as it was"        "the machine is back to what it was" "$RB"
+has   "  they are named as that fabric's"                            "held by the fabric this run reused, which stays up: 9091 30051" "$RB"
+hasnt "  🔴 and they are not called closed"                          "named are closed now" "$RB"
+hasnt "  and it is not INCOMPLETE"                                   "rollback INCOMPLETE" "$RB"
+hasnt "  🔴 and no advice to run --deep over a fabric this run did not start" "ndt down --deep" "$RB"
+
+# (b) reuse over a foreign package's fabric that already has its heartbeat: the bring-up recorded the
+# heartbeat before it asked the helper to start one, so the rollback stops it. The line says what was
+# stopped, newest first, that they may have been running before, and does not say the machine is as it was.
+# This cell pins today's behaviour (the rollback stops a heartbeat the previous run started); a later
+# change of who owns a heartbeat or a stack will change it, and this cell with it. The fake helper
+# answers a stop the way the real one does when it signals a daemon (HB_STOP_SAYS; pinned below).
+HB_STOP_SAYS='eval "fx_$(declare -f sudo)"
+sudo() { fx_sudo "$@"; local r=$?; [[ " $* " == *" heartbeat stop "* ]] && printf "%s\n" "$FX_HB_SAYS"; return $r; }'
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+mkdir -p "$FIX/run"; : > "$FIX/run/heartbeat.pid"
+OUT="$(FX_HB_SAYS="heartbeat stopped (pid 4321)" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive 'heartbeat_wanted() { return 0; }
+'"$HB_STOP_SAYS"'
+up_p4')"; RB="$(rollback_part "$OUT")"
+rm -f "$FIX/run/heartbeat.pid"
+has   "a reuse rollback over a heartbeat the fabric already had records it"  "this bring-up started: heartbeat stack --" "$RB"
+has   "  and stops it"                                                "stopping the heartbeat" "$RB"
+has   "  and prints what the helper answered"                         "heartbeat stopped (pid 4321)" "$RB"
+has   "🔴 the line names what was stopped, newest first, that they may have been running before, and that the fabric was not stopped" \
+      "rolled back: stopped stack, heartbeat, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+hasnt "  🔴 and never says the machine is back as it was"             "the machine is back to what it was" "$RB"
+
+# (b) the same, but the helper found a pidfile it did not act on and answered rc 0 having signalled nothing:
+# a stale one (the pid is not the daemon) or one that holds no pid. The helper removes the pidfile itself,
+# so neither before nor after the stop does the pidfile say whether a daemon was stopped; the line does not
+# name the heartbeat. Both texts are the helper's own (pinned below).
+for hbkind in stale unreadable; do
+    case "$hbkind" in
+        stale)      hbsays="heartbeat: stale pidfile -- pid 4242 is not the heartbeat daemon (argv or uid differ); nothing signalled, pidfile removed" ;;
+        unreadable) hbsays="heartbeat: $FIX/run/heartbeat.pid does not hold a pid -- nothing signalled; removing it" ;;
+    esac
+    reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+    mkdir -p "$FIX/run"; : > "$FIX/run/heartbeat.pid"
+    OUT="$(FX_HB_SAYS="$hbsays" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive 'heartbeat_wanted() { return 0; }
+'"$HB_STOP_SAYS"'
+up_p4')"; RB="$(rollback_part "$OUT")"
+    rm -f "$FIX/run/heartbeat.pid"
+    has   "a pidfile the helper did not act on is still asked about ($hbkind)" "stopping the heartbeat" "$RB"
+    has   "  and its answer is printed"                                "nothing signalled" "$RB"
+    has   "🔴 the line does not name a heartbeat the helper signalled nothing for ($hbkind)" \
+          "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+    hasnt "  not even among the stages stopped ($hbkind)"        "stack, heartbeat" "$RB"
+done
+
+# (b) the helper's stop fails (rc 1: the daemon may still be running) while a pidfile is there: the
+# rollback is INCOMPLETE, with the advice for a reused fabric, and prints no success line.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; rc_for heartbeat 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+mkdir -p "$FIX/run"; : > "$FIX/run/heartbeat.pid"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive 'heartbeat_wanted() { return 0; }
+up_p4')"; RB="$(rollback_part "$OUT")"
+rm -f "$FIX/run/heartbeat.pid"
+has   "a reuse rollback whose heartbeat stop failed asks the helper"  "stopping the heartbeat" "$RB"
+has   "🔴 and says the stop failed"                                   "heartbeat stop exited 1" "$RB"
+has   "🔴 and is INCOMPLETE"                                          "rollback INCOMPLETE" "$RB"
+has   "  with the advice for a fabric this run reused"                "the fabric this run reused was up before it and was not stopped" "$RB"
+hasnt "  and no advice to run --deep over it"                         "finish it by hand:  ndt down --deep" "$RB"
+hasnt "  🔴 and no success line"                                      "rolled back:" "$RB"
+
+# The answers the fake helper gives in the cells above are the real helper's: this tree's ndtwin-lab prints
+# "heartbeat stopped (pid <n>)" once, from the end of hb_stop, and the two "nothing signalled" lines once each.
+check "  🔴 the helper's stop answers are the texts the rollback reads (stopped, stale, unreadable)" "1 1 1" \
+      "$(grep -cF 'echo "heartbeat stopped (pid $pid)"' "$LABSRC") $(grep -cF 'nothing signalled, pidfile removed' "$LABSRC") $(grep -cF 'nothing signalled; removing it' "$LABSRC")"
+
+# (b) the same bring-up where no heartbeat daemon ever ran: the stage was recorded before the helper was
+# asked, the helper found nothing to watch (rc 3) or failed to start (rc 1), and no pidfile exists. Nothing
+# was stopped, so the line does not name the heartbeat.
+for hbrc in 3 1; do
+    reset_fix; rc_for stack_up 1; rc_for stack_down 1; rc_for heartbeat "$hbrc"; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+    OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive 'heartbeat_wanted() { return 0; }
+up_p4')"; RB="$(rollback_part "$OUT")"
+    has   "a reuse rollback records the heartbeat although the helper answered rc $hbrc" "this bring-up started: heartbeat stack --" "$RB"
+    hasnt "  and has no daemon to stop (helper rc $hbrc)"                "stopping the heartbeat" "$RB"
+    has   "🔴 the line does not name a heartbeat that never ran (helper rc $hbrc)" \
+          "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+    hasnt "  not even among the stages stopped (helper rc $hbrc)"         "stack, heartbeat" "$RB"
+done
+
+# (b) reuse, and stack.sh down found nothing running: no stage stopped anything, and the line says so.
+# The fixture is what stack.sh's `down` prints when no component runs and no port is held: its first line,
+# the Mininet notice, and "done" (each pinned against this tree's stack.sh).
+check "  the nothing-running fixture is stack.sh's own text (its three lines, once each)" "1 1 1" \
+      "$(grep -cF 'echo "Shutting down (reverse order)"' "$STACK_REAL") $(grep -cF 'warn "Mininet was started manually; clean it up with:  sudo mn -c"' "$STACK_REAL") $(grep -cxF '    ok "done"' "$STACK_REAL")"
+reset_fix; rc_for stack_up 1; out_for stack_down "Shutting down (reverse order)
+Mininet was started manually; clean it up with:  sudo mn -c
+done"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4')"; RB="$(rollback_part "$OUT")"
+has   "🔴 a reuse rollback that stopped nothing says no stage stopped anything" \
+      "rolled back: no stage stopped anything; the fabric this run reused was not stopped" "$RB"
+hasnt "  and does not name the stack as stopped"                      "stopped stack" "$RB"
+hasnt "  nor say the machine is back as it was"                       "the machine is back to what it was" "$RB"
+
+# (b) reuse, and stack.sh's own "stopped <name>" line, taken from this tree's stack.sh and not typed here,
+# is what makes the rollback say the stack was stopped: one cell per component stack.sh's `down` stops, so a
+# reworded line in stack.sh (or a component renamed there) turns this red instead of every reuse line
+# silently saying nothing was stopped. The line and its `info` are evaluated as stack.sh defines them.
+check "  stack.sh prints its stop line in one place, and stops the three components the rollback reads" "1 1 1" \
+      "$(grep -cF 'info "  stopped $name"' "$STACK_REAL") $(grep -cF 'info() { echo' "$STACK_REAL") $(grep -cF 'for name in kernel p4_proxy ryu; do stop_one "$name"; done' "$STACK_REAL")"
+for comp in kernel p4_proxy ryu; do
+    STOP_LINE="$( D=''; N=''; name="$comp"
+        eval "$(grep -F 'info() { echo' "$STACK_REAL")"
+        eval "$(grep -F 'info "  stopped $name"' "$STACK_REAL")" )"
+    reset_fix; rc_for stack_up 1; out_for stack_down "Shutting down (reverse order)
+$STOP_LINE
+Mininet was started manually; clean it up with:  sudo mn -c
+done"
+    OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4')"; RB="$(rollback_part "$OUT")"
+    has   "🔴 stack.sh's own line for $comp makes the rollback say the stack was stopped" \
+          "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+done
+
+# (b) reuse, and something this run's stages should have left free is still held: a stranger on
+# the proxy's :8081 (a P4 row, not a bmv2 one) among the fabric's ports. Driven at rollback_up, as
+# up_p4 leaves it over a reused fabric: preflight refuses a bring-up while :8081 is held already.
+reset_fix; rc_for stack_down 1; mk_manifest 4
+out_for stack_down "stopped kernel
+  -> $(ndt_cons 8081)
+  :8081 is still listening, held by python3 pid 4242
+    This script did not start it. The next 'up' would find the port open and
+    measure the wrong process, so this is reported rather than ignored.
+$(sed -n '/^  -> /,$p' <<<"$STACK_DOWN_LIVE_P4")"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="8081:4242 30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+has   "🔴 a stranger still holding a port keeps a reuse rollback INCOMPLETE" "rollback INCOMPLETE" "$RB"
+check "  naming that port, and not the fabric's" "rollback: still held after the rollback's stages ran: 8081" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+has   "  🔴 with its holder"                                         ":8081 is held by" "$RB"
+has   "  the fabric's ports are named as the fabric's"               "held by the fabric this run reused, which stays up: 9091 30051" "$RB"
+hasnt "  🔴 and the advice does not send the user to --deep"         "finish it by hand:  ndt down --deep" "$RB"
+has   "  it says the reused fabric was not stopped"                  "the fabric this run reused was up before it and was not stopped" "$RB"
+hasnt "  🔴 and does not say the ports are closed beside the ones held" "named are closed now" "$RB"
+
+# (b) reuse, a kept bmv2 port beside a port that did close: the closed one is named, and the whole
+# is a complete rollback whose line claims only what was done.
+reset_fix; rc_for stack_down 1; mk_manifest 4; out_for stack_down "$(down_naming 8081 30051)"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+has   "  the port that closed is named beside the fabric's"          "closed now: 8081" "$RB"
+has   "  the fabric's port is named as the fabric's"                 "held by the fabric this run reused, which stays up: 30051" "$RB"
+hasnt "  and it is not called 'named are closed now'"                "named are closed now" "$RB"
+has   "  and nothing else is left"                                   "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+
+# (b) reuse with no switch manifest: nothing says the bmv2 ports are that fabric's, so they are left.
+reset_fix; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; rm -f "$FIX/manifest.json"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+check "🔴 without the fabric's manifest its ports are not excused" \
+      "rollback: still held after the rollback's stages ran: 9091 30051" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+
+# (b) reuse, a 4-switch fabric (30051-30054, 9091-9094), and a holder on a bmv2-row port that no switch of
+# it uses: the table says bmv2 owns that range, the manifest says this fabric does not hold :30058.
+reset_fix; rc_for stack_down 1; mk_manifest 4; out_for stack_down "$(down_naming 30058 30051 9091)"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=4 FX_HELD="30058:4242 30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+has   "🔴 a holder on a bmv2-row port the fabric's manifest does not list is reported as held, INCOMPLETE" "rollback INCOMPLETE" "$RB"
+check "  naming that port and not the fabric's"  "rollback: still held after the rollback's stages ran: 30058" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+has   "  with its holder"                                            ":30058 is held by" "$RB"
+has   "  the ports the manifest lists are the fabric's"              "held by the fabric this run reused, which stays up: 9091 30051" "$RB"
+
+# (b) the manifest's own ports are the fabric's, the last switch's included.
+reset_fix; rc_for stack_down 1; mk_manifest 4; out_for stack_down "$(down_naming 30054 9094)"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=4 FX_HELD="30054: 9094:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+has   "a port the manifest lists is the reused fabric's"           "held by the fabric this run reused, which stays up: 9094 30054" "$RB"
+hasnt "  and the rollback is not INCOMPLETE"                       "rollback INCOMPLETE" "$RB"
+
+# (b) a manifest that does not carry the two port fields names nothing: fail closed, every port is left.
+reset_fix; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+printf '{"s1": {"pid": 4001, "device_id": 1}, "s2": 7, "switches": []}\n' > "$FIX/manifest.json"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+check "🔴 a manifest without the ports excuses none of them"  "rollback: still held after the rollback's stages ran: 9091 30051" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+printf 'not json\n' > "$FIX/manifest.json"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+check "  nor does one that is not JSON"                       "rollback: still held after the rollback's stages ran: 9091 30051" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+
+# (b) a manifest that lists :8081 as a switch port does not excuse a stranger on the proxy's port: the
+# port must be a bmv2 row of the table as well. (The file is in /tmp, where anyone can create the name.)
+reset_fix; rc_for stack_down 1
+printf '{"s1": {"grpc_port": 8081, "thrift_port": 9091}}\n' > "$FIX/manifest.json"
+out_for stack_down "$(down_naming 8081)"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="8081:4242" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+RB="$(rollback_part "$OUT")"
+check "🔴 a port the manifest lists but the table does not give to bmv2 is still held" "rollback: still held after the rollback's stages ran: 8081" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+
+# (a) a FRESH rollback whose cleanup left the manifest behind (the manifest and bmv2's ports held):
+# nothing was reused, so the manifest excuses nothing. This is the only case that reaches the
+# `reused` clause of the exception with a manifest present.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+mk_manifest 4; cp "$FIX/manifest.json" "$FIX/manifest.keep"
+OUT="$(FX_HELD="30051: 9091:" drive "$P4_FRESH"'
+eval "fx_$(declare -f sudo)"
+sudo() { fx_sudo "$@"; local r=$?; [[ " $* " == *" cleanup "* ]] && cp "'"$FIX"'/manifest.keep" "'"$FIX"'/manifest.json"; return $r; }
+up_p4')"
+RB="$(rollback_part "$OUT")"; rm -f "$FIX/manifest.keep"
+has   "🔴 a fresh rollback's ports are not excused by a manifest it left behind" \
+      "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep" "$RB"
+check "  they are reported as held"  "rollback: still held after the rollback's stages ran: 9091 30051" \
+      "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+hasnt "  and not as the fabric's"                                    "held by the fabric this run reused" "$RB"
+
+# (b) reuse, and stack.sh down failed for a reason that is not a port: still red, still no --deep.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4')"; RB="$(rollback_part "$OUT")"
+has   "🔴 a reuse rollback whose stack did not stop cleanly is INCOMPLETE" "rollback INCOMPLETE" "$RB"
+hasnt "  and does not send the user to --deep either"                "finish it by hand:  ndt down --deep" "$RB"
+
+# (OVS) a failed 'ndt up ovs' takes the same second reading. up_ovs records `stack` before `fabric`, so
+# its stack.sh down runs after the fabric is gone; a port stack.sh names is now read again after the
+# stages and reported as held, with its holder, instead of by stack.sh's own text. A stranger that took
+# :8080 once Ryu's stack began and still holds it: INCOMPLETE, the holder named, --deep advised.
+OVS_STRANGER='ndt_port_open() {
+    local e
+    for e in ${FX_BLIND:-}; do [[ "$e" == "$1" ]] && return 2; done
+    [[ "$1" == 8080 ]] && grep -q "^up ovs" "$FIX/stack.log" || return 1
+    # FX_RELEASED: the stranger lets go once stack.sh down has taken its own reading.
+    [[ -z "${FX_RELEASED:-}" ]] || ! grep -q "^down" "$FIX/stack.log"
+}'
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$(down_naming 8080)"; echo "0 14 0" > "$FIX/mn.seq"
+OUT="$(FX_HELD="8080:4242" drive "$OVS_STRANGER
+up_ovs 4")"; RB="$(rollback_part "$OUT")"
+has   "🔴 a stranger on :8080 that stays held makes a failed 'ndt up ovs' rollback INCOMPLETE" "rollback INCOMPLETE" "$RB"
+check "  naming that port"  "rollback: still held after the rollback's stages ran: 8080" "$(grep -o 'rollback: still held after.*' <<<"$RB")"
+has   "  with its holder"                                            ":8080 is held by" "$RB"
+has   "  and the advice is the usual one"                            "finish it by hand:  ndt down --deep" "$RB"
+
+# The behaviour that came with it: a port released between stack.sh's reading and the second one passes.
+reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$(down_naming 8080)"; echo "0 14 0" > "$FIX/mn.seq"
+OUT="$(FX_RELEASED=1 FX_HELD="8080:4242" drive "$OVS_STRANGER
+up_ovs 4")"; RB="$(rollback_part "$OUT")"
+has   "  a port released before the second reading is closed now"   "the port(s) stack.sh down named are closed now: 8080" "$RB"
+hasnt "  and does not make the rollback INCOMPLETE"                 "rollback INCOMPLETE" "$RB"
+
+# The manifest is read by an interpreter that ignores the working directory: a json.py there is not imported.
+reset_fix; mk_manifest 2; mkdir -p "$FIX/pyshadow"; printf 'raise SystemExit(7)\n' > "$FIX/pyshadow/json.py"
+check "🔴 the manifest reader does not import a module from the working directory" "9091 9092 30051 30052 " \
+      "$(drive "cd '$FIX/pyshadow' && ndt_manifest_ports" | head -4 | tr '\n' ' ')"
+rm -rf "$FIX/pyshadow"
+
+# The rows the exception rests on, read from the table beside the ndt under test.
+check "the bmv2 rows are the fabric's: 30051, 30060, 9091, 9100 yes; 8081, 8000, 6343, 30061 no" \
+      "30051 30060 9091 9100 " \
+      "$(drive 'for p in 30051 30060 9091 9100 8081 8000 6343 30061; do ndt_port_is_bmv2 "$p" && printf "%s " "$p"; done; echo' | head -1)"
 
 # ==========================================================================================
 # The skip count has its own line and the summary below keeps its shape: tools/test_workflow/
