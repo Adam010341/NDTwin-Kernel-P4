@@ -68,10 +68,10 @@ SWITCHES=10
 source "$HERE/ports.sh"
 
 # The root privileges this script needs, what each refusal costs, and the sudoers line that
-# fixes it -- one declarative table, next to the code that acts on it. Eleven of this script's
-# thirteen `sudo -n` calls go through $LAB, which the manual teaches the reader to grant; the
-# two that do not (ovs-vsctl, mnexec) are the reason the file exists. Read its header before
-# adding a fourteenth. NDT_SUDO_SURFACE is a seam for the tests, which point the real code at a
+# fixes it -- one declarative table, next to the code that acts on it. Every `sudo -n` call here
+# goes through $LAB, which the manual teaches the reader to grant, except those for two programs,
+# ovs-vsctl and mnexec; they are the reason the file exists. Read its header before adding another
+# of either kind. NDT_SUDO_SURFACE is a seam for the tests, which point the real code at a
 # mutated copy rather than writing this checkout. [Co-developed with claude code -- Adam]
 SUDO_SURFACE="${NDT_SUDO_SURFACE:-$HERE/sudo_surface.sh}"
 if [[ -r "$SUDO_SURFACE" ]]; then
@@ -11988,6 +11988,498 @@ cmd_ntg() {
     info "takes effect on the next 'ndt up' after an 'ndt down'; a running topology keeps its mode"
 }
 
+# --- traffic and apps: ndt ping, ndt python ------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THIS SECTION SITS BELOW EVERY LINE THAT ANYTHING CITES BY NUMBER. tools/ndt_serve/verbs.py's
+# RC_SOURCE, tests/shell/mutate_ndt_serve.sh and doc/KNOWN-ISSUES.md quote lines of this file by
+# number, all of them above cmd_ntg. A line added above here moves every one of those at once; a line
+# added here moves only the usage text below, whose one citation (KNOWN-ISSUES, the 'clean' exit
+# text) is kept by hand.
+
+# The oldest Python the SDK supports: sdk/python/pyproject.toml's requires-python.
+NDT_PY_MIN_MAJOR=3
+NDT_PY_MIN_MINOR=10
+
+# cmd_python [args] -- python3 with this checkout's SDK (sdk/python) first on its path.
+#
+# An app written against the SDK needed a virtual environment and an install before it could run:
+# three steps, and on a machine without network access a recipe of its own. The SDK is plain Python
+# with no dependencies, so putting its directory first on PYTHONPATH is the whole install. First,
+# not last: an `ndtwin` installed elsewhere (another checkout's venv) would otherwise win, and the
+# SDK an app runs against must be the one of the kernel this checkout built.
+#
+# An interpreter and nothing more: no sudo, no lab read, no claim. Arguments, stdin, stdout and the
+# exit code are python's (exec). One refusal, before anything runs: a python3 older than the SDK's
+# floor, or none on PATH, is 5 -- the script would otherwise fail on its first import with a
+# message about syntax rather than about the version.
+cmd_python() {
+    local ver major minor
+    if ! command -v python3 >/dev/null 2>&1; then
+        err "refusing: no python3 on PATH -- the SDK needs Python ${NDT_PY_MIN_MAJOR}.${NDT_PY_MIN_MINOR} or newer"
+        return 5
+    fi
+    ver="$(python3 -c 'import sys; print(sys.version_info[0], sys.version_info[1])' 2>/dev/null)"
+    read -r major minor <<<"$ver"
+    if [[ ! "$major" =~ ^[0-9]+$ || ! "$minor" =~ ^[0-9]+$ ]]; then
+        err "refusing: could not read the version of $(command -v python3) -- nothing was run"
+        return 5
+    fi
+    if (( major < NDT_PY_MIN_MAJOR || (major == NDT_PY_MIN_MAJOR && minor < NDT_PY_MIN_MINOR) )); then
+        err "refusing: $(command -v python3) is Python $major.$minor; the SDK needs ${NDT_PY_MIN_MAJOR}.${NDT_PY_MIN_MINOR} or newer -- nothing was run"
+        return 5
+    fi
+    export PYTHONPATH="$REPO/sdk/python${PYTHONPATH:+:$PYTHONPATH}"
+    exec python3 "$@"
+}
+
+# --- ndt ping: background pings between Mininet hosts, and their loss afterwards -------------
+#
+# [Co-developed with claude code -- Adam]
+# Steady pings while an app works used to be four `sudo ndtwin-lab topo-cmd '<host> ping ... &'`
+# lines typed at a `mininet>` prompt -- which NTG as it ships does not give, so first an `ndt ntg cli`
+# and a fresh bring-up -- and then a `tail` of four files. This needs no pane and no prompt: each
+# stream is one call of the helper's host-ping verb (the helper finds and checks the host itself, so
+# no mnexec grant is involved), started in the background with its output in a file this user owns.
+#
+# 🔴 A LOSS FIGURE COMES ONLY FROM PING'S OWN SUMMARY LINE. sudo refusing the helper and ping getting
+#    no reply both exit 1, so the exit code cannot tell a measured 100% loss from a permission error
+#    (the lesson dataplane_ok carries). A stream without a summary is NOT MEASURED, with the reason,
+#    and never 0% or 100% -- see ping_stream_state, the one function that decides it.
+#
+# Streams are not registered in .test_run/pids/: `ndt down` and `ndt clean` keep their promises
+# unchanged. `ndt down` still ends them -- `mn -c` kills every ping on the machine -- and the report
+# then says the stream was killed.
+
+NDT_PING_MAX_STREAMS=32
+# How long `ndt ping wait` waits past the run's last deadline for a stream to write its exit code.
+# A seam for the tests, which cannot spend 15 s on every give-up.
+NDT_PING_GRACE="${NDT_PING_GRACE:-15}"
+
+ping_root() { echo "$REPO/.test_run/ping"; }
+
+ping_is_host() { [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_-]{0,31}$ ]]; }
+
+# The same two rules as the helper's host-ping, so nothing it would refuse is started: an address
+# without leading zeros, an interval of 0.01-10 s with at most three decimals.
+ping_is_ipv4() {
+    local o='(0|[1-9][0-9]{0,2})'
+    [[ "$1" =~ ^$o\.$o\.$o\.$o$ ]] || return 1
+    (( BASH_REMATCH[1] <= 255 && BASH_REMATCH[2] <= 255 && BASH_REMATCH[3] <= 255 && BASH_REMATCH[4] <= 255 ))
+}
+ping_interval_ms() {
+    local frac ms
+    [[ "$1" =~ ^(0|[1-9][0-9]?)(\.([0-9]{1,3}))?$ ]] || return 1
+    frac="${BASH_REMATCH[3]}000"
+    ms=$(( BASH_REMATCH[1] * 1000 + 10#${frac:0:3} ))
+    (( ms >= 10 && ms <= 10000 )) || return 1
+    echo "$ms"
+}
+
+# ping_parse_args <args...> -- rc 2 with the reason on stderr, or sets:
+#   PING_SRC[] PING_DST[]   one entry per stream, as typed
+#   PING_FOR_S PING_INTERVAL PING_INTERVAL_MS PING_COUNT PING_WAIT PING_FORCE
+# Pairs are <src>:<dst>, comma-separated or as several words. Nothing is read or written here.
+ping_parse_args() {
+    PING_SRC=(); PING_DST=(); PING_INTERVAL=0.2; PING_WAIT=0; PING_FORCE=0
+    local forarg=60s word pair n src dst
+    local -a words=() parts=()
+    while (( $# )); do
+        case "$1" in
+            --for|--interval)
+                if (( $# < 2 )); then err "$1 needs a value"; return 2; fi
+                if [[ "$1" == --for ]]; then forarg="$2"; else PING_INTERVAL="$2"; fi
+                shift 2 ;;
+            --for=*)      forarg="${1#--for=}"; shift ;;
+            --interval=*) PING_INTERVAL="${1#--interval=}"; shift ;;
+            --wait)       PING_WAIT=1; shift ;;
+            --force)      PING_FORCE=1; shift ;;
+            -*)           err "unknown option $(printf '%q' "$1")"; return 2 ;;
+            *)            words+=("$1"); shift ;;
+        esac
+    done
+    for word in "${words[@]}"; do
+        if [[ -z "$word" || "$word" == ,* || "$word" == *, || "$word" == *,,* ]]; then
+            err "an empty pair in $(printf '%q' "$word")"; return 2
+        fi
+        IFS=, read -r -a parts <<<"$word"
+        for pair in "${parts[@]}"; do
+            if [[ ! "$pair" =~ ^([^:]+):([^:]+)$ ]]; then
+                err "not a pair: $(printf '%q' "$pair") -- write <src>:<dst>, e.g. h1:h3 or h1:10.0.3.3"; return 2
+            fi
+            src="${BASH_REMATCH[1]}"; dst="${BASH_REMATCH[2]}"
+            if ! ping_is_host "$src"; then
+                err "not a Mininet host name: $(printf '%q' "$src") (in $pair)"; return 2
+            fi
+            if ! ping_is_host "$dst" && ! ping_is_ipv4 "$dst"; then
+                err "not a host name or an IPv4 address: $(printf '%q' "$dst") (in $pair)"; return 2
+            fi
+            PING_SRC+=("$src"); PING_DST+=("$dst")
+        done
+    done
+    n=${#PING_SRC[@]}
+    if (( n == 0 )); then err "no pair given: ndt ping <src>:<dst>[,<src>:<dst>...]"; return 2; fi
+    if (( n > NDT_PING_MAX_STREAMS )); then err "$n streams; at most $NDT_PING_MAX_STREAMS per run"; return 2; fi
+    if [[ "$forarg" =~ ^([1-9][0-9]{0,3})(s|m)?$ ]]; then
+        PING_FOR_S=${BASH_REMATCH[1]}
+        [[ "${BASH_REMATCH[2]}" == m ]] && PING_FOR_S=$(( PING_FOR_S * 60 ))
+    else
+        PING_FOR_S=0
+    fi
+    if (( PING_FOR_S < 1 || PING_FOR_S > 600 )); then
+        err "--for $(printf '%q' "$forarg"): 1 s to 600 s, written 60, 60s or 2m"; return 2
+    fi
+    if ! PING_INTERVAL_MS="$(ping_interval_ms "$PING_INTERVAL")"; then
+        err "--interval $(printf '%q' "$PING_INTERVAL"): seconds from 0.01 to 10, at most three decimals"; return 2
+    fi
+    PING_COUNT=$(( (PING_FOR_S * 1000 + PING_INTERVAL_MS / 2) / PING_INTERVAL_MS ))
+    (( PING_COUNT >= 1 )) || PING_COUNT=1
+    # Rounded to the nearest ping, count x interval can pass 600 s by half an interval, which the helper
+    # refuses (its hp_duration_ok); clamp to the whole pings that fit. The suite runs this count through it.
+    (( PING_COUNT * PING_INTERVAL_MS <= 600000 )) || PING_COUNT=$(( 600000 / PING_INTERVAL_MS ))
+    return 0
+}
+
+# ping_model_hosts -- "<name> <ipv4>" per host of the model the last `ndt up` of this checkout
+# recorded: the same vertex_type == 1 / device_name / ip[0] reading topo_model_ping_pair uses.
+# rc 1 no record, 2 the model it names cannot be read.
+ping_model_file() {
+    local rel
+    rel="$(up_target_field topology)"
+    [[ -n "$rel" ]] || return 1
+    if [[ "$rel" == /* ]]; then echo "$rel"; else echo "$REPO/$rel"; fi
+}
+ping_model_hosts() {
+    local f
+    f="$(ping_model_file)" || return 1
+    python3 -c '
+import json,sys
+t=json.load(open(sys.argv[1]))
+for n in t["nodes"]:
+    if n.get("vertex_type")==1:
+        print(n.get("device_name") or "?", ((n.get("ip") or [""])[0] or "?").split("/")[0])' "$f" 2>/dev/null || return 2
+}
+
+# ping_resolve -- fills PING_IP[] from PING_DST[]. rc 2 with the reason when a name cannot be
+# resolved. An address is used as given; a name only from the recorded model, never guessed.
+ping_resolve() {
+    local i hosts rc name ip found
+    PING_IP=()
+    PING_MODEL="$(ping_model_file)"; PING_MODEL="${PING_MODEL#$REPO/}"
+    hosts="$(ping_model_hosts)"; rc=$?
+    for i in "${!PING_SRC[@]}"; do
+        if ping_is_ipv4 "${PING_DST[$i]}"; then
+            PING_IP+=("${PING_DST[$i]}")
+        elif (( rc == 1 )); then
+            err "no 'ndt up' record in this checkout, so ${PING_DST[$i]} has no address here: give the address (${PING_SRC[$i]}:10.0.3.3)"
+            return 2
+        elif (( rc != 0 )); then
+            err "the model the last 'ndt up' recorded ($PING_MODEL) cannot be read: give the address (${PING_SRC[$i]}:10.0.3.3)"
+            return 2
+        else
+            ip=""
+            while read -r name found; do [[ "$name" == "${PING_DST[$i]}" ]] && { ip="$found"; break; }; done <<<"$hosts"
+            if [[ -z "$ip" ]]; then
+                err "${PING_DST[$i]} is not a host of $PING_MODEL (the model the last 'ndt up' recorded)"; return 2
+            fi
+            if ! ping_is_ipv4 "$ip"; then
+                err "$PING_MODEL gives ${PING_DST[$i]} the address $(printf '%q' "$ip"), which is not an IPv4 address: give one"; return 2
+            fi
+            PING_IP+=("$ip")
+        fi
+        # The source is the helper's to find; with a record, a name the model does not have is a typo
+        # worth refusing here, before anything starts.
+        if (( rc == 0 )) && ! grep -q "^${PING_SRC[$i]} " <<<"$hosts"; then
+            err "${PING_SRC[$i]} is not a host of $PING_MODEL (the model the last 'ndt up' recorded)"; return 2
+        fi
+    done
+    return 0
+}
+
+# guard_ping_lab_free -- rc 0 go on, 5 refused. The decision guard_up_lab_free makes for a bring-up,
+# worded for traffic, through the same predicates: somebody else's live claim, and a measurement in
+# flight, refuse unless --force (whose record the caller writes, once it is sure it will start); an
+# `ndt down` in flight always refuses. Writes nothing. Sets PING_HELD and PING_BUSY.
+guard_ping_lab_free() {
+    local tif declared holder retry="ndt ping $PING_WORDS"
+    if tif="$(teardown_in_flight)"; then
+        teardown_in_flight_refusal "start pings" "$tif"
+        err "  it runs mn -c, which kills every ping on the machine. Wait for it to finish."
+        err "  nothing was started and nothing was written."
+        return 5
+    fi
+    PING_HELD="$(foreign_claim)"
+    PING_BUSY="$(in_flight)"
+    [[ -z "$PING_HELD" && -z "$PING_BUSY" ]] && return 0
+    [[ "$PING_FORCE" == 1 ]] && return 0
+    if [[ -n "$PING_HELD" ]]; then
+        holder="$(claim_field owner)"
+        err "refusing to start pings: the lab is claimed by $PING_HELD"
+        err "  traffic on somebody else's fabric is part of what they measure."
+        declared="$(measuring_declared)"
+        [[ -n "$declared" ]] && err "  and they DECLARED what is running:  measuring=$declared"
+    fi
+    if [[ -n "$PING_BUSY" ]]; then
+        err "refusing to start pings: a measurement is running, and these pings would be in it:"
+        printf '%s\n' "$PING_BUSY" | sed 's/^/        /' >&2
+    fi
+    err "  nothing was started and nothing was written."
+    if [[ -n "$PING_HELD" ]]; then
+        err "if that claim is YOURS, set the same owner and retry:"
+        err "$(printf '    NDT_OWNER=%q ' "$holder")$retry"
+    fi
+    err "if you know it is finished, override it -- and the override is recorded, in"
+    err "  ${CLAIM#$REPO/}.overrides (who, when, whose claim):"
+    err "    $retry --force"
+    return 5
+}
+
+# ping_start <args...> -- start every stream in the background; see the usage text for the exit codes.
+ping_start() {
+    local i n rc=0 root stamp dir base now ends
+    PING_WORDS="$(printf '%q ' "$@")"; PING_WORDS="${PING_WORDS% }"
+    ping_parse_args "$@" || return 2
+    ping_resolve || return 2
+    guard_ping_lab_free || return 5
+    lab_session topo
+    case $? in
+        0) ;;
+        1) err "no topology is running (no topo session): nothing was started"
+           info "bring one up first:  ndt up ..."
+           return 3 ;;
+        *) err "refusing to start pings: the 'ndtwin-lab status' call failed, so whether a topology is running is unknown"
+           lab_status_failed_hint
+           err "  nothing was started and nothing was written."
+           return 5 ;;
+    esac
+    if [[ -n "$PING_HELD" || -n "$PING_BUSY" ]]; then
+        if ! claim_override_record "ndt ping $PING_WORDS" "$PING_HELD" "$PING_BUSY"; then
+            err "refusing to start pings: --force was given, but the override could not be recorded in"
+            err "  ${CLAIM#$REPO/}.overrides, so nothing was started."
+            return 5
+        fi
+        [[ -n "$PING_HELD" ]] && warn "--force: pinging over the claim of $PING_HELD"
+        [[ -n "$PING_BUSY" ]] && warn "--force: pinging with a measurement in flight: $(printf '%s\n' "$PING_BUSY" | head -1 | cut -c1-72)"
+        warn "  recorded in ${CLAIM#$REPO/}.overrides -- who, when, whose claim"
+    fi
+    root="$(ping_root)"
+    stamp="$(date -u +%Y%m%dT%H%M%SZ).$$"
+    dir="$root/$stamp"
+    if ! mkdir -p "$dir"; then
+        err "could not create $dir: nothing was started"; return 4
+    fi
+    now="$(date +%s)"
+    ends=$(( now + (PING_COUNT * PING_INTERVAL_MS + 999) / 1000 + 5 ))
+    printf 'started=%s\nends=%s\ncount=%s\ninterval=%s\nstreams=%s\nup_at=%s\nby=%s\ncommand=ndt ping %s\n' \
+        "$now" "$ends" "$PING_COUNT" "$PING_INTERVAL" "${#PING_SRC[@]}" "$(up_target_field at)" \
+        "${NDT_OWNER:-unset}" "$PING_WORDS" > "$dir/run"
+    printf '%s\n' "$stamp" > "$root/last.$$" && mv -f "$root/last.$$" "$root/last"
+    say "ndt ping: ${#PING_SRC[@]} stream(s), $PING_COUNT x $PING_INTERVAL s each, until about $(date -d "@$ends" +%H:%M:%S)"
+    for i in "${!PING_SRC[@]}"; do
+        n=$(( i + 1 ))
+        base="$dir/$n.${PING_SRC[$i]}-${PING_DST[$i]}"
+        printf 'src=%s\ndst=%s\nip=%s\ncount=%s\ninterval=%s\nends=%s\n' "${PING_SRC[$i]}" "${PING_DST[$i]}" \
+            "${PING_IP[$i]}" "$PING_COUNT" "$PING_INTERVAL" "$ends" > "$base.plan"
+        # One stream: the helper's verb, its output redirected by this user into this user's files,
+        # its exit code written last, through a temp name, so a .rc that exists is complete. The pid
+        # file is how the report tells "still running" from "killed". LAB is passed in the
+        # environment and spelled "$LAB" in the call, as everywhere in this file (see sudo_surface.sh).
+        if LAB="$LAB" setsid -f bash -c 'echo $$ > "$5.pid.tmp" && mv -f "$5.pid.tmp" "$5.pid"
+LC_ALL=C LANGUAGE=C sudo -n "$LAB" host-ping "$1" "$2" "$3" "$4" > "$5.out" 2> "$5.err" < /dev/null
+echo $? > "$5.rc.tmp" && mv -f "$5.rc.tmp" "$5.rc"' ndt-ping \
+                "${PING_SRC[$i]}" "${PING_IP[$i]}" "$PING_COUNT" "$PING_INTERVAL" "$base" \
+                < /dev/null > /dev/null 2>&1; then
+            info "$n  ${PING_SRC[$i]} -> ${PING_DST[$i]} ($(printf '%s' "${PING_IP[$i]}"))  started"
+        else
+            echo "ndt could not start this stream (setsid failed)" > "$base.err"
+            echo 127 > "$base.rc"
+            err "$n  ${PING_SRC[$i]} -> ${PING_DST[$i]} could not start (setsid failed); the others run"
+            rc=4
+        fi
+    done
+    info "files: ${dir#$REPO/}/"
+    (( PING_WAIT == 1 )) || info "when they have ended:  ndt ping wait   (or 'ndt ping report' at any time)"
+    return "$rc"
+}
+
+# ping_stream_alive <base> -- is the stream's wrapper still running? The pid it wrote is believed only
+# while /proc says that pid's argv still names this stream's files.
+ping_stream_alive() {
+    local pid e
+    local -a argv=()
+    [[ -f "$1.pid" ]] || return 1
+    pid="$(head -n 1 "$1.pid" 2>/dev/null)"
+    [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+    mapfile -d '' -t argv 2>/dev/null < "/proc/${pid}/cmdline" || return 1   # ${pid}: another site's $pid text is a gate's anchor
+    for e in "${argv[@]}"; do [[ "$e" == "$1" ]] && return 0; done
+    return 1
+}
+
+# ping_stream_state <base> <planned count> <ends> -- THE decision about one stream (header of this
+# section). Sets PS_STATE to clean | lost | unmeasured | running and PS_TEXT to its report line.
+# PS_SUDO=1 when the reason was sudo refusing the helper.
+ping_stream_state() {
+    local base="$1" planned="$2" ends="$3" line sent recv pct rc first now
+    PS_STATE=unmeasured; PS_TEXT=""; PS_SUDO=0
+    line="$(grep -m 1 -E '^[0-9]+ packets transmitted, [0-9]+ received' "$base.out" 2>/dev/null)"
+    if [[ -n "$line" ]]; then
+        sent="${line%% *}"
+        recv="${line#*transmitted, }"; recv="${recv%% *}"
+        if (( sent == 0 )); then
+            first="$(grep -m 1 . "$base.err" 2>/dev/null)"
+            PS_TEXT="NOT MEASURED -- ping sent nothing: ${first:-no message}"
+            return 0
+        fi
+        if [[ ! "$line" =~ ,\ ([0-9]+(\.[0-9]+)?)%\ packet\ loss ]]; then
+            PS_TEXT="NOT MEASURED -- ping's summary has no loss figure: $line"
+            return 0
+        fi
+        pct="${BASH_REMATCH[1]}"
+        PS_TEXT="$sent sent  $recv received  $pct% packet loss"
+        if [[ "$pct" =~ [1-9] ]]; then PS_STATE=lost; else PS_STATE=clean; fi
+        (( sent < planned )) && PS_TEXT="$PS_TEXT  (ended early: $sent of $planned sent)"
+        return 0
+    fi
+    if [[ -f "$base.rc" ]]; then
+        rc="$(head -n 1 "$base.rc" 2>/dev/null)"
+        NDT_SUDO_STDERR="$(cat "$base.err" 2>/dev/null)"
+        if ndt_sudo_refused; then
+            PS_TEXT="NOT MEASURED -- sudo refused $LAB host-ping"; PS_SUDO=1
+        elif [[ "$NDT_SUDO_STDERR" == *"ndtwin-lab: usage:"* && "$NDT_SUDO_STDERR" != *host-ping* ]]; then
+            local verdict inst repo
+            read -r verdict inst repo <<<"$(lab_version_verdict)"
+            PS_TEXT="NOT MEASURED -- the installed helper has no host-ping verb (installed ${inst:0:8}, this checkout ${repo:0:8}): reinstall it, user guide 3.1"
+        elif [[ "$rc" =~ ^6[4-7]$ ]] && first="$(grep '^ndtwin-lab host-ping: ' <<<"$NDT_SUDO_STDERR" | tail -n 1)" && [[ -n "$first" ]]; then
+            # The helper's own refusal (64-67) is its LAST line: a rejected decoy prints its own line first
+            # even when the call goes on, and must not be read as the reason a later failure happened.
+            PS_TEXT="NOT MEASURED -- $first"
+        elif [[ "$rc" =~ ^[0-9]+$ ]] && (( rc > 128 )); then
+            PS_TEXT="NOT MEASURED -- no summary: the stream was killed (signal $(( rc - 128 ))) before it ended ('ndt down' runs mn -c, which kills every ping on the machine)"
+        else
+            first="$(grep -E '^(ndtwin-lab|sudo):' <<<"$NDT_SUDO_STDERR" | tail -n 1)"
+            [[ -n "$first" ]] || first="$(grep -v '^ndtwin-lab host-ping: ' <<<"$NDT_SUDO_STDERR" | grep -m 1 .)"
+            PS_TEXT="NOT MEASURED -- no summary (exit ${rc:-?}): ${first:-no message}"
+        fi
+        return 0
+    fi
+    now="$(date +%s)"
+    if ping_stream_alive "$base" || { [[ ! -f "$base.pid" ]] && (( now <= ends )); }; then
+        PS_STATE=running
+        PS_TEXT="RUNNING -- ends by $(date -d "@$ends" +%H:%M:%S)"
+        (( now > ends )) && PS_TEXT="$PS_TEXT (past it, and still running)"
+        return 0
+    fi
+    PS_TEXT="NOT MEASURED -- no summary: the stream was killed before it ended ('ndt down' runs mn -c, which kills every ping on the machine)"
+    return 0
+}
+
+# ping_last_dir -- the last run's directory, or rc 1.
+ping_last_dir() {
+    local root stamp
+    root="$(ping_root)"
+    [[ -f "$root/last" ]] || return 1
+    stamp="$(head -n 1 "$root/last" 2>/dev/null)"
+    [[ -n "$stamp" && "$stamp" != */* && -f "$root/$stamp/run" ]] || return 1
+    echo "$root/$stamp"
+}
+
+ping_run_field() { sed -n "s/^$2=//p" "$1/run" 2>/dev/null | head -n 1; }
+ping_plan_field() { sed -n "s/^$2=//p" "$1.plan" 2>/dev/null | head -n 1; }
+
+# ping_report -- one line per stream. 0 every stream has ping's summary and lost nothing; 1 a stream
+# lost packets (outranks 4); 3 no run recorded; 4 a stream has no summary.
+ping_report() {
+    local dir plan base n streams lost=0 unmeasured=0 sudo_refused=0 up_at cur l found
+    if ! dir="$(ping_last_dir)"; then
+        err "no 'ndt ping' run is recorded in this checkout ($(ping_root | sed "s|^$REPO/||")/last)"
+        return 3
+    fi
+    streams="$(ping_run_field "$dir" streams)"
+    say "ndt ping: run ${dir##*/}, $(ping_run_field "$dir" count) x $(ping_run_field "$dir" interval) s per stream, started $(date -d "@$(ping_run_field "$dir" started)" +%H:%M:%S 2>/dev/null)"
+    # A run whose own record is damaged is not a run with nothing to report: a report with no stream
+    # line would read as green. Every stream the run says it started needs its own line.
+    if [[ ! "$streams" =~ ^[1-9][0-9]*$ ]]; then
+        warn "NOT MEASURED -- the run file does not say how many streams were started (streams=${streams:-missing}), so none can be read"
+        unmeasured=1; streams=0
+    fi
+    for (( n = 1; n <= streams; n++ )); do
+      found=0
+      for plan in "$dir/$n".*.plan; do
+        [[ -f "$plan" ]] || continue
+        found=1
+        base="${plan%.plan}"
+        ping_stream_state "$base" "$(ping_plan_field "$base" count)" "$(ping_plan_field "$base" ends)"
+        l="$(printf '  %-3s %s -> %s (%s)' "$n" "$(ping_plan_field "$base" src)" "$(ping_plan_field "$base" dst)" "$(ping_plan_field "$base" ip)")"
+        case "$PS_STATE" in
+            clean) ok "${l#  }   $PS_TEXT" ;;
+            lost)  err "${l#  }   $PS_TEXT" 2>&1; lost=1 ;;
+            *)     warn "${l#  }   $PS_TEXT"; unmeasured=1 ;;
+        esac
+        (( PS_SUDO )) && sudo_refused=1
+      done
+      if (( ! found )); then
+          warn "$n   NOT MEASURED -- stream $n has no plan file in ${dir#$REPO/}/, so nothing about it can be read"
+          unmeasured=1
+      fi
+    done
+    if (( sudo_refused )); then
+        warn "sudo refused the helper's grant this needs:"
+        ndt_sudo_explain lab | sed 's/^/      /'
+    fi
+    up_at="$(ping_run_field "$dir" up_at)"
+    if [[ -n "$up_at" ]]; then
+        cur="$(up_target_field at)"
+        [[ "$cur" == "$up_at" ]] || warn "the fabric was taken down or rebuilt during this run; the loss includes that"
+    fi
+    info "files: ${dir#$REPO/}/"
+    (( lost )) && return 1
+    (( unmeasured )) && return 4
+    return 0
+}
+
+# ping_wait -- until every stream of the last run has written its exit code, or its last deadline
+# plus NDT_PING_GRACE has passed; then the report.
+ping_wait() {
+    local dir ends left plan
+    if ! dir="$(ping_last_dir)"; then
+        err "no 'ndt ping' run is recorded in this checkout ($(ping_root | sed "s|^$REPO/||")/last)"
+        return 3
+    fi
+    ends="$(ping_run_field "$dir" ends)"
+    [[ "$ends" =~ ^[0-9]+$ ]] || ends=0
+    while :; do
+        left=0
+        for plan in "$dir"/*.plan; do
+            [[ -f "$plan" ]] || continue
+            [[ -f "${plan%.plan}.rc" ]] || left=$(( left + 1 ))
+        done
+        (( left == 0 )) && break
+        (( $(date +%s) > ends + NDT_PING_GRACE )) && break
+        sleep 0.5
+    done
+    ping_report
+}
+
+cmd_ping() {
+    case "${1:-}" in
+        wait|report)
+            if (( $# != 1 )); then err "usage: ndt ping $1   (it takes no other argument)"; return 2; fi
+            if [[ "$1" == wait ]]; then ping_wait; else ping_report; fi
+            return $? ;;
+        ""|-h|--help|help)
+            err "usage: ndt ping <src>:<dst>[,<src>:<dst>...] [--for 60s] [--interval 0.2] [--wait] [--force]"
+            err "       ndt ping wait | ndt ping report      ('ndt help' says more)"
+            return 2 ;;
+    esac
+    local rc
+    ping_start "$@"; rc=$?
+    if (( PING_WAIT == 1 )) && (( rc == 0 || rc == 4 )); then
+        ping_wait
+        return $?
+    fi
+    return "$rc"
+}
+
 # --- what `ndt up` means ----------------------------------------------------------
 
 # [Co-developed with claude code -- Adam]
@@ -12228,6 +12720,10 @@ case "${1:-}" in
     release) cmd_release "${2:-}" ;;
     apps)    shift; cmd_apps "$@" ;;
     ntg)     cmd_ntg "${2:-}" ;;
+    # [Co-developed with claude code -- Adam] python3 with this checkout's SDK first on its path.
+    python)  shift; cmd_python "$@" ;;
+    # [Co-developed with claude code -- Adam] Background pings through the helper's host-ping verb.
+    ping)    shift; cmd_ping "$@" ;;
     # [Co-developed with claude code -- Adam]
     # A local HTTP API over the verbs above. exec, so the server IS this
     # command; --ndt names this same file, because 'sudo ndtwin-lab' acts in one tree and the
@@ -12601,6 +13097,37 @@ usage: ndt <command>
                     (viz wrote 875 MB in 1h54m; the app keeps running)
   ntg [cli|custom_command]  which prompt the topology hands control to
                     (prompt = custom_command; edits the hosts file NTG reads under the P4 bridge)
+  ping <src>:<dst>[,<src>:<dst>...] [--for 60s] [--interval 0.2] [--wait] [--force]
+                ping between Mininet hosts in the background, one stream per
+                pair, and read each stream's loss afterwards. <dst> is a host
+                name (its address comes from the model the last 'ndt up' of this
+                checkout recorded) or an IPv4 address. It needs no pane and no
+                mininet> prompt: it works under NTG's prompt too. sudo: only the
+                helper (its status and host-ping verbs; user guide 3.2's grant).
+                --for 1 to 600 s (60, 60s, 2m); --interval 0.01 to 10 s; at most
+                32 streams; each sends about for/interval pings.
+                  ndt ping h1:h3,h3:h1 --for 60s --interval 0.02
+                  ndt ping wait      wait for the last run to end, then print it
+                  ndt ping report    print the last run now
+                exit (start) 0 every stream started; 2 usage; 3 no topology is
+                  running; 4 a stream could not start (each is named, the others
+                  run); 5 a GUARD REFUSED and nothing started: the lab is claimed
+                  by somebody else, a measurement is in flight, an 'ndt down' is
+                  running, or the topo session could not be read. --force goes
+                  past the first two and is recorded, as for 'ndt up'.
+                exit (wait, report, --wait) 0 every stream ended with ping's own
+                  summary and lost nothing; 1 a stream lost packets; 3 no run is
+                  recorded here; 4 a stream has no summary -- it could not start,
+                  is still running, or was killed ('ndt down' runs mn -c, which
+                  kills every ping) -- so its loss is NOT MEASURED, never 0%.
+                  1 outranks 4; every stream has its own line.
+                files: .test_run/ping/<UTC stamp>.<pid>/  ('ndt down' leaves them)
+  python [args]  python3 with this checkout's SDK (sdk/python) first on its
+                path, nothing installed:  ndt python my_app.py
+                the exit code is python's; with -I or -E python ignores the path.
+                A python3 older than 3.10, or none on PATH, is refused (5) and
+                nothing runs. For an editor or debugger that needs the SDK too,
+                install it as sdk/python/README.md says.
   claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
   release              give it back
   serve [--owner N] [--port P]   a local HTTP API over up/down/status/claim/release

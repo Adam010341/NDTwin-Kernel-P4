@@ -1724,6 +1724,305 @@ heartbeat_main() {
     esac
 }
 
+# -------------------------------------------------------------------------------------
+# HOST-PING: one bounded ping from inside a Mininet host, with the host chosen and checked by root.
+#
+# [Co-developed with claude code -- Adam]
+#
+#   ndtwin-lab host-ping <host> <ipv4> <count> <interval>
+#
+# Exists so that `ndt ping` (and anyone typing pings by hand) needs no grant beyond this helper's.
+# The alternative, a sudoers rule for `mnexec -a <pid> ping ...`, cannot be made safe by pinning its
+# arguments: `mnexec -a` joins the pid's network AND mount namespaces and its root directory, so
+# whoever chooses the pid can choose which file is `/usr/bin/ping` when root executes it -- a process
+# of the caller's own, in a user and mount namespace the caller built, is a pid like any other. So
+# here the pid is never an argument. Root finds it, and enters it only if it can only have been made
+# by root. And this verb does not use mnexec either: it joins the host's NETWORK namespace only, and
+# nothing else of the host's -- not its mount namespace, not its root directory -- so ping is the
+# file this helper checked, in root's own mount namespace.
+#
+# What it does, in order, and nothing else:
+#   1. exactly four arguments, each checked here before any is used: a host name; an IPv4 address
+#      written as four numbers 0-255 without leading zeros (ping reads "010" as octal); a count of
+#      1 to 60000 without leading zeros (bash arithmetic reads "010" as octal too); an interval of
+#      0.01 to 10 seconds with at most three decimals; and count x interval of at most 600 s, so one
+#      call cannot leave a root process running for days. Anything else is refused (64) and named.
+#   2. the programs it needs itself (ps, stat, readlink), found like the two it runs (step 6).
+#   3. the host's shell, from ONE `ps` snapshot as the index and /proc/<pid>/cmdline as the
+#      authority: the processes whose last argv element is exactly `mininet:<host>`. None is refused
+#      (65). The tag is built here, in this shell, and never put in a child's argv: `mn -c` kills by
+#      command line (ndt's header, trap note 1).
+#   4. their identity: every uid in /proc/<pid>/status is 0 (real, effective, saved and filesystem);
+#      the user namespace is pid 1's (so uid 0 there is the machine's root, and a process with that
+#      identity can only have been made by root); the network namespace is NOT pid 1's (a Mininet
+#      switch's shell has the same tag shape and lives in the machine's namespace). A process that
+#      fails is not a candidate, so anyone's process that merely carries the tag cannot make the real
+#      host unreachable: when none passes the refusal (66) names the rejected pids, when more than
+#      one passes it is refused (65).
+#   5. the one that passed is pinned: /proc/<pid>/ns/net is OPENED on descriptor 3, THEN the identity
+#      check runs again, THEN descriptor 3 must still name the namespace that /proc/<pid>/ns/net
+#      names (66 when it does not). After that the pid is never used again.
+#   6. exec, with an EMPTY environment, `<nsenter> --net=/proc/self/fd/3 <ping> -n -q -c <count> -i
+#      <interval> -w <ceil(count * interval) + 5> <ipv4>`. nsenter and ping are found in a fixed
+#      list of root-owned directories, never through PATH, and each must be a regular file, not a
+#      symlink, owned by root and writable by nobody else, in a directory that is the same (67 when
+#      not found). After the exec the exit code is ping's.
+#
+# It runs nothing from KERNEL_DIR, NTG_DIR or NTG_PY, so it adds no route by which user-writable
+# code runs as root. Under a refused /etc/ndtwin-lab.conf it still fails closed, through
+# lab_conf_gate's default branch, like every verb that acts.
+#
+# Residual, stated so nobody reads more into it: the uid and user-namespace checks are made on a pid
+# NUMBER, which can be reused; what is pinned is the network namespace, by the descriptor opened
+# before the check. Three cases, by when the host's shell exits and its pid is reused:
+#   - after descriptor 3 is open and before the second reading of /proc/<pid>/ns/net: the newcomer's
+#     namespace differs from the one held, the two no longer match, and the call is refused (66);
+#   - before the descriptor is opened: descriptor 3 and the second reading both name the NEWCOMER's
+#     namespace, so they match. Only the identity check that runs after the open can refuse it, and
+#     only when the newcomer is not root-made (any uid but 0, another user namespace, or pid 1's
+#     network namespace). The tag `mininet:<host>` is NOT read again during the pin, so a
+#     root-made process with a network namespace of its own (another Mininet host's, say) that
+#     took the pid is entered: the wrong namespace, never one the caller made;
+#   - a newcomer that lives in the host's own namespace matches and is harmless: it is the same
+#     namespace.
+# Once descriptor 3 is confirmed, nothing is looked up by that pid again. The program run in the
+# namespace is the ping found in step 6, in root's own mount namespace -- the file that was
+# checked, never one from the host's. What stays unchecked is that the file in a root-owned
+# directory is the one the administrator meant, which is the same trust every other root-run
+# program here has. The descriptor is still open in ping; it names a namespace ping is already in.
+#
+# 🔴 Read ping's summary, never its exit code alone, to know what happened: sudo refusing this verb
+#    and ping getting no reply both exit 1.
+HP_RC_USAGE=64
+HP_RC_NO_HOST=65
+HP_RC_IDENTITY=66
+HP_RC_NO_BIN=67
+# Seams for the tests, which cannot be root: where /proc is, which uid the host shell and the
+# binaries must have, and where the binaries may be. Assigned here, so a caller's environment
+# cannot set them (and sudo resets the environment anyway).
+HP_PROC=/proc
+HP_EXPECT_UID=0
+HP_BIN_DIRS=(/usr/bin /usr/sbin /bin /sbin /usr/local/bin /usr/local/sbin)
+# Where stat, the program that checks all the others, may come from (see hp_tools).
+HP_STAT_DIRS=(/usr/bin /bin)
+# The three programs this verb itself calls, as absolute paths; hp_tools sets them.
+HP_PS=""
+HP_STAT=""
+HP_READLINK=""
+
+hp_refuse() { echo "ndtwin-lab host-ping: $*" >&2; }
+
+hp_valid_host() { [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_-]{0,31}$ ]]; }
+
+hp_valid_ipv4() {
+    local o='(0|[1-9][0-9]{0,2})'
+    [[ "$1" =~ ^$o\.$o\.$o\.$o$ ]] || return 1
+    (( BASH_REMATCH[1] <= 255 && BASH_REMATCH[2] <= 255 && BASH_REMATCH[3] <= 255 && BASH_REMATCH[4] <= 255 ))
+}
+
+hp_valid_count() { [[ "$1" =~ ^[1-9][0-9]{0,4}$ ]] && (( $1 <= 60000 )); }
+
+# hp_interval_ms <interval> -- the interval in milliseconds, or rc 1 when it is not one this verb takes.
+hp_interval_ms() {
+    local frac ms
+    [[ "$1" =~ ^(0|[1-9][0-9]?)(\.([0-9]{1,3}))?$ ]] || return 1
+    frac="${BASH_REMATCH[3]}000"
+    ms=$(( BASH_REMATCH[1] * 1000 + 10#${frac:0:3} ))
+    (( ms >= 10 && ms <= 10000 )) || return 1
+    echo "$ms"
+}
+
+# hp_deadline <count> <interval-ms> -- ping's -w: the whole run in seconds, rounded up, plus 5.
+hp_deadline() { echo $(( ($1 * $2 + 999) / 1000 + 5 )); }
+
+# hp_duration_ok <count> <interval-ms> -- at most 600 s of ping in one call. The one place that says
+# so: `ndt ping` clamps its own count against the same rule, and its suite runs the count it
+# computes through THIS function.
+hp_duration_ok() { (( $1 * $2 <= 600000 )); }
+
+hp_ps_snapshot() { "$HP_PS" -eo pid=,args= 2>/dev/null; }
+
+# hp_cmdline_last <pid> -- the last element of the pid's argv, read NUL-separated from /proc.
+hp_cmdline_last() {
+    local -a argv=()
+    mapfile -d '' -t argv 2>/dev/null < "$HP_PROC/$1/cmdline" || return 1
+    (( ${#argv[@]} > 0 )) || return 1
+    printf '%s\n' "${argv[-1]}"
+}
+
+# hp_find_host <host> -- every pid whose last argument is that host's tag, one per line (these are
+# only candidates: anyone's process can carry the tag), or rc 65 with the reason on stderr.
+hp_find_host() {
+    local host="$1" tag pid args last
+    local -a found=()
+    tag="mininet:"
+    tag+="$host"
+    while read -r pid args; do
+        [[ "$pid" =~ ^[1-9][0-9]*$ ]] || continue
+        # ps is the index: its args column is space-joined, so it only nominates.
+        [[ "${args##* }" == "$tag" ]] || continue
+        # /proc is the authority, read after the snapshot: an exited pid drops out here.
+        last="$(hp_cmdline_last "$pid")" || continue
+        [[ "$last" == "$tag" ]] || continue
+        found+=("$pid")
+    done < <(hp_ps_snapshot)
+    if (( ${#found[@]} == 0 )); then
+        hp_refuse "no Mininet host $host: no process's last argument is its tag (is a topology running, and does it have $host?)"
+        return "$HP_RC_NO_HOST"
+    fi
+    printf '%s\n' "${found[@]}"
+}
+
+# hp_identity_ok <pid> <host> -- may root enter this process? rc 1 with the reason on stderr.
+hp_identity_ok() {
+    local pid="$1" host="$2" line uids="" u bad=0 nsu nsu1 nsn nsn1
+    local -a status=()
+    if ! mapfile -t status 2>/dev/null < "$HP_PROC/$pid/status"; then
+        hp_refuse "refusing pid $pid for Mininet host $host: cannot read its status"; return 1
+    fi
+    for line in "${status[@]}"; do
+        [[ "$line" == Uid:* ]] && { uids="${line#Uid:}"; break; }
+    done
+    read -r -a status <<<"$uids"
+    (( ${#status[@]} == 4 )) || bad=1
+    for u in "${status[@]}"; do [[ "$u" == "$HP_EXPECT_UID" ]] || bad=1; done
+    if (( bad )); then
+        hp_refuse "refusing pid $pid for Mininet host $host: its uids (real, effective, saved, fs) are '${status[*]}', not all $HP_EXPECT_UID"
+        return 1
+    fi
+    nsu="$("$HP_READLINK" "$HP_PROC/$pid/ns/user" 2>/dev/null)"; nsu1="$("$HP_READLINK" "$HP_PROC/1/ns/user" 2>/dev/null)"
+    if [[ -z "$nsu" || -z "$nsu1" || "$nsu" != "$nsu1" ]]; then
+        hp_refuse "refusing pid $pid for Mininet host $host: its user namespace (${nsu:-unreadable}) is not pid 1's (${nsu1:-unreadable})"
+        return 1
+    fi
+    nsn="$("$HP_READLINK" "$HP_PROC/$pid/ns/net" 2>/dev/null)"; nsn1="$("$HP_READLINK" "$HP_PROC/1/ns/net" 2>/dev/null)"
+    if [[ -z "$nsn" || -z "$nsn1" || "$nsn" == "$nsn1" ]]; then
+        hp_refuse "refusing pid $pid for Mininet host $host: its network namespace (${nsn:-unreadable}) is pid 1's or unreadable, so it is not a Mininet host's"
+        return 1
+    fi
+    return 0
+}
+
+# hp_bin <name> [dir...] -- the first <dir>/<name> in the given directories (default HP_BIN_DIRS) that
+# is a regular executable, not a symlink (its target's own directory would be checked by nobody),
+# owned by HP_EXPECT_UID and writable by nobody else, in a directory that is the same. rc 1 when
+# none. Needs HP_STAT (hp_tools).
+hp_bin() {
+    local name="$1" d f st
+    shift
+    local -a dirs=("$@")
+    (( ${#dirs[@]} )) || dirs=("${HP_BIN_DIRS[@]}")
+    for d in "${dirs[@]}"; do
+        f="$d/$name"
+        [[ -f "$f" && -x "$f" && ! -L "$f" ]] || continue
+        st="$("$HP_STAT" -L -c '%u %a' "$f" 2>/dev/null)" || continue
+        [[ "${st%% *}" == "$HP_EXPECT_UID" ]] && (( (8#${st##* } & 8#022) == 0 )) || continue
+        st="$("$HP_STAT" -L -c '%u %a' "$d" 2>/dev/null)" || continue
+        [[ "${st%% *}" == "$HP_EXPECT_UID" ]] && (( (8#${st##* } & 8#022) == 0 )) || continue
+        echo "$f"
+        return 0
+    done
+    hp_refuse "no $name owned by uid $HP_EXPECT_UID and writable by nobody else in ${dirs[*]}"
+    return 1
+}
+
+# hp_tools -- find the three programs this verb calls itself (stat, ps, readlink) the way the two it
+# runs are found: absolute paths from the fixed directories, never through PATH. rc 1 with the
+# reason when any is missing.
+#
+# Nothing can check stat before stat is found, so stat alone is looked for in HP_STAT_DIRS (/usr/bin
+# and /bin, the two directories only root writes on any layout this helper supports) and the first
+# regular, non-symlink one found there checks itself, then ps and readlink. What that check PROVES is
+# consistency only: the stat that runs as root reports that it, and its directory, are root's and
+# writable by nobody else. It does NOT prove the report honest -- a dishonest stat would vouch for
+# itself. The protection is where it may come from: planting a stat in /usr/bin or /bin needs root
+# already, and a stat in any weaker directory of HP_BIN_DIRS (/usr/local/bin and the like) can never
+# be the one that vouches, because it is never looked at as a voucher.
+hp_tools() {
+    local d
+    HP_STAT=""; HP_PS=""; HP_READLINK=""
+    for d in "${HP_STAT_DIRS[@]}"; do
+        [[ -f "$d/stat" && -x "$d/stat" && ! -L "$d/stat" ]] && { HP_STAT="$d/stat"; break; }
+    done
+    HP_STAT="$(hp_bin stat "${HP_STAT_DIRS[@]}")" || return 1
+    HP_PS="$(hp_bin ps)" || return 1
+    HP_READLINK="$(hp_bin readlink)" || return 1
+}
+
+# The one place this section leaves the helper. A seam, so a test can record the argv instead.
+# exec -c: the environment is emptied, so nothing of the caller's reaches nsenter or ping.
+hp_exec() { exec -c "$@"; }
+
+# hp_pin_netns <pid> <host> -- pin the network namespace of the pid whose identity was just
+# established: open /proc/<pid>/ns/net on descriptor 3 FIRST, then run the identity check, then
+# require descriptor 3 to still name what /proc/<pid>/ns/net names. rc 1 with the reason on stderr.
+# Not to be called inside $( ), which would open the descriptor in a subshell.
+hp_pin_netns() {
+    local pid="$1" host="$2" held now
+    if ! { exec 3< "$HP_PROC/$pid/ns/net"; } 2>/dev/null; then
+        hp_refuse "refusing pid $pid for Mininet host $host: cannot open its network namespace"; return 1
+    fi
+    hp_identity_ok "$pid" "$host" || return 1
+    held="$("$HP_READLINK" /proc/self/fd/3 2>/dev/null)"
+    now="$("$HP_READLINK" "$HP_PROC/$pid/ns/net" 2>/dev/null)"
+    if [[ "$held" != "$now" ]]; then
+        hp_refuse "refusing pid $pid for Mininet host $host: its network namespace changed after it was opened (held ${held:-nothing}, now ${now:-gone})"
+        return 1
+    fi
+}
+
+# host_ping_main <host> <ipv4> <count> <interval> -- the only way in. Does not return when it runs
+# ping; otherwise returns 64-67 with one line on stderr naming what was refused.
+host_ping_main() {
+    local host ip count interval ms deadline pid nsenter ping cand
+    local -a cands=() ok=() rejected=()
+    if (( $# != 4 )); then
+        hp_refuse "usage: ndtwin-lab host-ping <host> <ipv4> <count> <interval> -- exactly four arguments (got $#)"
+        return "$HP_RC_USAGE"
+    fi
+    host="$1"; ip="$2"; count="$3"; interval="$4"
+    if ! hp_valid_host "$host"; then
+        hp_refuse "refusing host $(printf '%q' "$host"): a Mininet host name is a letter, then up to 31 letters, digits, '_' or '-'"
+        return "$HP_RC_USAGE"
+    fi
+    if ! hp_valid_ipv4 "$ip"; then
+        hp_refuse "refusing address $(printf '%q' "$ip"): four dotted numbers 0-255, without leading zeros"
+        return "$HP_RC_USAGE"
+    fi
+    if ! hp_valid_count "$count"; then
+        hp_refuse "refusing count $(printf '%q' "$count"): a whole number from 1 to 60000, without leading zeros"
+        return "$HP_RC_USAGE"
+    fi
+    if ! ms="$(hp_interval_ms "$interval")"; then
+        hp_refuse "refusing interval $(printf '%q' "$interval"): seconds from 0.01 to 10, at most three decimals"
+        return "$HP_RC_USAGE"
+    fi
+    if ! hp_duration_ok "$count" "$ms"; then
+        hp_refuse "refusing duration: $count pings at $interval s is more than 600 s of ping in one call"
+        return "$HP_RC_USAGE"
+    fi
+    deadline="$(hp_deadline "$count" "$ms")"
+    hp_tools || return "$HP_RC_NO_BIN"
+    mapfile -t cands < <(hp_find_host "$host")
+    (( ${#cands[@]} > 0 )) || return "$HP_RC_NO_HOST"
+    for cand in "${cands[@]}"; do
+        if hp_identity_ok "$cand" "$host"; then ok+=("$cand"); else rejected+=("$cand"); fi
+    done
+    if (( ${#ok[@]} == 0 )); then
+        hp_refuse "no process carrying Mininet host $host's tag passed the identity check (rejected pids ${rejected[*]})"
+        return "$HP_RC_IDENTITY"
+    fi
+    if (( ${#ok[@]} > 1 )); then
+        hp_refuse "${#ok[@]} processes carry Mininet host $host's tag and pass the identity check (pids ${ok[*]}); refusing to choose one"
+        return "$HP_RC_NO_HOST"
+    fi
+    pid="${ok[0]}"
+    hp_pin_netns "$pid" "$host" || return "$HP_RC_IDENTITY"
+    nsenter="$(hp_bin nsenter)" || return "$HP_RC_NO_BIN"
+    ping="$(hp_bin ping)" || return "$HP_RC_NO_BIN"
+    hp_exec "$nsenter" --net=/proc/self/fd/3 "$ping" -n -q -c "$count" -i "$interval" -w "$deadline" "$ip"
+}
+
 # Sourced rather than executed: define the functions and stop, exactly as ndt and stack.sh do.
 # Without this there is no way to test lab_config_load at all. sudo always execs, never sources.
 (( NDTWIN_LAB_SOURCED == 1 )) && return 0
@@ -1898,6 +2197,10 @@ case "${1:-}" in
     # its own rc is the exit code, whatever errexit would have made of a refusal.
     # [Co-developed with claude code -- Adam]
     heartbeat) shift; hb_rc=0; heartbeat_main "$@" || hb_rc=$?; exit "$hb_rc" ;;
+    # [Co-developed with claude code -- Adam] Exactly four arguments, each checked by
+    # host_ping_main before any is used; on success it does not return (ping's exit code is this
+    # command's), on a refusal its 64-67 is.
+    host-ping) shift; hp_rc=0; host_ping_main "$@" || hp_rc=$?; exit "$hp_rc" ;;
     status)
         printf 'config: %s (KERNEL_DIR=%s)\n' "$LAB_CONF_SOURCE" "$KERNEL_DIR"
         $TMUX list-sessions 2>/dev/null || echo "no lab sessions"
@@ -1906,6 +2209,6 @@ case "${1:-}" in
             "$(ps -eo args | awk '$NF ~ /^mininet:/{c++} END{print c+0}')"
         ;;
     *)
-        die "usage: ndtwin-lab {topo-start|ovs-topo-start|ovs-topo-4host|topo-cmd <text>|topo-out [n]|topo-stop|cleanup|energy-start|energy-stop|energy-out [n]|sim-start|sim-stop|sim-out [n]|heartbeat {start|stop|status}|status|config}"
+        die "usage: ndtwin-lab {topo-start|ovs-topo-start|ovs-topo-4host|topo-cmd <text>|topo-out [n]|topo-stop|cleanup|energy-start|energy-stop|energy-out [n]|sim-start|sim-stop|sim-out [n]|heartbeat {start|stop|status}|host-ping <host> <ipv4> <count> <interval>|status|config}"
         ;;
 esac

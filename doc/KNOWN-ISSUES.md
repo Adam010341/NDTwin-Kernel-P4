@@ -72,7 +72,7 @@ exit-code table); whether `--check` should do more after `down` is undecided.
 gone (or, if its own check was refused, was not measured): fix what it says (for a missing sudo grant, the
 line it prints) and run `ndt down` again. To confirm that a lab is down, use `ndt clean` (it asserts that no lab process, topo session or
 listening lab port is left). On a lab that is already down it exits 3, "there was nothing to judge", and both 0 and 3
-mean down (`tools/test_workflow/ndt:12525-12531`; user guide, section 4.10). To compare a state before and after,
+mean down (`ndt help`, the exit codes of `clean`; user guide, section 4.10). To compare a state before and after,
 compare the full `ndt status --check` output (rc 3 and the same list of problems), not the exit code against 0; plain
 `ndt status` always exits 0 (`doc/2026-11-05_user-guide.md`, section 4.5).
 

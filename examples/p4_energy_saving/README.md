@@ -81,35 +81,26 @@ names one. In
 `GET /ndt/get_graph_data`, each switch-to-switch edge's `agent_last_sample_age_seconds` is how many
 seconds ago the switch it leads to last sampled a packet (`-1` for never).
 
-These pings are typed at Mininet's `mininet>` prompt, which NTG as it ships does not give: select
-it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.7,
-`doc/2026-11-05_user-guide.md`; a fabric that is already up keeps its mode until `ndt down`).
-
 1. Finish the tutorials' `basic` exercise (its `solution/basic.p4` is a finished one), build it
    and bring it up:
 
    ```bash
-   ndt ntg cli
    make -C ~/tutorials/exercises/basic build
    ndt up p4 --app ~/tutorials/exercises/basic
    ```
 
-   Then start the pings, a minute of them at about fifty a second, in the background, each into
-   its own file. `sudo ndtwin-lab topo-cmd` types a line at the `mininet>` prompt and needs only the
-   user guide's sudo grants (section 4.7 says what it does; as root you can attach to the pane and
-   type the same lines):
+   Then start the pings, a minute of them at about fifty a second, in the background:
 
    ```bash
-   sudo ndtwin-lab topo-cmd 'h1 ping -c 3000 -i 0.02 h3 > /tmp/h1-h3.txt 2>&1 &'
-   sudo ndtwin-lab topo-cmd 'h1 ping -c 3000 -i 0.02 h4 > /tmp/h1-h4.txt 2>&1 &'
-   sudo ndtwin-lab topo-cmd 'h3 ping -c 3000 -i 0.02 h1 > /tmp/h3-h1.txt 2>&1 &'
-   sudo ndtwin-lab topo-cmd 'h4 ping -c 3000 -i 0.02 h1 > /tmp/h4-h1.txt 2>&1 &'
+   ndt ping h1:h3,h1:h4,h3:h1,h4:h1 --for 60s --interval 0.02
    ```
 
-   When they have ended, `tail -n 2 /tmp/h1-h3.txt /tmp/h1-h4.txt /tmp/h3-h1.txt /tmp/h4-h1.txt`
-   shows each one's loss. Without a `mininet>` prompt, the user guide's section 3.2 shows the
-   `mnexec` form, which pings the destination's address, not its name; give it the same
-   `-c 3000 -i 0.02`.
+   `ndt ping` needs no `mininet>` prompt and no grant beyond the user guide's helper grant, so the
+   topology's pane can hold NTG's prompt as NTG ships (the user guide's section 4.12,
+   `doc/2026-11-05_user-guide.md`, says what it does). It takes each host's address from the
+   model `ndt up` recorded and returns at once. At a `mininet>` prompt (`ndt ntg cli` before the
+   bring-up, user guide 4.7) you can type the same pings instead, for example
+   `sudo ndtwin-lab topo-cmd 'h1 ping -c 3000 -i 0.02 h3 > /tmp/h1-h3.txt 2>&1 &'`.
 
 2. Start the app about 10 s after the pings (no earlier start was measured), while they last. See
    what it would do, then do it. The real run reads the links again, so it can choose differently
@@ -120,22 +111,27 @@ it with `ndt ntg cli` **before** the bring-up below (the user guide's section 4.
    python3 examples/p4_energy_saving/energy_saving.py
    ```
 
-   The SDK version needs the SDK installed first, into a virtual environment (Python 3.10 or
-   newer, no other package); install it before step 1, so the minute of pings is not spent on the
-   install. It then takes the same options:
+   The SDK version takes the same options. `ndt python` runs it with this checkout's SDK
+   (`sdk/python`) on Python's path, so nothing needs installing (Python 3.10 or newer, no other
+   package):
 
    ```bash
-   python3 -m venv .venv && . .venv/bin/activate
-   pip install -e sdk/python
-   python3 examples/p4_energy_saving/energy_saving_sdk.py --dry-run
-   python3 examples/p4_energy_saving/energy_saving_sdk.py
+   ndt python examples/p4_energy_saving/energy_saving_sdk.py --dry-run
+   ndt python examples/p4_energy_saving/energy_saving_sdk.py
    ```
 
-   `pip install -e sdk/python` downloads `setuptools` for the build. On a machine without network
-   access, install it as the second recipe of `sdk/python/README.md` says
-   (`python3 -m venv --system-site-packages .venv`, then
-   `pip install --no-index --no-build-isolation -e sdk/python`), or skip the install with
-   `export PYTHONPATH="$PWD/sdk/python"` as that README describes.
+   To install the SDK instead, for an editor or a debugger, follow `sdk/python/README.md`.
+
+3. When the minute is over, read each stream's loss:
+
+   ```bash
+   ndt ping wait
+   ```
+
+   It waits for the pings to end and prints one line per stream: ping's own summary
+   (`3000 sent  3000 received  0% packet loss`), or `NOT MEASURED` with the reason when a stream
+   left no summary (a missing grant, an older helper, a stream that `ndt down` killed). It exits 0
+   when every stream lost nothing, 1 when one lost packets, and 4 when one was not measured.
 
 On `basic`'s pod topology (h1 and h2 on s1, h3 and h4 on s2, s3 and s4 each joined to s1 and s2)
 it usually picks s4 (the kernel's power figure for it is higher: 74.0 W against 49.1 W, synthetic
