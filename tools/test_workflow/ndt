@@ -3490,7 +3490,8 @@ stack_down_deferrable_ports() {
 }
 
 # stack_down_without_port_report <text> -- <text> minus stack.sh's report on the ports that
-# stack_down_deferrable_ports has just deferred, for printing at [1/3].
+# stack_down_deferrable_ports has just deferred, for printing at cmd_down's [1/3] and by
+# rollback_up's stack stage, the two callers.
 #
 # [Co-developed with claude code -- Adam]
 # On a live P4 fabric that report is two to five lines per bmv2 port -- the table's
@@ -3551,6 +3552,50 @@ ndt_port_proto() {
         done
     done < <(ndt_port_rows all)
     return 1
+}
+
+# ndt_port_is_bmv2 <port> -- rc 0 when the row that declares <port> is a P4 row whose owner column
+# names bmv2, i.e. a port the fabric's own switches hold; rc 1 for any other row, or none.
+# [Co-developed with claude code -- Adam]
+ndt_port_is_bmv2() {
+    local port="$1" spec proto plane owner rest p
+    while IFS='|' read -r spec proto plane owner rest; do
+        [[ "$plane" == p4 && "$owner" == "bmv2 "* ]] || continue
+        for p in $(ndt_port_expand "$spec"); do
+            [[ "$p" == "$port" ]] && return 0
+        done
+    done < <(ndt_port_rows all)
+    return 1
+}
+
+# ndt_manifest_ports -- the gRPC and Thrift port of every switch in the switch manifest, one per
+# line; rc 1 (and nothing printed) when the manifest cannot be read as that or names none.
+# [Co-developed with claude code -- Adam]
+# p4_testbed_topo.py write_manifest writes {<switch>: {"grpc_port": N, "thrift_port": M, ...}} for
+# each live switch. A file in /tmp that anyone can create is not read as proof of more than it says:
+# a manifest of another shape, or one whose entries lack the two fields, yields no port, and the
+# caller then treats every port as not the fabric's.
+ndt_manifest_ports() {
+    python3 -I -c '
+import json, sys
+try:
+    with open(sys.argv[1]) as fh:
+        d = json.load(fh)
+except (OSError, ValueError):
+    raise SystemExit(1)
+ports = []
+if isinstance(d, dict):
+    for sw in d.values():
+        if not isinstance(sw, dict):
+            continue
+        for k in ("grpc_port", "thrift_port"):
+            v = sw.get(k)
+            if isinstance(v, int) and not isinstance(v, bool):
+                ports.append(v)
+if not ports:
+    raise SystemExit(1)
+print("\n".join(str(p) for p in sorted(set(ports))))
+' "$MANIFEST" 2>/dev/null
 }
 
 # --- the veth heartbeat ----------------------------------------
@@ -3682,10 +3727,10 @@ heartbeat_up_step() {
     return 0
 }
 
-# heartbeat_stop_step <why> -- stop a running heartbeat before <why>. rc 0 stopped, or there was
-# no pidfile (nothing asked); rc 1 the helper's stop failed -- the daemon may still be running.
+# heartbeat_stop_step <why> -- stop a running heartbeat before <why>. rc 0: the helper answered ok, or there was no pidfile (nothing asked); rc 1: its stop failed.
+# [Co-developed with claude code -- Adam] HB_STEP_STOPPED is 1 only when the helper said "heartbeat stopped (pid ": its rc 0 also covers "nothing signalled".
 heartbeat_stop_step() {
-    [[ -e "$HB_PIDFILE" || -L "$HB_PIDFILE" ]] || return 0
+    HB_STEP_STOPPED=0; [[ -e "$HB_PIDFILE" || -L "$HB_PIDFILE" ]] || return 0
     local out rc
     info "stopping the heartbeat ($1)"
     out="$(sudo -n "$LAB" heartbeat stop 2>&1)"; rc=$?
@@ -3694,7 +3739,7 @@ heartbeat_stop_step() {
         err "heartbeat stop exited $rc -- the heartbeat daemon may still be running (its own line is above)"
         return 1
     fi
-    return 0
+    [[ "$out" == *"heartbeat stopped (pid "* ]] && HB_STEP_STOPPED=1; return 0
 }
 
 # heartbeat_row -- `ndt status`'s `heartbeat` row, read from the report file. No sudo.
@@ -3741,7 +3786,7 @@ HBROW
 
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
 rollback_up() {
-    local why="$1" i stage rc=0 out src crc left=0
+    local why="$1" i stage rc=0 out src crc left=0 deferred="" stopped=""
     # [Co-developed with claude code -- Adam]
     # 🔴 FIRST, because it is true in both branches: the P4 host knob is the
     # one persistent file `ndt up p4 <n>` writes, so "the machine is back to what it was before
@@ -3777,13 +3822,40 @@ rollback_up() {
             # [Co-developed with claude code -- Adam] The heartbeat is started
             # after the fabric, so unwound before it -- the daemon watches that topology.
             heartbeat)
-                heartbeat_stop_step "this bring-up is being rolled back" || rc=1
+                # [Co-developed with claude code -- Adam] A stage counts as stopped only when it
+                # stopped something: a heartbeat only when the helper said it stopped a daemon
+                # (recording the stage does not mean a daemon ran, and a stale or unreadable
+                # pidfile makes the helper answer rc 0 having signalled nothing).
+                if heartbeat_stop_step "this bring-up is being rolled back"; then
+                    (( HB_STEP_STOPPED )) && stopped="${stopped:+$stopped, }heartbeat"
+                else
+                    rc=1
+                fi
                 ;;
             stack)
                 info "stopping what stack.sh started (kernel, proxy, Ryu)"
                 out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"; src=$?
-                stack_down_lines "$out"
-                if (( src != 0 )); then err "stack.sh down exited $src"; rc=1; fi
+                # [Co-developed with claude code -- Adam] stack.sh's stop_one prints "stopped <name>"
+                # for each component it stopped; no such line, nothing was running to stop.
+                if grep -Eq '^[[:space:]]*stopped (kernel|p4_proxy|ryu)$' <<<"$out"; then stopped="${stopped:+$stopped, }stack"; fi
+                # [Co-developed with claude code -- Adam]
+                # `ndt up p4` records `fabric` before `stack`, so on a P4 rollback this runs while
+                # the bmv2 fabric is still up (or, over a reused fabric, while it stays up), and
+                # stack.sh's port check names its ports: the order `ndt down` defers at its [1/3].
+                # An OVS bring-up records `stack` before `fabric`, so its rollback takes the same
+                # deferral, and a port released between the two readings passes there too.
+                # The same deferral here: a status that is only about ports stack.sh did not start
+                # is read again, by port number, after every stage below has run.
+                if (( src != 0 )); then deferred="$(stack_down_deferrable_ports "$out")"; fi
+                if [[ -n "$deferred" ]]; then
+                    out="$(stack_down_without_port_report "$out")"
+                    stack_down_lines "$out"
+                    info "stack.sh down exited $src only on port(s) it did not start: $deferred"
+                    info "  they are read again after the rollback's other stages run."
+                else
+                    stack_down_lines "$out"
+                    if (( src != 0 )); then err "stack.sh down exited $src"; rc=1; fi
+                fi
                 ;;
             fabric)
                 info "stopping the topology session"
@@ -3813,8 +3885,69 @@ rollback_up() {
         [[ "$(bmv2_count)" -ne 0 ]] && { err "rollback: $(bmv2_count) bmv2 process(es) still running"; left=1; }
         [[ "$(mn_count)"   -ne 0 ]] && { err "rollback: $(mn_count) host/switch process(es) still running"; left=1; }
     fi
-    if (( rc == 0 && left == 0 )); then
+    # [Co-developed with claude code -- Adam]
+    # The second reading of the ports the stack stage deferred, with the probe `ndt down` re-reads
+    # them with, after the reap wait above. A port still held now is left behind and is named with
+    # its holder. The one exception is a port the fabric this run REUSED holds: it is one of the
+    # per-switch gRPC / Thrift ports in that fabric's switch manifest (and a bmv2 row of the port
+    # table, so a manifest cannot excuse the proxy's or the kernel's). That fabric was up before this
+    # 'ndt up', no stage here stops it, and it holds those ports by design. A manifest that cannot be
+    # read as that names no port, so every port is then left.
+    if [[ -n "$deferred" ]]; then
+        local p pproto held="" kept="" unread="" closed="" mports=""
+        [[ -e "$MANIFEST" ]] && { mports="$(ndt_manifest_ports)" || mports=""; }
+        for p in $deferred; do
+            if ! pproto="$(ndt_port_proto "$p")"; then unread="${unread:+$unread }$p"; continue; fi
+            ndt_port_open "$p" "$pproto"
+            case $? in
+                0) if [[ "${UP_P4_FABRIC:-}" == reused && -e "$MANIFEST" ]] && grep -qx -- "$p" <<<"$mports" && ndt_port_is_bmv2 "$p"; then
+                       kept="${kept:+$kept }$p"
+                   else
+                       held="${held:+$held }$p"
+                   fi ;;
+                2) unread="${unread:+$unread }$p" ;;
+                *) closed="${closed:+$closed }$p" ;;
+            esac
+        done
+        [[ -n "$kept" ]] && info "held by the fabric this run reused, which stays up: $kept"
+        if [[ -z "$held$unread$kept" ]]; then
+            ok "the port(s) stack.sh down named are closed now: $deferred"
+        elif [[ -n "$closed" ]]; then
+            ok "closed now: $closed"
+        fi
+        if [[ -n "$unread" ]]; then
+            local unread_c="" unread_are="it is"
+            for p in $unread; do unread_c="${unread_c:+$unread_c }:$p"; done
+            [[ "$unread" == *" "* ]] && unread_are="they are"
+            err "rollback: could not re-read $unread_c, so whether $unread_are still held is unknown -- not a pass"
+            left=1
+        fi
+        if [[ -n "$held" ]]; then
+            err "rollback: still held after the rollback's stages ran: $held"
+            for p in $held; do
+                err "    :$p is held by $(ndt_port_holder "$p" "$(ndt_port_proto "$p")")"
+            done
+            left=1
+        fi
+    fi
+    if (( rc == 0 && left == 0 )) && [[ "${UP_P4_FABRIC:-}" == reused ]]; then
+        # [Co-developed with claude code -- Adam] A reused fabric was running before this 'ndt up', and
+        # what a stage stopped can have been something it already had (a heartbeat, a stack), so the
+        # line names only the stages that stopped something and does not say the machine is as it was.
+        if [[ -n "$stopped" ]]; then
+            ok "rolled back: stopped $stopped, which may have been running before this 'ndt up'; the fabric this run reused was not stopped"
+        else
+            ok "rolled back: no stage stopped anything; the fabric this run reused was not stopped"
+        fi
+    elif (( rc == 0 && left == 0 )); then
         ok "rolled back: the machine is back to what it was before this 'ndt up'"
+    elif [[ "${UP_P4_FABRIC:-}" == reused ]]; then
+        # [Co-developed with claude code -- Adam] Not 'ndt down --deep': this run did not start the
+        # fabric, and both 'ndt down' and --deep take it down.
+        err "rollback INCOMPLETE -- what is left is named above."
+        err "  the fabric this run reused was up before it and was not stopped; 'ndt down', with or"
+        err "  without --deep, would take that fabric down too."
+        rc=1
     else
         err "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep"
         rc=1

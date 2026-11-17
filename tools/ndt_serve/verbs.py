@@ -341,6 +341,19 @@ RC_TABLE = {
 # holder at the re-read instead (a new function above cmd_down and a few lines in cmd_down): 44 more
 # lines above status --measuring's row and every row below it; the claim and release rows did not move.
 # Each anchor was moved to the line that holds the same code (text and function checked).
+# 2026-11-15: a P4 rollback reads stack.sh's port report the way `ndt down` does (a new port helper and
+# a few lines in rollback_up): 69 more lines above status --measuring's row and every row below it; the
+# claim and release rows did not move. Each anchor was moved to the line that holds the same code (text
+# and function checked).
+# 2026-11-16: a rollback over a reused fabric says what it took down, and a held port counts as that
+# fabric's only when its switch manifest lists it (a new helper that reads the manifest, one comment
+# line above the filter's helper and the rest in rollback_up): 49 more lines above status --measuring's
+# row and every row below it; the claim and release rows did not move. Each anchor was moved to the
+# line that holds the same code (text and function checked).
+# 2026-11-16, later: a rollback over a reused fabric names only the stages that stopped something (a few
+# more lines in rollback_up): 15 more lines above status --measuring's row and every row below it; the
+# claim and release rows did not move. Each anchor was moved to the line that holds the same code (text
+# and function checked).
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -354,21 +367,21 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(8147, 3, "return 3", "cmd_status"), (8152, 0, "return 0", "cmd_status"),
-                              (8156, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(8158, 0, "return 0", "cmd_status")]},
+                     "code": [(8280, 3, "return 3", "cmd_status"), (8285, 0, "return 0", "cmd_status"),
+                              (8289, 1, "return 1", "cmd_status")]},
+    "status": {"code": [(8291, 0, "return 0", "cmd_status")]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(7761, 0, "return 0", "cmd_status")]},
+                         "code": [(7894, 0, "return 0", "cmd_status")]},
     "claim": {"code": [(800, 2, "return 2", "cmd_claim"), (809, 2, "return 2", "cmd_claim"),
                        (834, 1, "return 1", "claim_take"), (906, 1, "return 1", "claim_take"),
                        (908, 0, 'ok "lab claimed by', "claim_take")]},
     "release": {"code": [(912, 0, "return 0", "cmd_release"), (917, 1, "return 1", "cmd_release"),
                          (951, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(9976, 0, "return 0", "app_start"), (9980, 1, "return 1", "app_start"),
-                            (10053, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(11531, 1, "return 1", "cmd_apps"), (11534, 2, "return 2", "cmd_apps"),
-                           (11537, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(11464, 0, "return 0", "cmd_apps")]},
+    "apps.start": {"code": [(10109, 0, "return 0", "app_start"), (10113, 1, "return 1", "app_start"),
+                            (10186, 1, "return 1", "app_start")]},
+    "apps.stop": {"code": [(11664, 1, "return 1", "cmd_apps"), (11667, 2, "return 2", "cmd_apps"),
+                           (11670, 0, "return 0", "cmd_apps")]},
+    "apps.status": {"code": [(11597, 0, "return 0", "cmd_apps")]},
 }
 
 
