@@ -30,6 +30,9 @@ What it does NOT check, said out loud:
     is none to compare (see _check_pipelines); what is checked is that every table and action
     the p4info names exists in the bmv2 json, and the p4info's sha256 is printed so the
     question can be settled between two files that both claim to be the same program.
+    What IS compared, when p4c is present, is the package's .p4 against its build output: the
+    compile this file makes must give the p4info and the bmv2 json `source.p4info` and
+    `source.bmv2_json` carry (`build matches source`; `--no-build-match` leaves it out).
   * that a ternary / range / optional entry would MATCH what its author meant. The shape of
     each is checked with the proxy's own `match_shape` (the arity, the encoding, a value with a
     bit outside its mask, a range with low above high, a don't-care written as a zero mask / the
@@ -438,8 +441,12 @@ def _path_fields(package):
     return fields
 
 
-def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
-    """Fill a Report for this package directory. Returns the Report."""
+def run(package_dir, report=None, compile_p4=True, suggest_roles=True, compare_build=True):
+    """Fill a Report for this package directory. Returns the Report.
+
+    `compare_build` is the one switch on the p4c row's second half (`build matches source`);
+    see _check_compile.
+    """
     report = report or Report()
     report.suggest_roles = suggest_roles
     package_dir = os.path.abspath(package_dir)
@@ -471,6 +478,7 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
     referenced = _check_referenced_files(report, package_dir, package)
     model = _check_topology(report, package_dir, package)
     _check_switch_ports(report, package)
+    _check_bmv2_ports(report, package, model)
     _check_hosts(report, package, model)
     pipeline_p4info = _check_pipelines(report, package_dir, package)
     used_p4info = _check_entries(report, package_dir, package, referenced)
@@ -479,7 +487,7 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True):
     _check_telemetry(report, package_dir, package, pipeline_p4info)
     _check_pre_entries(report, package_dir, package, model, referenced)
     _check_port_block(report, package)
-    _check_compile(report, package_dir, package, compile_p4)
+    _check_compile(report, package_dir, package, compile_p4, compare_build)
     return report
 
 
@@ -514,13 +522,17 @@ def _roles_max_port(model, dpid):
     return max(ports) if ports else None
 
 
-def route_role_candidates(route_binding, p4infos, model):
+def route_role_candidates(route_binding, p4infos, model, rejected=None):
     """Every roles.ipv4_route that every foreign p4info resolves, in name order. The one heuristic.
 
     `p4infos` is {dpid: P4Info message} for the switches that run the package's own program;
     `model` is the NDTwin topology model, for each switch's highest port. Each candidate carries
     owner `ndtwin`, the stricter of the two owners to resolve.
     [Co-developed with claude code -- Adam]
+    A table shaped like a route that `route_binding.resolve` refuses (a port parameter too
+    narrow for the topology's highest port, say) is not a candidate; with a `rejected` list
+    passed in, it is appended there as (role, the refusal's own sentence), so a caller can say
+    why no role was found instead of saying nothing was shaped like one.
     """
     from p4.config.v1 import p4info_pb2
 
@@ -551,7 +563,9 @@ def route_role_candidates(route_binding, p4infos, model):
         try:
             for dpid, p4info in p4infos.items():
                 route_binding.resolve(role, p4info, max_port=_roles_max_port(model, dpid))
-        except route_binding.RouteBindingError:
+        except route_binding.RouteBindingError as exc:
+            if rejected is not None:
+                rejected.append((role, str(exc)))
             continue
         out.append(role)
     return out
@@ -1399,6 +1413,82 @@ def _check_switch_ports(report, package):
         report.ok("switch ports", f"{len(claimed)} switch ports, each on one link")
 
 
+#: The highest port number a switch can carry a cable on, as this fabric starts bmv2.
+#:
+#: [Co-developed with claude code -- Adam]
+#: `BMv2Switch.start` (p4_proxy/mininet/p4_testbed_topo.py) launches simple_switch_grpc with
+#: `-i <port>@<interface>` per cable, `--cpu-port <bmv2.cpu_port>`, and neither `--drop-port` nor
+#: `--max-port-count`. The binary the fabric runs (`simple_switch_grpc --help`, bmv2 1.15)
+#: says of `--drop-port`: default 511, "when using standard v1model.p4, this
+#: value must fit within 9 bits ... you will need this option when you wish to use port 511 as a
+#: valid dataplane port". So a v1model program addresses ports 0..511 (`egress_spec` is bit<9>)
+#: and 511 is the one bmv2 drops to; a cable on 511 can carry nothing out and one above it can
+#: be named by no program. `--max-port-count` (default 512) is "not an upper bound on each
+#: port number", so it is not what refuses port 600 -- the nine bits are.
+BMV2_MAX_DATA_PORT = 510
+
+
+def _port_links(model):
+    """[(dpid, port, link text)] for every switch port the model cables, in model order.
+
+    [Co-developed with claude code -- Adam]
+    """
+    if not model:
+        return []
+    reads = model.get("reads") or {}
+    out = []
+    for a_dpid, a_port, b_dpid, b_port in reads.get("switch_links") or ():
+        text = f"s{a_dpid} port {a_port} - s{b_dpid} port {b_port}"
+        out.append((a_dpid, a_port, text))
+        out.append((b_dpid, b_port, text))
+    for host, dpid, port in reads.get("host_links") or ():
+        out.append((dpid, port, f"{host} - s{dpid} port {port}"))
+    return out
+
+
+def _check_bmv2_ports(report, package, model):
+    """Two things bmv2 cannot do with a port, found before `ndt up p4` starts it.
+
+    [Co-developed with claude code -- Adam]
+      * a cable on a port number bmv2 cannot have (see BMV2_MAX_DATA_PORT);
+      * a cable on the CPU port. `bmv2.cpu_port` is one number for every switch of the fabric
+        and bmv2's own help for `--cpu-port` says "do not add an interface with this port
+        number": it is the packet-in/out channel, not a data port. Each switch is checked,
+        because each one is started with the same number.
+    """
+    if model is None:
+        return                                # `topology` already failed; nothing to look at
+    links = _port_links(model)
+    out_of_range = [(dpid, port, text) for dpid, port, text in links
+                    if port < 0 or port > BMV2_MAX_DATA_PORT]
+    if out_of_range:
+        shown = "; ".join(f"port {port} of s{dpid} (link {text})"
+                          for dpid, port, text in out_of_range[:3])
+        more = f"; and {len(out_of_range) - 3} more" if len(out_of_range) > 3 else ""
+        report.bad("bmv2 port range",
+                   f"{len(out_of_range)} cabled port(s) outside 0..{BMV2_MAX_DATA_PORT}: "
+                   f"{shown}{more}. A v1model program names a port in 9 bits (0..511) and bmv2 "
+                   f"drops to 511, so no program can send a packet out of such a port")
+    else:
+        report.ok("bmv2 port range",
+                  f"{len(links)} cabled switch ports, all within 0..{BMV2_MAX_DATA_PORT}")
+
+    cpu = (package.get("bmv2") or {}).get("cpu_port")
+    if not (isinstance(cpu, int) and not isinstance(cpu, bool) and cpu >= 0):
+        return                                # `bmv2.cpu_port` already failed
+    clashes = [(dpid, text) for dpid, port, text in links if port == cpu]
+    if clashes:
+        shown = "; ".join(f"s{dpid} has link {text} on it" for dpid, text in clashes[:4])
+        more = f"; and {len(clashes) - 4} more" if len(clashes) > 4 else ""
+        report.bad("cpu port not cabled",
+                   f"bmv2.cpu_port {cpu} is also a cabled port: {shown}{more}. The fabric starts "
+                   f"every switch with --cpu-port {cpu}, the port bmv2 keeps for packet-in/out "
+                   f"and says not to add an interface on. Move the cable or choose another "
+                   f"cpu_port")
+    else:
+        report.ok("cpu port not cabled", f"{cpu} is on no cable")
+
+
 def _check_hosts(report, package, model):
     pkg_hosts = package.get("hosts") or {}
     if not pkg_hosts:
@@ -1558,7 +1648,119 @@ def _check_port_block(report, package):
         report.ok("gRPC port block", detail)
 
 
-def _check_compile(report, package_dir, package, compile_p4):
+def _bmv2_json_without_positions(path):
+    """A bmv2 json as data, with what follows the SOURCE FILE'S PLACE and LAYOUT taken out.
+
+    [Co-developed with claude code -- Adam]
+    The same .p4 compiled from two directories gives two different jsons (measured): the
+    top-level `program` and every `source_info` hold the path it was compiled by, and a
+    `source_info` also holds line, column and the source text. None of that is the program, so
+    none of it is compared; what is left is the parsers, tables, actions and control flow.
+
+    Not everything that moves with a line is inside a `source_info`: for a bare statement in a
+    control's apply block (an assignment, `setValid()`) p4c makes an action named `<stem><line>`
+    and a table named `tbl_<stem><line>`, which are part of the program as far as this
+    comparison can tell. An edit that shifts such a statement therefore reads as a different
+    build until it is rebuilt.
+    """
+    doc = common.load_json(path)
+
+    def strip(node):
+        if isinstance(node, dict):
+            return {k: strip(v) for k, v in node.items() if k != "source_info"}
+        if isinstance(node, list):
+            return [strip(v) for v in node]
+        return node
+
+    doc = strip(doc)
+    if isinstance(doc, dict):
+        doc.pop("program", None)
+    return doc
+
+
+def _check_build_matches_source(report, package_dir, package, out_p4info, out_json):
+    """The program this check just compiled must be the one `build/` -- and so the package -- carries.
+
+    [Co-developed with claude code -- Adam]
+    🔴 A package copies `build/<stem>.json` and its p4info as they are; it never compiles the
+    .p4 beside them. Edit the .p4, forget `make`, and the conversion still succeeds, the p4c row
+    above still says rc=0, and the fabric runs the PREVIOUS program while the operator reads the
+    new one. The two files p4c just wrote are the answer to "what does this source build to", so
+    they are compared with the ones the package names under `source.p4info` and
+    `source.bmv2_json`: the p4info as a parsed message (its text layout is not the program), the
+    bmv2 json with the path and positions taken out (`_bmv2_json_without_positions`). Both are
+    compared because a p4info only lists tables and actions: an edit inside an action or an
+    apply block leaves it unchanged and changes only the json.
+
+    Only `source.*` is compared. A switch whose pipeline is another program (a per-switch
+    `program` override) points at other files, which this compile says nothing about.
+    """
+    source = package.get("source") or {}
+    carried = [(key, source.get(key)) for key in ("p4info", "bmv2_json")]
+    carried = [(key, rel) for key, rel in carried if rel]
+    if not carried:
+        report.note("build matches source",
+                    "the package names no build output (source.p4info, source.bmv2_json) to "
+                    "compare with the program")
+        return
+
+    def resolve(rel):
+        return rel if os.path.isabs(rel) else os.path.join(package_dir, rel)
+
+    import hashlib
+    import json
+
+    problems, shown = [], []
+    for key, rel in carried:
+        path = resolve(rel)
+        if not os.path.isfile(path):
+            continue                      # `referenced files` has already failed on it
+        try:
+            if key == "p4info":
+                built = P4InfoIndex.parse(out_p4info).p4info
+                shipped = P4InfoIndex.parse(path).p4info
+                same = built == shipped
+                with open(out_p4info, "rb") as fh:
+                    built_sha = hashlib.sha256(fh.read()).hexdigest()[:16]
+                shipped_sha = _sha16(path)
+                what = "p4info"
+            else:
+                built = _bmv2_json_without_positions(out_json)
+                shipped = _bmv2_json_without_positions(path)
+                same = built == shipped
+
+                def canon_sha(doc):
+                    text = json.dumps(doc, sort_keys=True, separators=(",", ":"))
+                    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+                built_sha, shipped_sha = canon_sha(built), canon_sha(shipped)
+                what = "bmv2 json (path and source positions left out)"
+        except Exception as exc:  # noqa: BLE001 -- an unreadable file is a FAIL, not a crash
+            problems.append(f"{rel} could not be compared: {type(exc).__name__}: {exc}")
+            continue
+        shown.append(f"{rel} {what} sha256:{shipped_sha}")
+        if not same:
+            problems.append(f"the {what} this compile gives has sha256:{built_sha} but "
+                            f"{rel} carries sha256:{shipped_sha}")
+    if problems:
+        exercise = source.get("exercise_dir")
+        # [Co-developed with claude code -- Adam]
+        # The same sentence convert's missing-build refusals give (common.rebuild_advice).
+        rebuild = common.rebuild_advice(source.get("p4"), exercise, source.get("p4info"),
+                                        source.get("bmv2_json"))
+        report.bad("build matches source",
+                   f"{'; '.join(problems)}. The package ships the build output, not the "
+                   f"source, so the fabric would run a different program from {source.get('p4')}. "
+                   f"Rebuild with {rebuild}, then convert again "
+                   f"(a preflight.py run by hand can skip this row with --no-build-match, e.g. "
+                   f"when the exercise's Makefile passes P4C_ARGS; `ndt up p4 --app` cannot)")
+    elif shown:
+        report.ok("build matches source",
+                  f"{source.get('p4')} compiles to what the package carries: "
+                  f"{'; '.join(shown)}")
+
+
+def _check_compile(report, package_dir, package, compile_p4, compare_build=True):
     rel = (package.get("source") or {}).get("p4")
     if not rel:
         report.note("p4c-bm2-ss", "source.p4 is null -- nothing to compile")
@@ -1599,6 +1801,8 @@ def _check_compile(report, package_dir, package, compile_p4):
         report.ok("p4c-bm2-ss",
                   f"rc=0  {os.path.basename(out_json)} sha256:{sha(out_json)}  "
                   f"{os.path.basename(out_p4info)} sha256:{sha(out_p4info)}")
+        if compare_build:
+            _check_build_matches_source(report, package_dir, package, out_p4info, out_json)
 
 
 def main(argv=None):
@@ -1610,10 +1814,16 @@ def main(argv=None):
     ap.add_argument("--no-role-suggestion", action="store_true",
                     help="print no `roles suggestion` row (ndt passes this for the package it "
                          "generated from an exercise, whose role choice it has already printed)")
+    # [Co-developed with claude code -- Adam]
+    ap.add_argument("--no-build-match", action="store_true",
+                    help="do not compare what the compile gives with the build output the "
+                         "package carries (an exercise whose Makefile passes P4C_ARGS, or a "
+                         "build that is meant to differ from its source)")
     args = ap.parse_args(argv)
 
     print(f"pre-flight: {os.path.abspath(args.package_dir)}")
     report = run(args.package_dir, compile_p4=not args.no_compile,
+                 compare_build=not args.no_build_match,
                  suggest_roles=not args.no_role_suggestion)
     print(report.render())
     n_fail = len(report.failures)

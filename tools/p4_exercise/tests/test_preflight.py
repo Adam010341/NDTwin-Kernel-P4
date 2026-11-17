@@ -35,6 +35,32 @@ P4RUNTIME = os.path.join(FIXTURES, "p4runtime")
 FIREWALL = os.path.join(FIXTURES, "firewall")
 CALC = os.path.join(FIXTURES, "calc")
 
+# [Co-developed with claude code -- Adam]
+#: The compiler the real-compiler tests run against: $NDTWIN_P4C if set, otherwise whatever
+#: p4c-bm2-ss is on PATH, otherwise None (the same rule as test_telemetry_include.py).
+P4C = os.environ.get("NDTWIN_P4C") or shutil.which("p4c-bm2-ss")
+P4C_USABLE = bool(P4C) and os.path.isfile(P4C) and os.access(P4C, os.X_OK)
+P4C_SKIP_REASON = (
+    f"no usable p4c-bm2-ss ($NDTWIN_P4C={P4C} is not an executable file)" if P4C
+    else "no p4c-bm2-ss (not on PATH, $NDTWIN_P4C unset)")
+
+
+def put_p4c_on_path(case):
+    """Make `p4c-bm2-ss` resolve to P4C for the rest of this test, wherever P4C lives.
+
+    [Co-developed with claude code -- Adam]
+    pre-flight finds the compiler with `shutil.which("p4c-bm2-ss")`, and the tests compile and
+    re-run the advice it prints by that same bare name. A directory holding one symlink, put at
+    the front of PATH, makes all three use the binary $NDTWIN_P4C names instead of whatever else
+    (or nothing) is on PATH, without patching anything in preflight itself.
+    """
+    shim = tempfile.mkdtemp(prefix="p4_exercise_preflight_p4c_")
+    case.addCleanup(shutil.rmtree, shim, True)
+    os.symlink(os.path.abspath(P4C), os.path.join(shim, "p4c-bm2-ss"))
+    patcher = mock.patch.dict(os.environ, {"PATH": shim + os.pathsep + os.environ.get("PATH", "")})
+    patcher.start()
+    case.addCleanup(patcher.stop)
+
 
 def the_proxys_reader():
     """`p4_proxy/mininet/app_package`, imported by path the way common imports its sibling.
@@ -1009,6 +1035,521 @@ class MalformedInputIsARowNotATraceback(PackageCase):
         self.assertEqual(rows[0][0], preflight.FAIL, report.render())
         self.assertIn("timed out", rows[0][2])
         self.assertIn("600", rows[0][2])
+
+
+class ExerciseCopyCase(PackageCase):
+    """A package converted from a COPY of the basic fixture, so a test may edit the exercise.
+
+    [Co-developed with claude code -- Adam]
+    `PackageCase` converts the fixture in place; the checks below are about what happens when
+    the exercise itself was edited before the conversion (its program, its cables, its CPU
+    port), which is the order an operator meets them in.
+    """
+
+    p4 = "solution/basic.p4"
+
+    def setUp(self):
+        self.ex_tmp = tempfile.mkdtemp(prefix="p4_exercise_preflight_ex_")
+        self.addCleanup(shutil.rmtree, self.ex_tmp, True)
+        self.exercise = os.path.join(self.ex_tmp, "basic")
+        shutil.copytree(BASIC, self.exercise)
+        super().setUp()
+
+    def edit_exercise_topology(self, fn):
+        path = os.path.join(self.exercise, "pod-topo", "topology.json")
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        fn(data)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=4)
+
+    def cable_s1_to_s3_on(self, port):
+        """The exercise's s1-s3 cable on s1 port `port` instead of 3, then convert again."""
+        def move(data):
+            data["links"][2] = [f"s1-p{port}", "s3-p1"]
+        self.edit_exercise_topology(move)
+        self.fresh_package()
+
+
+class BmV2PortRange(ExerciseCopyCase):
+    """A cable on a port bmv2 cannot have is a FAIL that names the port and the limit.
+
+    [Co-developed with claude code -- Adam]
+    A cable on s1 port 600 used to pass pre-flight, and the conversion quietly dropped the
+    route role. The limit is what the fabric starts bmv2 with (see BMV2_MAX_DATA_PORT): ports
+    are 9 bits in a v1model program and 511 is the drop port.
+    """
+
+    def test_a_cable_on_port_600_fails_and_names_the_port_the_cable_and_the_limit(self):
+        self.cable_s1_to_s3_on(600)
+        self.assert_red("bmv2 port range", "port 600 of s1")
+        row = [r for r in self.report().rows if r[1] == "bmv2 port range"][0]
+        self.assertIn("link s1 port 600 - s3 port 1", row[2])
+        self.assertIn("0..510", row[2])
+
+    def test_the_last_port_a_program_can_send_to_passes_and_the_drop_port_fails(self):
+        self.cable_s1_to_s3_on(510)
+        self.assertEqual(self.statuses()["bmv2 port range"], preflight.PASS)
+        self.cable_s1_to_s3_on(511)
+        self.assert_red("bmv2 port range", "port 511 of s1")
+
+    def test_the_default_package_is_inside_the_range(self):
+        self.assertEqual(self.statuses()["bmv2 port range"], preflight.PASS)
+
+
+class CpuPortOnACable(ExerciseCopyCase):
+    """bmv2.cpu_port is one number for every switch; a cable on it is a FAIL naming the link.
+
+    [Co-developed with claude code -- Adam]
+    s1 with `cpu_port "1"` and h1 cabled on s1 port 1 used to pass pre-flight.
+    """
+
+    def test_a_cpu_port_equal_to_a_cabled_port_fails_naming_the_switch_port_and_link(self):
+        def cpu_port_one(data):
+            data["switches"]["s1"]["cpu_port"] = "1"
+        self.edit_exercise_topology(cpu_port_one)
+        self.fresh_package()
+        self.assert_red("cpu port not cabled", "s1 has link h1 - s1 port 1")
+        row = [r for r in self.report().rows if r[1] == "cpu port not cabled"][0]
+        self.assertIn("bmv2.cpu_port 1", row[2])
+
+    def test_every_switch_with_a_cable_on_that_port_is_a_clash_not_only_the_one_that_named_it(self):
+        self.edit_package(lambda d: d["bmv2"].__setitem__("cpu_port", 1))
+        row = [r for r in self.report().rows if r[1] == "cpu port not cabled"][0]
+        self.assertEqual(row[0], preflight.FAIL)
+        for clash in ("s1 has link h1 - s1 port 1", "s2 has link h3 - s2 port 1",
+                      "s3 has link s1 port 3 - s3 port 1", "s4 has link s2 port 3 - s4 port 1"):
+            self.assertIn(clash, row[2])
+
+    def test_a_cpu_port_no_cable_uses_passes(self):
+        self.edit_package(lambda d: d["bmv2"].__setitem__("cpu_port", 200))
+        self.assertEqual(self.statuses()["cpu port not cabled"], preflight.PASS)
+        self.assert_green()
+
+    def test_the_default_cpu_port_passes(self):
+        self.assertEqual(self.statuses()["cpu port not cabled"], preflight.PASS)
+
+
+def fake_p4c(p4info_from, json_from):
+    """A stand-in for `subprocess.run([p4c-bm2-ss ...])` that writes the given two files.
+
+    [Co-developed with claude code -- Adam]
+    What p4c writes is decided by the test, so a build that is stale (or not) can be had without
+    the compiler and the same on every machine.
+    """
+    def run(cmd, **_kwargs):
+        shutil.copyfile(p4info_from, cmd[cmd.index("--p4runtime-files") + 1])
+        shutil.copyfile(json_from, cmd[cmd.index("-o") + 1])
+        return preflight.subprocess.CompletedProcess(cmd, 0, "", "")
+    return run
+
+
+class BuildMatchesSource(ExerciseCopyCase):
+    """A build/ that is not what the .p4 compiles to is a FAIL naming both shas and the rebuild.
+
+    [Co-developed with claude code -- Adam]
+    basic.p4 edited (`ipv4_lpm.apply()` replaced by `mark_to_drop`) and no `make` run used to
+    give one_step rc 0 and a pre-flight PASS, with the p4c row printing a p4info sha different
+    from the one in build/. The package ships build/, not the source.
+    """
+
+    def build_dir_file(self, name):
+        return os.path.join(self.pkg, "build", name)
+
+    def compare(self, p4info_from, json_from, **kwargs):
+        with mock.patch.object(preflight.shutil, "which", return_value="/usr/bin/p4c-bm2-ss"), \
+                mock.patch.object(preflight.subprocess, "run",
+                                  side_effect=fake_p4c(p4info_from, json_from)):
+            return preflight.run(self.pkg, compile_p4=True, **kwargs)
+
+    def row(self, report, label="build matches source"):
+        rows = [r for r in report.rows if r[1] == label]
+        self.assertTrue(rows, report.render())
+        return rows[0]
+
+    def stale_p4info(self):
+        """The shipped p4info without its first table: what an edit that removes a use gives."""
+        from p4.config.v1 import p4info_pb2
+        from google.protobuf import text_format
+
+        info = preflight.P4InfoIndex.parse(self.build_dir_file("basic.p4.p4info.txtpb")).p4info
+        edited = p4info_pb2.P4Info()
+        edited.CopyFrom(info)
+        del edited.tables[0]
+        path = os.path.join(self.tmp, "stale.p4info.txtpb")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text_format.MessageToString(edited))
+        return path
+
+    def moved_json(self, edit=None):
+        """The shipped json as p4c would write it from another directory (and, with `edit`, edited)."""
+        with open(self.build_dir_file("basic.json"), encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        def move(node):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key == "source_info" and isinstance(value, dict):
+                        value["filename"] = "/somewhere/else/basic.p4"
+                        value["line"] = value.get("line", 0) + 40
+                    else:
+                        move(value)
+            elif isinstance(node, list):
+                for value in node:
+                    move(value)
+        move(data)
+        data["program"] = "/somewhere/else/basic.p4"
+        if edit:
+            edit(data)
+        path = os.path.join(self.tmp, "moved.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        return path
+
+    def test_a_build_that_is_what_the_source_compiles_to_passes_and_says_what_it_compared(self):
+        report = self.compare(self.build_dir_file("basic.p4.p4info.txtpb"), self.moved_json())
+        status, _label, detail = self.row(report)
+        self.assertEqual(status, preflight.PASS, report.render())
+        self.assertIn("p4info sha256:", detail)
+        self.assertEqual(report.failures, [], report.render())
+
+    def test_a_p4info_that_differs_fails_with_both_shas_and_the_rebuild_command(self):
+        stale = self.stale_p4info()
+        report = self.compare(stale, self.moved_json())
+        status, _label, detail = self.row(report)
+        self.assertEqual(status, preflight.FAIL, report.render())
+        built_sha = preflight._sha16(stale)
+        shipped_sha = preflight._sha16(self.build_dir_file("basic.p4.p4info.txtpb"))
+        self.assertNotEqual(built_sha, shipped_sha)
+        self.assertIn(f"sha256:{built_sha}", detail)
+        self.assertIn(f"sha256:{shipped_sha}", detail)
+        # The program is solution/basic.p4, which `make build` does not compile: the advice is
+        # the compile of that file, not the Makefile.
+        self.assertIn("-o build/basic.json solution/basic.p4` in " + self.exercise, detail)
+        self.assertNotIn("`make build`", detail)
+
+    def test_a_program_at_the_top_level_is_rebuilt_with_make_build(self):
+        # `make build` compiles the exercise's top-level .p4, so there it is the right advice.
+        shutil.copyfile(os.path.join(self.exercise, "solution", "basic.p4"),
+                        os.path.join(self.exercise, "basic.p4"))
+        self.p4 = "basic.p4"
+        self.fresh_package()
+        report = self.compare(self.stale_p4info(), self.moved_json())
+        status, _label, detail = self.row(report)
+        self.assertEqual(status, preflight.FAIL, report.render())
+        self.assertIn(f"`make build` in {self.exercise}", detail)
+        self.assertNotIn("p4c-bm2-ss --p4v 16", detail)
+
+    def test_the_advice_names_the_build_files_the_package_names(self):
+        build = os.path.join(self.pkg, "build")
+        shutil.copyfile(os.path.join(build, "basic.p4.p4info.txtpb"),
+                        os.path.join(build, "renamed.p4info.txtpb"))
+        shutil.copyfile(os.path.join(build, "basic.json"), os.path.join(build, "renamed.json"))
+
+        def rename(data):
+            data["source"]["p4info"] = "build/renamed.p4info.txtpb"
+            data["source"]["bmv2_json"] = "build/renamed.json"
+        self.edit_package(rename)
+        detail = self.row(self.compare(self.stale_p4info(), self.moved_json()))[2]
+        self.assertIn("--p4runtime-files build/renamed.p4info.txtpb -o build/renamed.json "
+                      "solution/basic.p4`", detail)
+
+    def test_a_package_that_names_no_p4info_gets_the_default_p4info_name_in_the_advice(self):
+        def drop_p4info(data):
+            data["source"]["p4info"] = None
+
+        def empty_an_action(data):
+            for action in data["actions"]:
+                if action["name"] == "MyIngress.drop":
+                    action["primitives"] = []
+        self.edit_package(drop_p4info)
+        detail = self.row(self.compare(self.build_dir_file("basic.p4.p4info.txtpb"),
+                                       self.moved_json(empty_an_action)))[2]
+        self.assertIn("--p4runtime-files build/basic.p4.p4info.txtpb -o build/basic.json "
+                      "solution/basic.p4`", detail)
+
+    def test_a_package_that_names_no_json_gets_the_default_json_name_in_the_advice(self):
+        def drop_json(data):
+            data["source"]["bmv2_json"] = None
+        self.edit_package(drop_json)
+        detail = self.row(self.compare(self.stale_p4info(), self.moved_json()))[2]
+        self.assertIn("--p4runtime-files build/basic.p4.p4info.txtpb -o build/basic.json "
+                      "solution/basic.p4`", detail)
+
+    def test_a_package_that_does_not_name_its_exercise_says_the_exercise(self):
+        def no_exercise(data):
+            data["source"]["exercise_dir"] = None
+        self.edit_package(no_exercise)
+        detail = self.row(self.compare(self.stale_p4info(), self.moved_json()))[2]
+        self.assertIn("solution/basic.p4` in the exercise,", detail)
+
+    def test_the_failure_names_how_to_skip_it_by_hand_and_that_ndt_cannot(self):
+        report = self.compare(self.stale_p4info(), self.moved_json())
+        detail = self.row(report)[2]
+        self.assertIn("preflight.py run by hand can skip this row with --no-build-match", detail)
+        self.assertIn("`ndt up p4 --app` cannot", detail)
+
+    def test_a_json_that_differs_with_the_same_p4info_fails_too(self):
+        # 🔴 A p4info lists tables and actions only: an edit inside an action leaves it alone.
+        def empty_an_action(data):
+            for action in data["actions"]:
+                if action["name"] == "MyIngress.drop":
+                    action["primitives"] = []
+        report = self.compare(self.build_dir_file("basic.p4.p4info.txtpb"),
+                              self.moved_json(empty_an_action))
+        status, _label, detail = self.row(report)
+        self.assertEqual(status, preflight.FAIL, report.render())
+        self.assertIn("bmv2 json", detail)
+        self.assertNotIn("the p4info this compile gives", detail)
+
+    def test_the_failure_makes_the_command_line_say_do_not_bring_it_up(self):
+        import contextlib
+        import io
+
+        out = io.StringIO()
+        with mock.patch.object(preflight.shutil, "which", return_value="/usr/bin/p4c-bm2-ss"), \
+                mock.patch.object(preflight.subprocess, "run",
+                                  side_effect=fake_p4c(self.stale_p4info(), self.moved_json())), \
+                contextlib.redirect_stdout(out):
+            rc = preflight.main([self.pkg])
+        self.assertEqual(rc, 1, out.getvalue())
+        self.assertIn("do NOT bring this package up", out.getvalue())
+
+    def test_no_build_match_leaves_the_comparison_out(self):
+        report = self.compare(self.stale_p4info(), self.moved_json(), compare_build=False)
+        self.assertNotIn("build matches source", [r[1] for r in report.rows])
+        self.assertEqual(report.failures, [], report.render())
+
+    def test_a_package_that_names_no_build_output_says_so_rather_than_passing(self):
+        def drop(data):
+            data["source"]["p4info"] = None
+            data["source"]["bmv2_json"] = None
+        self.edit_package(drop)
+        report = self.compare(self.stale_p4info(), self.moved_json())
+        self.assertEqual(self.row(report)[0], preflight.INFO)
+
+    def test_without_p4c_nothing_is_compared_and_nothing_fails(self):
+        with mock.patch.object(preflight.shutil, "which", return_value=None):
+            report = preflight.run(self.pkg, compile_p4=True)
+        self.assertNotIn("build matches source", [r[1] for r in report.rows])
+        self.assertEqual(report.failures, [], report.render())
+
+
+@unittest.skipUnless(P4C_USABLE, P4C_SKIP_REASON)
+class BuildMatchesSourceWithTheRealCompiler(ExerciseCopyCase):
+    """With the real p4c: build, convert, edit the .p4, convert again.
+
+    [Co-developed with claude code -- Adam]
+    """
+
+    def setUp(self):
+        put_p4c_on_path(self)
+        super().setUp()
+
+    def p4c_into_build(self):
+        import subprocess
+
+        build = os.path.join(self.exercise, "build")
+        os.makedirs(build, exist_ok=True)
+        subprocess.run(["p4c-bm2-ss", "--p4v", "16",
+                        "--p4runtime-files", os.path.join(build, "basic.p4.p4info.txtpb"),
+                        "-o", os.path.join(build, "basic.json"),
+                        os.path.join(self.exercise, "solution", "basic.p4")],
+                       check=True, capture_output=True)
+
+    def full_run(self):
+        return preflight.run(self.pkg, compile_p4=True)
+
+    def row(self, report):
+        rows = [r for r in report.rows if r[1] == "build matches source"]
+        self.assertTrue(rows, report.render())
+        return rows[0]
+
+    def test_built_then_converted_passes_and_edited_without_make_fails(self):
+        self.p4c_into_build()
+        self.fresh_package()
+        report = self.full_run()
+        self.assertEqual(self.row(report)[0], preflight.PASS, report.render())
+        self.assertEqual(report.failures, [], report.render())
+
+        path = os.path.join(self.exercise, "solution", "basic.p4")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("ipv4_lpm.apply();", text)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text.replace("ipv4_lpm.apply();", "mark_to_drop(standard_metadata);"))
+        self.fresh_package()                  # converted again, `make` not run
+        report = self.full_run()
+        status, _label, detail = self.row(report)
+        self.assertEqual(status, preflight.FAIL, report.render())
+        self.assertNotIn("`make build`", detail)
+        self.assertEqual(len(report.failures), 1, report.render())
+
+        # The advice for a program in a subdirectory must work: run it as printed.
+        import re
+        import shlex
+        import subprocess
+
+        match = re.search(r"Rebuild with `(p4c-bm2-ss [^`]+)` in (\S+),", detail)
+        self.assertTrue(match, detail)
+        subprocess.run(shlex.split(match.group(1)), cwd=match.group(2), check=True,
+                       capture_output=True)
+        self.fresh_package()
+        report = self.full_run()
+        self.assertEqual(self.row(report)[0], preflight.PASS, report.render())
+
+    def test_an_older_p4info_name_gets_the_command_that_writes_that_name(self):
+        # An exercise that vendored the older tutorials utils/ builds `<stem>.p4.p4info.txt`.
+        # The package names that file, so the printed command must write it (the default
+        # `.txtpb` name would leave the package's own file stale and the row red).
+        import re
+        import shlex
+        import subprocess
+
+        build = os.path.join(self.exercise, "build")
+        shutil.rmtree(build)
+        os.makedirs(build)
+        for name in os.listdir(os.path.join(self.exercise, "pod-topo")):
+            if name.endswith("-runtime.json"):        # such an exercise's runtime files say so too
+                runtime = os.path.join(self.exercise, "pod-topo", name)
+                with open(runtime, encoding="utf-8") as fh:
+                    text = fh.read()
+                with open(runtime, "w", encoding="utf-8") as fh:
+                    fh.write(text.replace("basic.p4.p4info.txtpb", "basic.p4.p4info.txt"))
+        subprocess.run(["p4c-bm2-ss", "--p4v", "16",
+                        "--p4runtime-files", os.path.join(build, "basic.p4.p4info.txt"),
+                        "-o", os.path.join(build, "basic.json"),
+                        os.path.join(self.exercise, "solution", "basic.p4")],
+                       check=True, capture_output=True)
+        self.fresh_package()
+        with open(os.path.join(self.pkg, "package.json"), encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["source"]["p4info"], "build/basic.p4.p4info.txt")
+        report = self.full_run()
+        self.assertEqual(self.row(report)[0], preflight.PASS, report.render())
+
+        path = os.path.join(self.exercise, "solution", "basic.p4")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text.replace("ipv4_lpm.apply();", "mark_to_drop(standard_metadata);"))
+        self.fresh_package()
+        report = self.full_run()
+        status, _label, detail = self.row(report)
+        self.assertEqual(status, preflight.FAIL, report.render())
+        match = re.search(r"Rebuild with `(p4c-bm2-ss [^`]+)` in (\S+),", detail)
+        self.assertTrue(match, detail)
+        self.assertIn("--p4runtime-files build/basic.p4.p4info.txt -o build/basic.json "
+                      "solution/basic.p4", match.group(1))
+        subprocess.run(shlex.split(match.group(1)), cwd=match.group(2), check=True,
+                       capture_output=True)
+        self.fresh_package()
+        report = self.full_run()
+        self.assertEqual(self.row(report)[0], preflight.PASS, report.render())
+
+    def test_a_comment_above_a_program_with_no_bare_statement_is_not_a_stale_build(self):
+        # A comment line shifts every source position in the json. basic.p4 has no bare
+        # statement in a control's apply block, so no table name carries a line number and the
+        # shift changes nothing else (see ABareStatementNamedByItsLine for the program that has one).
+        self.p4c_into_build()
+        path = os.path.join(self.exercise, "solution", "basic.p4")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("// a comment above everything\n" + text)
+        self.fresh_package()
+        report = self.full_run()
+        self.assertEqual(self.row(report)[0], preflight.PASS, report.render())
+
+
+@unittest.skipUnless(P4C_USABLE, P4C_SKIP_REASON)
+class ABareStatementNamedByItsLine(unittest.TestCase):
+    """For a bare statement p4c makes an action `<stem><line>` and a table `tbl_<stem><line>`.
+
+    [Co-developed with claude code -- Adam]
+    Those names sit outside `source_info`, so a comment added above such a statement changes the
+    json the comparison sees until the program is built again. The check is right to ask for a
+    rebuild; this pins that it asks, and that the rebuild clears it.
+    """
+
+    PROGRAM = """\
+#include <core.p4>
+#include <v1model.p4>
+
+header eth_t { bit<48> dst; bit<48> src; bit<16> type; }
+struct headers { eth_t eth; }
+struct metadata { }
+
+parser P(packet_in pkt, out headers hdr, inout metadata meta, inout standard_metadata_t sm) {
+    state start { pkt.extract(hdr.eth); transition accept; }
+}
+control VC(inout headers hdr, inout metadata meta) { apply { } }
+control Ing(inout headers hdr, inout metadata meta, inout standard_metadata_t sm) {
+    apply {
+        sm.egress_spec = 2;
+        hdr.eth.type = 0x800;
+    }
+}
+control Egr(inout headers hdr, inout metadata meta, inout standard_metadata_t sm) { apply { } }
+control CC(inout headers hdr, inout metadata meta) { apply { } }
+control D(packet_out pkt, in headers hdr) { apply { pkt.emit(hdr.eth); } }
+V1Switch(P(), VC(), Ing(), Egr(), CC(), D()) main;
+"""
+
+    def setUp(self):
+        put_p4c_on_path(self)
+        self.tmp = tempfile.mkdtemp(prefix="p4_exercise_preflight_bare_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        os.makedirs(os.path.join(self.tmp, "build"))
+        self.p4 = os.path.join(self.tmp, "bare.p4")
+
+    def write(self, text):
+        with open(self.p4, "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    def compile(self, directory):
+        import subprocess
+
+        os.makedirs(directory, exist_ok=True)
+        info = os.path.join(directory, "bare.p4.p4info.txtpb")
+        out = os.path.join(directory, "bare.json")
+        subprocess.run(["p4c-bm2-ss", "--p4v", "16", "--p4runtime-files", info, "-o", out,
+                        self.p4], check=True, capture_output=True)
+        return info, out
+
+    def compare(self):
+        report = preflight.Report()
+        info, out = self.compile(os.path.join(self.tmp, "check"))
+        package = {"source": {"p4": "bare.p4", "exercise_dir": self.tmp,
+                              "p4info": "build/bare.p4.p4info.txtpb",
+                              "bmv2_json": "build/bare.json"}}
+        preflight._check_build_matches_source(report, self.tmp, package, info, out)
+        return [r for r in report.rows if r[1] == "build matches source"][0]
+
+    def built_names(self):
+        """(action names, table names) in build/bare.json: where the line number shows."""
+        import json
+
+        with open(os.path.join(self.tmp, "build", "bare.json"), encoding="utf-8") as fh:
+            doc = json.load(fh)
+        return ([a["name"] for a in doc["actions"]],
+                [t["name"] for p in doc["pipelines"] for t in p["tables"]])
+
+    def test_a_line_shifting_edit_above_a_bare_statement_fails_until_it_is_rebuilt(self):
+        self.write(self.PROGRAM)
+        line = self.PROGRAM.splitlines().index("        sm.egress_spec = 2;") + 1
+        self.compile(os.path.join(self.tmp, "build"))
+        # The names the docstring and _bmv2_json_without_positions describe.
+        self.assertEqual(self.built_names(), ([f"bare{line}"], [f"tbl_bare{line}"]))
+        self.assertEqual(self.compare()[0], preflight.PASS)
+
+        self.write("// a comment above everything\n" + self.PROGRAM)
+        status, _label, detail = self.compare()
+        self.assertEqual(status, preflight.FAIL, detail)
+        self.assertIn("bmv2 json", detail)
+
+        self.compile(os.path.join(self.tmp, "build"))     # the rebuild the row asks for
+        self.assertEqual(self.built_names(), ([f"bare{line + 1}"], [f"tbl_bare{line + 1}"]))
+        self.assertEqual(self.compare()[0], preflight.PASS)
 
 
 class ValueWidths(unittest.TestCase):

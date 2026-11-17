@@ -2106,6 +2106,21 @@ EOF
 check_fires "M142: the success line prints the poll index as seconds" m142 \
             "🔴 saying the elapsed 40 s, not the 41st poll"
 
+# [Co-developed with claude code -- Adam]
+# M143: a bring-up that pre-flight refuses has already written the host count. The three refusal
+# cases start from a count ndt would never write (7), so the write is a changed byte.
+cat > "$A/m143.old" <<'EOF'
+        say "app package pre-flight"
+EOF
+cat > "$A/m143.new" <<'EOF'
+        printf '4\n' > "$REPO/p4_proxy/mininet/host_count_override"
+        say "app package pre-flight"
+EOF
+check_fires "M143: the host count is written before pre-flight refuses" m143 \
+            "🔴 stale_build: the app knob and the host count are byte for byte as they were" \
+            "🔴 cpu_port_on_a_cable: the app knob and the host count are byte for byte as they were" \
+            "🔴 port_above_510: the app knob and the host count are byte for byte as they were"
+
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then

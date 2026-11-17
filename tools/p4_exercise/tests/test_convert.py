@@ -501,6 +501,101 @@ class PerSwitchPipelines(TmpMixin, unittest.TestCase):
             self.assertEqual(sha(os.path.join(out1, rel)), sha(os.path.join(out2, rel)), rel)
 
 
+class TheMissingBuildSaysWhatToRun(TmpMixin, unittest.TestCase):
+    """The refusals for an unbuilt exercise name the command that builds the program asked for.
+
+    [Co-developed with claude code -- Adam]
+    `make build` compiles only the exercise's top-level .p4. For `--p4 solution/basic.p4` the
+    refusal has to name the compile of that program, and `p4c-bm2-ss` does not create `build/`,
+    so on an exercise with none the command makes it first. Pre-flight's `build matches source`
+    row gives the same advice from the same helper (common.rebuild_advice).
+    """
+
+    COMPILE = ("p4c-bm2-ss --p4v 16 --p4runtime-files build/basic.p4.p4info.txtpb "
+               "-o build/basic.json solution/basic.p4")
+
+    def setUp(self):
+        super().setUp()
+        self.ex = os.path.join(self.tmp, "ex")
+        shutil.copytree(BASIC, self.ex)
+        shutil.rmtree(os.path.join(self.ex, "build"))
+
+    def refusal(self, p4_rel, switches=None, **kw):
+        switches = switches or {1: {"name": "s1", "entries": None}}
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.switch_pipelines(self.ex, switches, p4_rel, **kw)
+        return str(cm.exception)
+
+    def test_a_program_in_a_subdirectory_gets_its_own_compile_with_the_build_directory_made(self):
+        message = self.refusal("solution/basic.p4")
+        self.assertIn(f"Build the exercise first (`mkdir -p build && {self.COMPILE}` in "
+                      f"{self.ex})", message)
+        self.assertNotIn("`make build`", message)
+
+    def test_the_directory_is_not_made_again_when_it_is_there(self):
+        os.makedirs(os.path.join(self.ex, "build"))
+        message = self.refusal("solution/basic.p4")
+        self.assertIn(f"Build the exercise first (`{self.COMPILE}` in {self.ex})", message)
+        self.assertNotIn("mkdir", message)
+
+    def test_a_top_level_program_still_gets_make_build(self):
+        self.assertIn(f"Build the exercise first (`make build` in {self.ex})",
+                      self.refusal("basic.p4"))
+
+    def test_a_switchs_own_program_is_built_by_make_build_even_beside_a_subdirectory_default(self):
+        # s1 declares `build/firewall.json`, which the Makefile builds from a top-level
+        # firewall.p4; only the --p4 program (the default) can sit in a subdirectory.
+        switches = {1: {"name": "s1", "entries": None, "program": "build/firewall.json"}}
+        message = self.refusal("solution/basic.p4", switches)
+        self.assertIn(f"Build the exercise first (`make build` in {self.ex})", message)
+        self.assertNotIn("p4c-bm2-ss", message)
+
+    def test_a_runtime_file_naming_the_programs_own_build_gets_its_compile(self):
+        # --ndtwin-pipeline skips the pipelines, so the first refusal is the runtime file's.
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.plan(self.ex, "pod-topo/topology.json", p4_rel="solution/basic.p4",
+                         ndtwin_pipeline=True)
+        message = str(cm.exception)
+        self.assertIn("s1-runtime.json names", message)
+        self.assertIn(f"Build the exercise first (`mkdir -p build && {self.COMPILE}` in "
+                      f"{self.ex})", message)
+
+    def test_a_runtime_file_with_no_program_given_gets_make_build(self):
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.plan(self.ex, "pod-topo/topology.json", ndtwin_pipeline=True)
+        self.assertIn(f"Build the exercise first (`make build` in {self.ex})", str(cm.exception))
+
+    def test_a_runtime_file_naming_another_programs_build_gets_make_build(self):
+        # basic.json is not what solution/other.p4 builds, so its compile would not make it.
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.plan(self.ex, "pod-topo/topology.json", p4_rel="solution/other.p4",
+                         ndtwin_pipeline=True)
+        message = str(cm.exception)
+        self.assertIn(f"Build the exercise first (`make build` in {self.ex})", message)
+        self.assertNotIn("p4c-bm2-ss", message)
+
+    def test_the_helper_names_the_exercise_it_was_not_given(self):
+        self.assertEqual(common.rebuild_advice("basic.p4"), "`make build` in the exercise")
+        self.assertEqual(
+            common.rebuild_advice("solution/basic.p4"),
+            f"`{self.COMPILE}` in the exercise")
+
+    def test_the_helper_uses_the_names_it_is_given(self):
+        self.assertEqual(
+            common.rebuild_advice("solution/basic.p4", "/x", p4info="build/basic.p4.p4info.txt",
+                                  bmv2_json="out/b.json"),
+            "`p4c-bm2-ss --p4v 16 --p4runtime-files build/basic.p4.p4info.txt -o out/b.json "
+            "solution/basic.p4` in /x")
+
+    def test_the_guide_prints_the_command_the_code_prints(self):
+        with open(os.path.join(common.REPO, "doc", "2026-10-31_p4-app-guide.md"),
+                  encoding="utf-8") as fh:
+            guide = fh.read()
+        self.assertIn(self.COMPILE, guide)
+        # And the code prints that same text for the program the guide names.
+        self.assertIn(f"`{self.COMPILE}`", common.rebuild_advice("solution/basic.p4"))
+
+
 class OneSwitchExercise(TmpMixin, unittest.TestCase):
     """exercises/calc: one switch, two hosts, no cable between switches because there is no
     second switch. The reader used to refuse this shape outright."""
@@ -1517,6 +1612,71 @@ class AutoRoleFlagTest(TmpMixin, unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertNotIn("roles", common.load_json(os.path.join(self.tmp, "cli", "package.json")))
         self.assertNotIn("route role", out)
+
+
+class AutoRoleSaysWhyWhenTheTopologyDoesNotFit(TmpMixin, unittest.TestCase):
+    """`--auto-role` on a table that IS a route but whose port is too narrow for a cable.
+
+    [Co-developed with claude code -- Adam]
+    With s1's cable to s3 on port 600, the one route-shaped table of basic.p4 (a 9-bit port
+    parameter) no longer resolved, and the report said "no table of the
+    program is shaped like a destination route" -- true of nothing, and it sent the reader to the
+    program instead of the cable.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.exercise = os.path.join(self.tmp, "basic")
+        shutil.copytree(BASIC, self.exercise)
+        path = os.path.join(self.exercise, "pod-topo", "topology.json")
+        with open(path, encoding="utf-8") as fh:
+            topo = json.load(fh)
+        topo["links"][2] = ["s1-p600", "s3-p1"]
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(topo, fh, indent=4)
+
+    def cli(self, *extra):
+        import contextlib
+        import io
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            rc = convert.main([self.exercise, "--topology", "pod-topo/topology.json", "--p4",
+                               "solution/basic.p4", "--out", os.path.join(self.tmp, "cli"),
+                               "--auto-role"] + list(extra))
+        return rc, out.getvalue()
+
+    def test_the_report_names_the_table_and_the_port_that_does_not_fit(self):
+        rc, out = self.cli()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("route role    : none -- MyIngress.ipv4_lpm is shaped like a destination "
+                      "route, but it does not bind:", out)
+        self.assertIn("port 600", out)
+        self.assertNotIn("no table of the program is shaped like", out)
+        self.assertIn(convert.NO_PATHS_WARNING, out)
+
+    def test_a_topology_that_fits_still_gets_its_role(self):
+        # The same exercise with the cable on port 3 again: the control for the above.
+        path = os.path.join(self.exercise, "pod-topo", "topology.json")
+        with open(path, encoding="utf-8") as fh:
+            topo = json.load(fh)
+        topo["links"][2] = ["s1-p3", "s3-p1"]
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(topo, fh, indent=4)
+        rc, out = self.cli()
+        self.assertEqual(rc, 0, out)
+        self.assertIn("route role    : auto-filled from the p4info", out)
+
+    def test_owner_ndtwin_is_refused_with_the_same_reason(self):
+        rc, out = self.cli("--table-owner", "ndtwin")
+        self.assertEqual(rc, 1, out)
+        self.assertIn("port 600", out)
+
+    def test_a_program_with_no_route_shaped_table_still_says_so(self):
+        # The other way to end with no role keeps its own sentence.
+        package, model, _copies = convert.plan(CALC, "topology.json", p4_rel="calc.p4")
+        found = convert.auto_route_role(CALC, package, model)
+        self.assertIn("no table of the program is shaped like a destination route", found["why"])
 
 
 if __name__ == "__main__":

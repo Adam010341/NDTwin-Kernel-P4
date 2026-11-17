@@ -153,6 +153,7 @@ lay_out() {   # $1 = a directory to become a repo-shaped copy
     cp -r "$REPO/p4_proxy/p4_src/build" "$d/p4_proxy/p4_src/" 2>/dev/null
     cp -r "$REPO/tools/p4_exercise" "$d/tools/"
     ln -s "$REPO/setting" "$d/setting"
+    ln -s "$REPO/doc" "$d/doc"                    # read only, by test_convert.py's guide check
     find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
 }
 

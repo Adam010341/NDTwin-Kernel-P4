@@ -582,11 +582,19 @@ def switch_pipelines(exercise_dir, switches, p4_rel, ndtwin_pipeline=False):
         for rel in (p4info_rel, json_rel):
             abs_path = os.path.join(exercise_dir, rel)
             if not os.path.isfile(abs_path):
+                # [Co-developed with claude code -- Adam]
+                # A switch's own `program` names a build output the Makefile makes from a
+                # top-level .p4; only the `--p4` program can sit in a subdirectory.
+                if declared[dpid]:
+                    advice = common.rebuild_advice("", exercise_dir)
+                else:
+                    advice = common.rebuild_advice(p4_rel, exercise_dir, p4info=default[0],
+                                                   bmv2_json=default[1], create_output_dir=True)
                 raise ConversionError(
                     f"switch {switches[dpid]['name']} runs {json_rel!r}, whose artefact {rel!r} "
-                    f"is not at {abs_path}. Build the exercise first (`make build` in "
-                    f"{exercise_dir}) -- a package that names a pipeline it does not carry "
-                    f"cannot be pre-flighted and cannot be brought up")
+                    f"is not at {abs_path}. Build the exercise first ({advice}) -- a package "
+                    f"that names a pipeline it does not carry cannot be pre-flighted and cannot "
+                    f"be brought up")
             copies.append((abs_path, rel))
         out[dpid] = {"p4info": p4info_rel, "bmv2_json": json_rel}
     return out, copies
@@ -646,7 +654,7 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
                     f"switch {switches[dpid]['name']} names runtime entries {entries_rel!r}, "
                     f"which is not at {entries_abs}")
             copies.append((entries_abs, entries_rel))
-            copies.extend(_runtime_json_dependencies(exercise_dir, entries_abs, entries_rel))
+            copies.extend(_runtime_json_dependencies(exercise_dir, entries_abs, entries_rel, p4_rel))
         pkg_switches[str(dpid)] = {
             "name": switches[dpid]["name"],
             # This switch's own program, or null for NDTwin's own artefacts. See
@@ -837,12 +845,12 @@ def _check_switch_ports_are_used_once(links):
             claimed[key] = here
 
 
-def _runtime_json_dependencies(exercise_dir, entries_abs, entries_rel):
+def _runtime_json_dependencies(exercise_dir, entries_abs, entries_rel, p4_rel=None):
     """The p4info and bmv2 json a tutorials runtime file names, as (abs, package_rel) copies.
 
     The interior paths are kept exactly as written, so they resolve against the package
     directory the way they resolve against the exercise directory today -- see the module
-    docstring.
+    docstring. `p4_rel` (`--p4`, or None) only shapes the advice when one of them is missing.
     """
     conf = common.load_json(entries_abs)
     out = []
@@ -856,10 +864,19 @@ def _runtime_json_dependencies(exercise_dir, entries_abs, entries_rel):
                 f"paths as written so they must be relative to the exercise directory")
         abs_path = os.path.join(exercise_dir, rel)
         if not os.path.isfile(abs_path):
+            # [Co-developed with claude code -- Adam]
+            # The `--p4` program's own compile only when this file is what that program builds
+            # (the same stem); any other build output comes from a top-level .p4 by `make build`.
+            stem = _p4_stem(p4_rel) if p4_rel else None
+            own = stem is not None and os.path.basename(rel) in (
+                [f"{stem}.json"] + [stem + suffix for suffix in P4INFO_SUFFIXES])
+            advice = common.rebuild_advice(
+                p4_rel if own else "", exercise_dir, p4info=conf.get("p4info"),
+                bmv2_json=conf.get("bmv2_json"), create_output_dir=True)
             raise ConversionError(
                 f"{entries_rel} names {key} {rel!r}, which is not at {abs_path}. Build the "
-                f"exercise first (`make build` in {exercise_dir}) -- a package that names a p4info "
-                f"it does not carry cannot be pre-flighted")
+                f"exercise first ({advice}) -- a package that names a p4info it does not carry "
+                f"cannot be pre-flighted")
         out.append((abs_path, rel))
     return out
 
@@ -1025,10 +1042,21 @@ def auto_route_role(exercise_dir, package, model, owner=DEFAULT_ROLE_OWNER):
                 raise ConversionError(f"{own[dpid]['pipeline']['p4info']} (the p4info of "
                                       f"s{dpid}) does not parse: {type(exc).__name__}: "
                                       f"{exc}") from exc
+        rejected = []
         found["candidates"] = preflight.route_role_candidates(
-            common.import_route_binding(), p4infos, {"model": model, "reads": read_back(model)})
+            common.import_route_binding(), p4infos, {"model": model, "reads": read_back(model)},
+            rejected=rejected)
         if len(found["candidates"]) == 1:
             found["role"] = dict(found["candidates"][0], owner=owner)
+        elif not found["candidates"] and rejected:
+            # [Co-developed with claude code -- Adam]
+            # Not "nothing is shaped like a route": something is, and it does not bind; the
+            # binding's own sentence says why. Saying the first would send the author looking
+            # at the program.
+            tables = sorted({role["table"] for role, _why in rejected})
+            found["why"] = (f"{', '.join(tables)} is shaped like a destination route, but it "
+                            f"does not bind: {rejected[0][1]}")
+            found["warn"] = True
         elif not found["candidates"]:
             found["why"] = ("no table of the program is shaped like a destination route (one "
                             "32-bit LPM match field, and an action taking a 48-bit MAC and a "
