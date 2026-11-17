@@ -138,6 +138,43 @@ def load_json(path):
         return json.load(fh)
 
 
+def rebuild_advice(p4_rel, exercise_dir=None, p4info=None, bmv2_json=None,
+                   create_output_dir=False):
+    """What to run so `build/` holds the files made from the exercise's program `p4_rel`.
+
+    Returns "`<command>` in <exercise_dir>" (the exercise's own words when `exercise_dir` is
+    None), the one sentence pre-flight's `build matches source` row and convert's missing-build
+    refusals both give.
+
+    [Co-developed with claude code -- Adam]
+    `make build` compiles only the exercise's top-level `.p4` (the tutorials Makefiles'
+    `$(wildcard *.p4)`), so for `--p4 solution/basic.p4` it would build another program and the
+    files this advice is about would still not be there. A program with a directory part
+    therefore gets the compile of that program itself, with the names convert reads (`p4info`
+    and `bmv2_json` as the package or the runtime file spells them, else the Makefile's own
+    `build/<stem>.p4.p4info.txtpb` and `build/<stem>.json`); a top-level program gets
+    `make build`, never plain `make` (the Makefiles' default target starts their own Mininet;
+    tests/python/test_one_step_repo.py holds every printed string to that).
+    `create_output_dir` puts `mkdir -p` for the output directories in front when they are not on
+    disk under `exercise_dir`: p4c does not create them, and an unbuilt exercise has no
+    `build/` yet.
+    """
+    where = exercise_dir or "the exercise"
+    p4_rel = p4_rel or ""
+    if not os.path.dirname(p4_rel):
+        return f"`make build` in {where}"
+    stem = os.path.splitext(os.path.basename(p4_rel))[0]
+    info = p4info or f"build/{stem}.p4.p4info.txtpb"
+    out = bmv2_json or f"build/{stem}.json"
+    command = f"p4c-bm2-ss --p4v 16 --p4runtime-files {info} -o {out} {p4_rel}"
+    if create_output_dir:
+        missing = sorted({d for d in (os.path.dirname(info), os.path.dirname(out))
+                          if d and not (exercise_dir and os.path.isdir(os.path.join(exercise_dir, d)))})
+        if missing:
+            command = f"mkdir -p {' '.join(missing)} && {command}"
+    return f"`{command}` in {where}"
+
+
 def switch_name_to_dpid(name):
     """`s7` -> 7. The naming rule the whole stack already assumes."""
     if not (isinstance(name, str) and len(name) > 1 and name[0] == "s" and name[1:].isdigit()):

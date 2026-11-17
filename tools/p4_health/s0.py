@@ -134,7 +134,8 @@ _MORE = re.compile(r"\.\.\. and (\d+) more")
 def pft_entries(pkg):
     """Where pre-flight names PF-T's ternary boot entries ("s2 entry 23"): every non-default entry, on any switch of
     the package, that writes PFT_TABLE and whose match names PFT_FIELD. A match-less priority entry on that table is
-    a legal catch-all pre-flight passes (preflight.py:220-224), and it names no ternary field: it is not PF-T's
+    a legal catch-all pre-flight passes (`check_entry` in preflight.py raises its "neither a match nor
+    default_action" problem only for a table with no priority column), and it names no ternary field: it is not PF-T's
     entry. An unreadable package is []."""
     try:
         with open(os.path.join(pkg, "package.json"), encoding="utf-8") as fh:
@@ -363,7 +364,11 @@ class S0(object):
             if pkg is None:
                 self.check("pre-flight %s" % name, False, "no package")
                 continue
-            res = self.run_cmd(["nice", "-n", "19", self.py, script, pkg])
+            # [Co-developed with claude code -- Adam]
+            # A-MUT's build/ is the mutant compile of the plain source on purpose, which is
+            # exactly what pre-flight's build-matches-source row refuses.
+            flags = ["--no-build-match"] if name == "A-MUT" else []
+            res = self.run_cmd(["nice", "-n", "19", self.py, script] + flags + [pkg])
             fails = preflight_rows(res.stdout)
             self.out["preflight"][name] = {"rc": res.rc, "fail_rows": fails}
             if name != "PF-T":

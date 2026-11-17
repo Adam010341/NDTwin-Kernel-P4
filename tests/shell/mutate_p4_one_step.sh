@@ -73,6 +73,7 @@ tree_copy() {   # tree_copy <dir> -- tools/p4_exercise and p4_proxy/{mininet,pro
     mkdir -p "$1/tools/test_workflow"
     cp "$REPO/tools/test_workflow/ndt" "$1/tools/test_workflow/ndt"      # read by test_one_step_repo.py
     ln -s "$REPO/setting" "$1/setting"                      # read only, by test_route_binding.py
+    ln -s "$REPO/doc" "$1/doc"                              # read only, by test_convert.py's guide check
     # p4_proxy: the two directories a mutation may touch are copied, everything else is linked.
     mkdir -p "$1/p4_proxy"
     local e
@@ -385,8 +386,8 @@ mut D4_format_two "$CONVERT" \
     '        "format": 2,' \
     test_the_package_format_is_still_one
 mut D5_unbuilt_unsaid "$CONVERT" \
-    '                    f"is not at {abs_path}. Build the exercise first (`make build` in "' \
-    '                    f"is not at {abs_path}. Build the exercise first (`make` in "' \
+    '                    f"is not at {abs_path}. Build the exercise first ({advice}) -- a package "' \
+    '                    f"is not at {abs_path}. Build the exercise first (`make` in {exercise_dir}) -- a package "' \
     test_an_unbuilt_exercise_is_refused_with_make_build
 
 # --- preflight.py: the heuristic --------------------------------------------------------------

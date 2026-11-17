@@ -505,7 +505,7 @@ on both the stock and the performance bmv2 build.
 
 **What to do.** Do not run an app's own CLI scripts on a fabric switch. Convert them:
 `tools/p4_exercise/convert.py --thrift-commands` turns the CLI commands into P4Runtime entries that the
-proxy writes (`tools/p4_exercise/convert.py:1129`). See the user guide's section on protecting bmv2's
+proxy writes (`apply_thrift_commands` in `tools/p4_exercise/convert.py`). See the user guide's section on protecting bmv2's
 Thrift port for the access side.
 
 Failure direction: pessimistic.

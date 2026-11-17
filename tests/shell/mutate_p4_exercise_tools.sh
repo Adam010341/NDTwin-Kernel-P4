@@ -11,6 +11,9 @@
 # The paper-apps work (int-v1 and ONTAS, 2026-10-16) appended 38-77 and a fifth subject,
 # tools/p4_exercise/thrift_cli.py, the bmv2 CLI -> P4Runtime entry translator.
 # Wrong-typed values in a package and the two link checks of pre-flight appended 78-112.
+# The stale-build, CPU-port and port-range refusals and their advice appended 113-136.
+# Moving that advice into common.py (shared with convert's missing-build refusals) re-anchored
+# 123-131 there and appended 137-151, with common.py and the guide as subjects.
 # [Co-developed with claude code -- Adam]
 #
 # A test that has never been seen to fail is a decoration. This applies ten mutations to the
@@ -81,6 +84,10 @@ ADAPTER="$PKG/run_external_controller.py"
 TESTCONV="$PKG/tests/test_convert.py"
 # The bmv2 CLI translator (38-43). [Co-developed with claude code -- Adam]
 THRIFT="$PKG/thrift_cli.py"
+# The rebuild advice shared by pre-flight and convert (123-131, 137-140), and the guide that
+# prints the same command (151). [Co-developed with claude code -- Adam]
+COMMON="$PKG/common.py"
+GUIDE=doc/2026-10-31_p4-app-guide.md
 
 ANCHOR_CHECK="${ANCHOR_CHECK:-0}"
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -92,6 +99,8 @@ fi
 [[ -f "$ADAPTER" ]]   || { echo "REFUSE: $ADAPTER not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$TESTCONV" ]]  || { echo "REFUSE: $TESTCONV not found -- run from the repo root." >&2; exit 2; }
 [[ -f "$THRIFT" ]]    || { echo "REFUSE: $THRIFT not found -- run from the repo root." >&2; exit 2; }
+[[ -f "$COMMON" ]]    || { echo "REFUSE: $COMMON not found -- run from the repo root." >&2; exit 2; }
+[[ -f "$GUIDE" ]]     || { echo "REFUSE: $GUIDE not found -- run from the repo root." >&2; exit 2; }
 [[ -d "$TESTS" ]]     || { echo "REFUSE: $TESTS not found -- run from the repo root." >&2; exit 2; }
 [[ -x "$PYTHON" ]]    || { echo "REFUSE: no interpreter at $PYTHON (override with PYTHON=)." >&2; exit 2; }
 
@@ -969,6 +978,254 @@ add "112. an explicit default_action false is refused as if it were not a boolea
     '    if is_default is not True and "default_action" in entry:  # MUTANT' \
     'test_an_explicit_default_action_false_on_a_match_entry_is_accepted'
 
+# 113-136: the three refusals added to pre-flight and convert (a stale build, a CPU port on a
+# cable, a port bmv2 cannot have, and the reason convert gives when a route-shaped table does
+# not bind), and the advice the stale-build row prints. Each one is a way the new code could be
+# wrong while the table stays green.
+# [Co-developed with claude code -- Adam]
+add "113. the highest port a cable may use is 511, the drop port" \
+    "$PREFLIGHT" \
+    'BMV2_MAX_DATA_PORT = 510' \
+    'BMV2_MAX_DATA_PORT = 511  # MUTANT' \
+    'test_the_last_port_a_program_can_send_to_passes_and_the_drop_port_fails'
+
+add "114. a cable on a port above the limit is accepted" \
+    "$PREFLIGHT" \
+    'if port < 0 or port > BMV2_MAX_DATA_PORT]' \
+    'if port < 0]  # MUTANT: no upper bound' \
+    'test_a_cable_on_port_600_fails_and_names_the_port_the_cable_and_the_limit'
+
+add "115. a cabled CPU port is not a clash" \
+    "$PREFLIGHT" \
+    'if port == cpu]' \
+    'if port == cpu and False]  # MUTANT' \
+    'test_a_cpu_port_equal_to_a_cabled_port_fails_naming_the_switch_port_and_link'
+
+add "116. the CPU port is checked against inter-switch cables only, not host cables" \
+    "$PREFLIGHT" \
+    '    for host, dpid, port in reads.get("host_links") or ():
+        out.append((dpid, port, f"{host} - s{dpid} port {port}"))' \
+    '    pass  # MUTANT: a host cable on the CPU port is not looked at' \
+    'test_every_switch_with_a_cable_on_that_port_is_a_clash_not_only_the_one_that_named_it'
+
+add "117. the bmv2 json is never compared with the build" \
+    "$PREFLIGHT" \
+    '                same = built == shipped
+
+                def canon_sha' \
+    '                same = True  # MUTANT
+
+                def canon_sha' \
+    'test_a_json_that_differs_with_the_same_p4info_fails_too'
+
+add "118. the p4info is never compared with the build" \
+    "$PREFLIGHT" \
+    '                same = built == shipped
+                with open(out_p4info' \
+    '                same = True  # MUTANT
+                with open(out_p4info' \
+    'test_a_p4info_that_differs_fails_with_both_shas_and_the_rebuild_command'
+
+add "119. the bmv2 json is compared with the path it was compiled from" \
+    "$PREFLIGHT" \
+    '        doc.pop("program", None)' \
+    '        pass  # MUTANT' \
+    'test_a_build_that_is_what_the_source_compiles_to_passes_and_says_what_it_compared'
+
+add "120. the bmv2 json is compared with its source positions" \
+    "$PREFLIGHT" \
+    'if k != "source_info"}' \
+    'if True}  # MUTANT' \
+    'test_a_build_that_is_what_the_source_compiles_to_passes_and_says_what_it_compared'
+
+add "121. --no-build-match is ignored" \
+    "$PREFLIGHT" \
+    '        if compare_build:
+            _check_build_matches_source' \
+    '        if True:  # MUTANT
+            _check_build_matches_source' \
+    'test_no_build_match_leaves_the_comparison_out'
+
+add "122. a build that differs is a note, not a FAIL" \
+    "$PREFLIGHT" \
+    '        report.bad("build matches source",' \
+    '        report.note("build matches source",  # MUTANT' \
+    'test_the_failure_makes_the_command_line_say_do_not_bring_it_up'
+
+add "123. a program at the top level is told to run no command" \
+    "$COMMON" \
+    '        return f"`make build` in {where}"' \
+    '        return "rebuild it"  # MUTANT' \
+    'test_a_program_at_the_top_level_is_rebuilt_with_make_build'
+
+add "124. a program in a subdirectory is told to run no command" \
+    "$COMMON" \
+    '    return f"`{command}` in {where}"' \
+    '    return "rebuild it"  # MUTANT' \
+    'test_a_p4info_that_differs_fails_with_both_shas_and_the_rebuild_command'
+
+add "125. a program in a subdirectory is told make build again" \
+    "$COMMON" \
+    '    if not os.path.dirname(p4_rel):' \
+    '    if True:  # MUTANT: make build for every program' \
+    'test_a_p4info_that_differs_fails_with_both_shas_and_the_rebuild_command'
+
+add "126. a program at the top level is given the p4c command" \
+    "$COMMON" \
+    '    if not os.path.dirname(p4_rel):' \
+    '    if False:  # MUTANT: the p4c command for every program' \
+    'test_a_program_at_the_top_level_is_rebuilt_with_make_build'
+
+add "127. the advice ignores the p4info the package names" \
+    "$COMMON" \
+    '    info = p4info or f"build/{stem}.p4.p4info.txtpb"' \
+    '    info = f"build/{stem}.p4.p4info.txtpb"  # MUTANT' \
+    'test_the_advice_names_the_build_files_the_package_names'
+
+add "128. the advice ignores the json the package names" \
+    "$COMMON" \
+    '    out = bmv2_json or f"build/{stem}.json"' \
+    '    out = f"build/{stem}.json"  # MUTANT' \
+    'test_the_advice_names_the_build_files_the_package_names'
+
+add "129. the default p4info name in the advice is wrong" \
+    "$COMMON" \
+    'p4info or f"build/{stem}.p4.p4info.txtpb"' \
+    'p4info or f"build/{stem}.p4info"  # MUTANT' \
+    'test_a_package_that_names_no_p4info_gets_the_default_p4info_name_in_the_advice'
+
+add "130. the default json name in the advice is wrong" \
+    "$COMMON" \
+    'bmv2_json or f"build/{stem}.json"' \
+    'bmv2_json or f"build/{stem}.bmv2"  # MUTANT' \
+    'test_a_package_that_names_no_json_gets_the_default_json_name_in_the_advice'
+
+add "131. a package with no exercise directory is told to work in None" \
+    "$COMMON" \
+    '    where = exercise_dir or "the exercise"' \
+    '    where = exercise_dir  # MUTANT' \
+    'test_a_package_that_does_not_name_its_exercise_says_the_exercise'
+
+add "132. the row stops saying a hand run can skip it" \
+    "$PREFLIGHT" \
+    '(a preflight.py run by hand can skip this row with --no-build-match, e.g. "' \
+    '(skip it somehow, e.g. "  # MUTANT' \
+    'test_the_failure_names_how_to_skip_it_by_hand_and_that_ndt_cannot'
+
+add "133. the row stops saying ndt cannot skip it" \
+    "$PREFLIGHT" \
+    '`ndt up p4 --app` cannot)")' \
+    'ndt has a way)")  # MUTANT' \
+    'test_the_failure_names_how_to_skip_it_by_hand_and_that_ndt_cannot'
+
+add "134. a route-shaped table that does not bind is called not a route again" \
+    "$CONVERT" \
+    'elif not found["candidates"] and rejected:' \
+    'elif False:  # MUTANT' \
+    'test_the_report_names_the_table_and_the_port_that_does_not_fit'
+
+add "135. the reason a route-shaped table did not bind is not collected" \
+    "$PREFLIGHT" \
+    '                rejected.append((role, str(exc)))' \
+    '                pass  # MUTANT' \
+    'test_the_report_names_the_table_and_the_port_that_does_not_fit'
+
+add "136. the reason convert gives is not the binding's own sentence" \
+    "$CONVERT" \
+    'does not bind: {rejected[0][1]}")' \
+    'does not bind")  # MUTANT' \
+    'test_the_report_names_the_table_and_the_port_that_does_not_fit'
+
+add "137. the build directory is never made, however absent" \
+    "$COMMON" \
+    "            command = f\"mkdir -p {' '.join(missing)} && {command}\"" \
+    '            pass  # MUTANT' \
+    'test_a_program_in_a_subdirectory_gets_its_own_compile_with_the_build_directory_made'
+
+add "138. the build directory is made again though it is there" \
+    "$COMMON" \
+    '                          if d and not (exercise_dir and os.path.isdir(os.path.join(exercise_dir, d)))})' \
+    '                          if d})  # MUTANT' \
+    'test_the_directory_is_not_made_again_when_it_is_there'
+
+add "139. the build directory is made for pre-flight's row too" \
+    "$COMMON" \
+    '    if create_output_dir:' \
+    '    if True:  # MUTANT' \
+    'test_the_helper_names_the_exercise_it_was_not_given'
+
+add "140. the compile command leaves out the program" \
+    "$COMMON" \
+    '-o {out} {p4_rel}"' \
+    '-o {out}"  # MUTANT' \
+    'test_the_helper_uses_the_names_it_is_given'
+
+add "141. a switch's own program gets the compile of the --p4 program" \
+    "$CONVERT" \
+    '                if declared[dpid]:' \
+    '                if False:  # MUTANT' \
+    'test_a_switchs_own_program_is_built_by_make_build_even_beside_a_subdirectory_default'
+
+add "142. the missing-build refusal says make build for a subdirectory program" \
+    "$CONVERT" \
+    '                    advice = common.rebuild_advice(p4_rel, exercise_dir, p4info=default[0],' \
+    '                    advice = common.rebuild_advice("", exercise_dir, p4info=default[0],  # MUTANT' \
+    'test_a_program_in_a_subdirectory_gets_its_own_compile_with_the_build_directory_made'
+
+add "143. the missing-build refusal does not make the build directory" \
+    "$CONVERT" \
+    '                                                   bmv2_json=default[1], create_output_dir=True)' \
+    '                                                   bmv2_json=default[1])  # MUTANT' \
+    'test_a_program_in_a_subdirectory_gets_its_own_compile_with_the_build_directory_made'
+
+add "144. a runtime file naming the program's own build is told make build" \
+    "$CONVERT" \
+    '                p4_rel if own else "", exercise_dir, p4info=conf.get("p4info"),' \
+    '                "", exercise_dir, p4info=conf.get("p4info"),  # MUTANT' \
+    'test_a_runtime_file_naming_the_programs_own_build_gets_its_compile'
+
+add "145. a runtime file naming another program's build is given this program's compile" \
+    "$CONVERT" \
+    '                p4_rel if own else "", exercise_dir, p4info=conf.get("p4info"),' \
+    '                p4_rel, exercise_dir, p4info=conf.get("p4info"),  # MUTANT' \
+    'test_a_runtime_file_naming_another_programs_build_gets_make_build'
+
+add "146. the runtime-file check is not told which program was asked for" \
+    "$CONVERT" \
+    'copies.extend(_runtime_json_dependencies(exercise_dir, entries_abs, entries_rel, p4_rel))' \
+    'copies.extend(_runtime_json_dependencies(exercise_dir, entries_abs, entries_rel))  # MUTANT' \
+    'test_a_runtime_file_naming_the_programs_own_build_gets_its_compile'
+
+add "147. the runtime-file refusal does not make the build directory" \
+    "$CONVERT" \
+    '                bmv2_json=conf.get("bmv2_json"), create_output_dir=True)' \
+    '                bmv2_json=conf.get("bmv2_json"))  # MUTANT' \
+    'test_a_runtime_file_naming_the_programs_own_build_gets_its_compile'
+
+add "148. pre-flight's row does not pass the p4info the package names" \
+    "$PREFLIGHT" \
+    '        rebuild = common.rebuild_advice(source.get("p4"), exercise, source.get("p4info"),' \
+    '        rebuild = common.rebuild_advice(source.get("p4"), exercise, None,  # MUTANT' \
+    'test_the_advice_names_the_build_files_the_package_names'
+
+add "149. pre-flight's row does not pass the json the package names" \
+    "$PREFLIGHT" \
+    '                                        source.get("bmv2_json"))' \
+    '                                        None)  # MUTANT' \
+    'test_the_advice_names_the_build_files_the_package_names'
+
+add "150. an older p4info name is replaced by the default one in the advice" \
+    "$COMMON" \
+    '    info = p4info or f"build/{stem}.p4.p4info.txtpb"' \
+    '    info = f"build/{stem}.p4.p4info.txtpb"  # MUTANT' \
+    'test_an_older_p4info_name_gets_the_command_that_writes_that_name'
+
+add "151. the guide prints another command than the code" \
+    "$GUIDE" \
+    'p4c-bm2-ss --p4v 16 --p4runtime-files build/basic.p4.p4info.txtpb -o build/basic.json solution/basic.p4' \
+    'p4c-bm2-ss --p4v 16 --p4runtime-files build/basic.p4.p4info.txtpb -o build/basic.json basic.p4' \
+    'test_the_guide_prints_the_command_the_code_prints'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -980,6 +1237,11 @@ CTRL2_SRC="$TESTCONV"
 CTRL2_ANCHOR='def is_build_artifact(rel):'
 CTRL2_REPL='# MUTANT: a comment, and nothing else.
 def is_build_artifact(rel):'
+# And one for common.py, the subject the advice moved into (137-140). [Co-developed with claude code -- Adam]
+CTRL3_SRC="$COMMON"
+CTRL3_ANCHOR='def switch_name_to_dpid(name):'
+CTRL3_REPL='# MUTANT: a comment, and nothing else.
+def switch_name_to_dpid(name):'
 
 # --- anchor check (never a verdict) -------------------------------------------------------------
 
@@ -1011,6 +1273,12 @@ if [[ "$ANCHOR_CHECK" != "0" ]]; then
     else
         printf '  🔴 %s matches  (negative control 2, test_convert.py)\n' "$n"; broken=$((broken + 1))
     fi
+    n=$(anchor_count "$CTRL3_SRC" "$CTRL3_ANCHOR")
+    if [[ "$n" -eq 1 ]]; then
+        printf '  ok    %s  (negative control 3, common.py)\n' "$n"
+    else
+        printf '  🔴 %s matches  (negative control 3, common.py)\n' "$n"; broken=$((broken + 1))
+    fi
     if [[ "$broken" -eq 0 ]]; then
         echo "ANCHORS: ok -- all ${#MUT_LABEL[@]} mutations plus the control resolve to one site each."
     else
@@ -1023,11 +1291,11 @@ fi
 # --- baseline snapshot --------------------------------------------------------------------------
 
 BK=$(mktemp -d)
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT" "$COMMON" "$GUIDE"; do
     cp -p "$f" "$BK/$(basename "$f")"
 done
 restore() {
-    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
+    for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT" "$COMMON" "$GUIDE"; do
         cp -p "$BK/$(basename "$f")" "$f"
         # cp -p puts the ORIGINAL mtime back. Nothing here is compiled, so no build system can
         # be fooled -- but __pycache__ is keyed on mtime and size, and an unlucky pair would let
@@ -1075,7 +1343,8 @@ PY
     fi
 
     # A mutant that does not parse never reached the tests, so it establishes nothing about them.
-    if ! "$PYTHON" -c "import ast,sys;ast.parse(open(sys.argv[1]).read())" "$src" >/dev/null 2>&1; then
+    # (Python subjects only: the guide, 151, is not a program and has nothing to parse.)
+    if [[ "$src" == *.py ]] && ! "$PYTHON" -c "import ast,sys;ast.parse(open(sys.argv[1]).read())" "$src" >/dev/null 2>&1; then
         echo "  🔴 MUTANT DOES NOT PARSE -- the behaviour it was aimed at is still untested."
         SURVIVORS=$((SURVIVORS + 1)); restore; return
     fi
@@ -1103,8 +1372,10 @@ echo "                $PREFLIGHT"
 echo "                $ADAPTER"
 echo "                $TESTCONV (the fixture-provenance rule)"
 echo "                $THRIFT (the bmv2 CLI translator, 38-43)"
+echo "                $COMMON (the rebuild advice, 123-131 and 137-140)"
+echo "                $GUIDE (the command it prints, 151)"
 echo "  suite       : $TESTS"
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT" "$COMMON" "$GUIDE"; do
     printf '  baseline    : %s %s\n' "$(sha256sum "$f" | cut -c1-16)" "$f"
 done
 echo
@@ -1176,12 +1447,35 @@ PY
     restore
 fi
 
+printf '\n=== NEGATIVE CONTROL 3: comment-only edit of common.py must stay GREEN ===\n'
+n=$(anchor_count "$CTRL3_SRC" "$CTRL3_ANCHOR")
+printf '  subject           : %s\n' "$CTRL3_SRC"
+printf '  anchor occurrences: %s\n' "$n"
+if [[ "$n" -ne 1 ]]; then
+    echo "  🔴 control anchor is not unique ($n matches) -- the control proves nothing."
+    SURVIVORS=$((SURVIVORS + 1))
+else
+    ANCHOR="$CTRL3_ANCHOR" REPL="$CTRL3_REPL" "$PYTHON" - "$CTRL3_SRC" <<'PY'
+import os, pathlib, sys
+p = pathlib.Path(sys.argv[1]); s = p.read_text()
+p.write_text(s.replace(os.environ["ANCHOR"], os.environ["REPL"], 1))
+PY
+    ctrl_red=$(red_tests)
+    if [[ -z "$ctrl_red" ]]; then
+        echo "  ✅ green: the suite does not react to a comment in common.py"
+    else
+        printf '  🔴 A COMMENT TURNED THE SUITE RED: %s\n' "$ctrl_red"
+        SURVIVORS=$((SURVIVORS + 1))
+    fi
+    restore
+fi
+
 # --- byte-identity and verdict ------------------------------------------------------------------
 
 restore
 printf '\n--- baseline restored? ---\n'
 bad_restore=0
-for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT"; do
+for f in "$CONVERT" "$PREFLIGHT" "$ADAPTER" "$TESTCONV" "$THRIFT" "$COMMON" "$GUIDE"; do
     if cmp -s "$BK/$(basename "$f")" "$f"; then
         printf '  byte-identical  %s\n' "$f"
     else

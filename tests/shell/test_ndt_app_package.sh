@@ -2300,6 +2300,20 @@ cp -r "$REAL_REPO/tools/p4_exercise/tests/fixtures/basic" "$E2E_EX"
 cp "$E2E_EX/solution/basic.p4" "$E2E_EX/basic.p4"
 printf 'BMV2_SWITCH_EXE = simple_switch_grpc\nTOPO = pod-topo/topology.json\n\ninclude ../../utils/Makefile\n' \
     > "$E2E_EX/Makefile"
+# [Co-developed with claude code -- Adam]
+# Pre-flight compares the program it compiles with the exercise's build/ (the row `build matches
+# source`) where p4c is installed. The fixture's build/ is the SKELETON's compile and this copy's
+# basic.p4 is the solution, so build the copy the way `make build` would; with no p4c there is
+# no compile and nothing to compare.
+HAVE_P4C="$(command -v p4c-bm2-ss >/dev/null 2>&1 && echo yes || echo no)"
+e2e_build() {   # e2e_build <exercise dir> -- p4c into <dir>/build, as `make build` does
+    p4c-bm2-ss --p4v 16 --p4runtime-files "$1/build/basic.p4.p4info.txtpb" \
+        -o "$1/build/basic.json" "$1/basic.p4" >/dev/null 2>&1
+}
+if [[ "$HAVE_P4C" == yes ]]; then
+    e2e_build "$E2E_EX"
+    check "🔴 the exercise copy was built with p4c, so its build/ is its program's" "0" "$?"
+fi
 REAL='export P4_PROXY_PY='"$(q "$E2E_PY")"'; export NDT_APP_ONE_STEP='"$(q "$REAL_REPO/tools/p4_exercise/one_step.py")"'; export NDT_APP_PREFLIGHT='"$(q "$REAL_REPO/tools/p4_exercise/preflight.py")"'; '
 e2e() {   # e2e <label> <exercise> [exercise flags...] -> OUT; the output is kept when E2E_LOG_DIR is set
     local label="$1" ex="$2"; shift 2
@@ -2347,6 +2361,23 @@ has   "🔴 and saying how many entries it stripped"         "stripped      : 16
 # candidates, --no-roles, and an external control plane. Pre-flight prints no suggestion in any.
 reset_fix
 E2E_TWO="$FIX/exercises/e2e/basic_two"; rm -rf "$E2E_TWO"; cp -r "$E2E_EX" "$E2E_TWO"
+if [[ "$HAVE_P4C" == yes ]]; then
+    # A second route-shaped table in the PROGRAM, then compiled for real: build/ stays what the
+    # source compiles to, which is what pre-flight's `build matches source` holds it to.
+    "$E2E_PY" - "$E2E_TWO/basic.p4" <<'PY'
+import re, sys
+path = sys.argv[1]
+text = open(path).read()
+table = re.search(r"    table ipv4_lpm \{.*?\n    \}\n", text, re.S).group(0)
+twin = table.replace("ipv4_lpm", "ipv4_lpm_backup")
+text = text.replace("    apply {\n        if (hdr.ipv4.isValid()) {\n            ipv4_lpm.apply();",
+                    twin + "\n    apply {\n        if (hdr.ipv4.isValid()) {\n            ipv4_lpm.apply();"
+                    "\n            ipv4_lpm_backup.apply();", 1)
+open(path, "w").write(text)
+PY
+    e2e_build "$E2E_TWO"
+    check "🔴 the two-table copy was built with p4c" "0" "$?"
+else
 # A second route-shaped table, in the p4info AND the bmv2 json, so the two stay one compile.
 "$E2E_PY" - "$E2E_TWO/build/basic.p4.p4info.txtpb" "$E2E_TWO/build/basic.json" "$REAL_REPO/tools" <<'PY'
 import copy, json, sys
@@ -2367,6 +2398,7 @@ for pipe in bmv2["pipelines"]:
             pipe["tables"].append(c)
 json.dump(bmv2, open(sys.argv[2], "w"))
 PY
+fi
 e2e several "$E2E_TWO"
 has   "🔴 several candidates: the warning"                "the twin will show no flow paths for this fabric" "$OUT"
 has   "  and the ndt flag line for each"                  "--role-ipv4-route table=MyIngress.ipv4_lpm_backup," "$OUT"
@@ -2382,6 +2414,59 @@ cp -r "$REAL_REPO/tools/p4_exercise/tests/fixtures/p4runtime" "$E2E_EXT"
 e2e external "$E2E_EXT"
 has   "🔴 external: says why there is no role"            "the control plane is external" "$OUT"
 hasnt "🔴 and pre-flight does not suggest one"            "roles suggestion" "$OUT"
+# [Co-developed with claude code -- Adam]
+# The refusals pre-flight gained: a build/ that is not what the program compiles to, a CPU port
+# that is also a cabled port, and a cable on a port bmv2 cannot have. Each must stop `ndt up p4
+# --app <exercise>` with rc 5 BEFORE anything is started or the knob is touched, and say which
+# row refused. The exercise is a copy of the good one, edited the way an author would.
+knob_files() {   # the two files `up` writes late, as bytes: the app knob and the host count
+    local f
+    for f in "$KNOB" "$FIX/p4_proxy/mininet/host_count_override"; do
+        if [[ -e "$f" ]]; then sha256sum "$f" | cut -c1-16; else echo absent; fi
+    done | tr '\n' ' '
+}
+e2e_refused() {   # e2e_refused <label> <exercise> <the row that refuses> <what the row names>
+    local label="$1" ex="$2" row="$3" names="$4" before after row_line
+    reset_fix
+    # [Co-developed with claude code -- Adam]
+    # A host count ndt would never write for this exercise (reset_fix's 4 is the exercise's own
+    # host count, which a bring-up that wrote it early would leave looking untouched).
+    printf '7\n' > "$FIX/p4_proxy/mininet/host_count_override"
+    before="$(knob_files)"
+    e2e "refused_$label" "$ex"; after="$(knob_files)"
+    row_line="$(/usr/bin/grep -F -- "FAIL  $row" <<<"$OUT" | head -n 1)"
+    check "🔴 $label: the bring-up is refused (5)"           "5" "$(rc_of "$OUT")"
+    has   "  and the table says which row refused"         "FAIL  $row" "$OUT"
+    has   "  and that row names what it found"              "$names" "$row_line"
+    has   "  and that nothing was started"                  "nothing was started" "$OUT"
+    check "🔴 $label: the app knob and the host count are byte for byte as they were" "$before" "$after"
+    check "🔴 $label: nothing was reached (no sudo, no stack)" "sudo=0 stack=0" "$(touched)"
+}
+if [[ "$HAVE_P4C" == yes ]]; then
+    E2E_STALE="$FIX/exercises/e2e/basic_stale"; rm -rf "$E2E_STALE"; cp -r "$E2E_EX" "$E2E_STALE"
+    sed -i 's/ipv4_lpm.apply();/mark_to_drop(standard_metadata);/' "$E2E_STALE/basic.p4"
+    e2e_refused stale_build "$E2E_STALE" "build matches source" "Rebuild with \`make build\` in $E2E_STALE"
+else
+    printf '  note     no p4c here: the stale-build refusal needs the compiler, so its case is not run\n'
+fi
+E2E_CPU="$FIX/exercises/e2e/basic_cpu"; rm -rf "$E2E_CPU"; cp -r "$E2E_EX" "$E2E_CPU"
+"$E2E_PY" - "$E2E_CPU/pod-topo/topology.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["switches"]["s1"]["cpu_port"] = "1"
+json.dump(data, open(path, "w"), indent=4)
+PY
+e2e_refused cpu_port_on_a_cable "$E2E_CPU" "cpu port not cabled" "cpu_port 1"
+E2E_PORT="$FIX/exercises/e2e/basic_port"; rm -rf "$E2E_PORT"; cp -r "$E2E_EX" "$E2E_PORT"
+"$E2E_PY" - "$E2E_PORT/pod-topo/topology.json" <<'PY'
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+data["links"][2] = ["s1-p600", "s3-p1"]
+json.dump(data, open(path, "w"), indent=4)
+PY
+e2e_refused port_above_510 "$E2E_PORT" "bmv2 port range" "port 600"
 rm -rf "$FIX/exercises/e2e" "$FIX/.test_run/packages" "$FIX/.test_run/packages-staging"
 
 # =============================================================================================
