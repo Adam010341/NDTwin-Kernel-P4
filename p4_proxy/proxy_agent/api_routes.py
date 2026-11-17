@@ -469,6 +469,34 @@ def _named_priority(data):
     return named_priority(data.get("priority"))
 
 
+def _refuse_bool_or_float_dpid_and_priority(data, past):
+    """
+    400 when the body's `dpid` or `priority` is a JSON boolean or a JSON float.
+
+    [Co-developed with claude code -- Adam]
+    `true` was read as 1 and `80.0` as 80 (and `1.0` as switch 1), a float was cut by int(), and
+    NaN or Infinity reached `int()` in the priority mapping or the response's own JSON rendering
+    and answered 500. The kernel's check of `priority` refuses a boolean and a float, and these
+    two fields are refused here the same way, ahead of everything else so nothing is looked up or
+    written. A string, a negative number or null is not narrowed here, and an integer dpid the
+    proxy does not know is still the topology's 404.
+
+    The answer names the field and the type, never the value: a NaN or an Infinity cannot be put
+    back into a JSON body. `past` is the past participle of the verb ("installed", "deleted",
+    "modified"), for the sentence that says nothing happened.
+    """
+    for field in ("dpid", "priority"):
+        value = data.get(field)
+        if isinstance(value, (bool, float)):
+            raise HTTPException(
+                status_code=400,
+                detail={"error": f"malformed {field}", "fields": [field],
+                        "message": f"{field} is a {type(value).__name__}, which is not a JSON "
+                                   f"integer; a boolean, or a number written with a fraction "
+                                   f"or an exponent such as 80.0, is refused. No rule was "
+                                   f"{past}"})
+
+
 def _refuse_unhonourable_priority(data, match, verb):
     """
     Refuse a strict delete whose priority the destination table cannot honour.
@@ -720,10 +748,11 @@ async def add_flow_entry(request: Request):
     asks for ageing, and rejecting it would refuse nothing since nothing sends one.
     """
     data = await _flowentry_body(request)
+    _refuse_bool_or_float_dpid_and_priority(data, "installed")  # [Co-developed with claude code -- Adam]
     dpid = data.get("dpid")
     match = data.get("match", {})
     actions = data.get("actions", [])
-    
+
     # [Co-developed with claude code -- Adam]
     # 400 with the offending field names, rather than servicing a narrowed version of the rule
     # and answering 200. The kernel's HttpRoutingStrategyBase already treats a non-2xx as a
@@ -817,6 +846,7 @@ async def delete_flow_entry(request: Request):
     stay -- the same "one entry per destination" reading, with the prefix as the destination.
     """
     data = await _flowentry_body(request)
+    _refuse_bool_or_float_dpid_and_priority(data, "deleted")  # [Co-developed with claude code -- Adam]
     dpid = data.get("dpid")
     match = data.get("match", {})
 
@@ -853,6 +883,7 @@ async def delete_flow_entry(request: Request):
 @router.post("/stats/flowentry/modify")
 async def modify_flow_entry(request: Request):
     data = await _flowentry_body(request)
+    _refuse_bool_or_float_dpid_and_priority(data, "modified")  # [Co-developed with claude code -- Adam]
     dpid = data.get("dpid")
     match = data.get("match", {})
     actions = data.get("actions", [])

@@ -82,6 +82,9 @@ TEST_FIVE="$REPO/p4_proxy/tests/test_five_tuple_match.py"
 TEST_INPORT="$REPO/p4_proxy/tests/test_in_port_value.py"
 # [Co-developed with claude code -- Adam] The same refusal for the protocol and L4 port keys.
 TEST_L4="$REPO/p4_proxy/tests/test_l4_match_values.py"
+# [Co-developed with claude code -- Adam] An OUTPUT action's port, a priority and a dpid that are
+# not whole numbers (M-B61 .. M-B74).
+TEST_NUMBERS="$REPO/p4_proxy/tests/test_flow_output_port_priority_dpid.py"
 # [Co-developed with claude code -- Adam] The install-time record of an in_port rule (M-B42 turns
 # its test red as well: the record is keyed on the mask the writer sends).
 TEST_TIMES="$REPO/p4_proxy/tests/test_rule_install_times.py"
@@ -89,7 +92,7 @@ TEST_TIMES="$REPO/p4_proxy/tests/test_rule_install_times.py"
 MODULES="tests.test_p4_client_writes tests.test_table_entry_route tests.test_startup \
 tests.test_readopt tests.test_app_package_proxy tests.test_foreign_pipeline \
 tests.test_exact_one_element_list tests.test_five_tuple_match tests.test_in_port_value tests.test_l4_match_values \
-tests.test_rule_install_times"
+tests.test_rule_install_times tests.test_flow_output_port_priority_dpid"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -146,6 +149,7 @@ BASE_TEST_FIVE=$(sha256sum "$TEST_FIVE" | cut -d' ' -f1)
 BASE_TEST_INPORT=$(sha256sum "$TEST_INPORT" | cut -d' ' -f1)
 BASE_TEST_L4=$(sha256sum "$TEST_L4" | cut -d' ' -f1)
 BASE_TEST_TIMES=$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)
+BASE_TEST_NUMBERS=$(sha256sum "$TEST_NUMBERS" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -459,6 +463,121 @@ m=$(mutant b59 "$TOPOMGR" \
         raise _not_a_json_integer(field, value, action, noun, p4_key)')
 report "M-B59: a JSON float is cut to its whole part again, so \"tp_dst\": 80.5 is port 80" "$m" \
        "test_a_json_float_is_refused_with_400_on_every_verb_and_spelling"
+
+# [Co-developed with claude code -- Adam]
+# M-B60: only a float with a fraction is refused. The contested half of the reading is that a whole
+# number written as a float (80.0, 6e0) is refused as well, as the kernel refuses it for priority;
+# the mutation lets those two back in while 80.5, NaN and Infinity stay refused.
+m=$(mutant b60 "$TOPOMGR" \
+    '    if isinstance(value, float):
+        raise _not_a_json_integer(field, value, action, noun, p4_key)' \
+    '    if isinstance(value, float) and not value.is_integer():
+        raise _not_a_json_integer(field, value, action, noun, p4_key)')
+report "M-B60: a whole number written as a float is read again, so \"tp_dst\": 80.0 is port 80" "$m" \
+       "test_a_whole_number_spelled_with_a_fraction_is_refused_but_the_same_digit_string_is_not"
+
+# M-B61 .. M-B67: an OUTPUT action's port. The writers do port.to_bytes(), so what is not an int
+# was a 500, `true` was port 1 and 512 was written into a bit<9> parameter. M-B61 and M-B62 put
+# the boolean and the float readings back, M-B63 holds the port to a 16-bit key instead of the
+# 9-bit one, M-B64 hands the writers the digit string as it came, M-B65 and M-B66 skip the check
+# on an add and on a modify, and M-B67 checks only the last OUTPUT action.
+m=$(mutant b61 "$TOPOMGR" \
+    '        if not isinstance(port, (bool, float)):' \
+    '        if not isinstance(port, float):')
+report "M-B61: a JSON boolean OUTPUT port is read as 1 or 0 again" "$m" \
+       "test_a_json_boolean_port_is_refused_with_400_on_add_and_modify_on_both_tables"
+
+m=$(mutant b62 "$TOPOMGR" \
+    '        if not isinstance(port, (bool, float)):' \
+    '        if not isinstance(port, bool):')
+report "M-B62: a JSON float OUTPUT port is cut to its whole part again" "$m" \
+       "test_a_json_float_port_is_refused_with_400_on_add_and_modify_on_both_tables"
+
+m=$(mutant b63 "$TOPOMGR" \
+    'OUTPUT_PORT_KEY = "standard_metadata.ingress_port"' \
+    'OUTPUT_PORT_KEY = "meta.l4_dst_port"')
+report "M-B63: an OUTPUT port is held to sixteen bits, so 512 is taken" "$m" \
+       "test_a_port_the_nine_bit_parameter_cannot_hold_is_refused_with_400"
+
+m=$(mutant b64 "$TOPOMGR" \
+    '                chosen = int(port)' \
+    '                chosen = port')
+report "M-B64: a digit-string OUTPUT port reaches the writer as a string, a 500" "$m" \
+       "test_a_port_that_is_an_integer_or_a_string_of_digits_is_written_as_that_port"
+
+m=$(mutant b65 "$TOPOMGR" \
+    '        out_port = checked_output_port(actions_dict, "written")' \
+    '        out_port = None
+        for action in actions_dict:
+            if action.get("type") == "OUTPUT":
+                out_port = action.get("port")')
+report "M-B65: an add does not check its OUTPUT port" "$m" \
+       "test_a_json_boolean_port_is_refused_with_400_on_add_and_modify_on_both_tables"
+
+m=$(mutant b66 "$TOPOMGR" \
+    '        out_port = checked_output_port(actions_dict, "modified")' \
+    '        out_port = None
+        for action in actions_dict:
+            if action.get("type") == "OUTPUT":
+                out_port = action.get("port")')
+report "M-B66: a modify does not check its OUTPUT port" "$m" \
+       "test_a_json_boolean_port_is_refused_with_400_on_add_and_modify_on_both_tables"
+
+m=$(mutant b67 "$TOPOMGR" \
+    '    for act in actions_dict:' \
+    '    for act in list(actions_dict)[-1:]:')
+report "M-B67: only the last OUTPUT action is checked, so an earlier bad port is ignored" "$m" \
+       "test_every_output_action_is_checked_not_only_the_last"
+
+# M-B68 .. M-B74: a priority or a dpid that is a JSON boolean or float, sent straight to the
+# proxy. `true` was 1, `1.0` was switch 1 and Infinity reached int() or the response's own JSON.
+# M-B68 and M-B69 stop checking one field, M-B70 and M-B71 put the boolean and the float readings
+# back, and M-B72 .. M-B74 drop the call from one verb.
+m=$(mutant b68 "$ROUTES" \
+    '    for field in ("dpid", "priority"):' \
+    '    for field in ("dpid",):')
+report "M-B68: a boolean or float priority is not refused, so \"priority\": true is 1" "$m" \
+       "test_a_json_boolean_priority_is_refused_with_400_on_every_verb_and_table"
+
+m=$(mutant b69 "$ROUTES" \
+    '    for field in ("dpid", "priority"):' \
+    '    for field in ("priority",):')
+report "M-B69: a boolean or float dpid is not refused, so \"dpid\": 1.0 is switch 1" "$m" \
+       "test_a_json_boolean_dpid_is_refused_with_400_on_every_verb_and_table"
+
+m=$(mutant b70 "$ROUTES" \
+    '        if isinstance(value, (bool, float)):
+            raise HTTPException(' \
+    '        if isinstance(value, float):
+            raise HTTPException(')
+report "M-B70: a JSON boolean priority or dpid is read as 1 or 0 again" "$m" \
+       "test_a_json_boolean_priority_is_refused_with_400_on_every_verb_and_table"
+
+m=$(mutant b71 "$ROUTES" \
+    '        if isinstance(value, (bool, float)):
+            raise HTTPException(' \
+    '        if isinstance(value, bool):
+            raise HTTPException(')
+report "M-B71: a JSON float priority or dpid is cut again, and Infinity is a 500" "$m" \
+       "test_a_json_float_priority_is_refused_with_400_on_every_verb_and_table"
+
+m=$(mutant b72 "$ROUTES" \
+    '    _refuse_bool_or_float_dpid_and_priority(data, "installed")  # [Co-developed with claude code -- Adam]' \
+    '    pass')
+report "M-B72: an add does not check its priority and dpid" "$m" \
+       "test_a_json_boolean_priority_is_refused_with_400_on_every_verb_and_table"
+
+m=$(mutant b73 "$ROUTES" \
+    '    _refuse_bool_or_float_dpid_and_priority(data, "deleted")  # [Co-developed with claude code -- Adam]' \
+    '    pass')
+report "M-B73: a delete does not check its priority and dpid" "$m" \
+       "test_a_json_boolean_priority_is_refused_with_400_on_every_verb_and_table"
+
+m=$(mutant b74 "$ROUTES" \
+    '    _refuse_bool_or_float_dpid_and_priority(data, "modified")  # [Co-developed with claude code -- Adam]' \
+    '    pass')
+report "M-B74: a modify does not check its priority and dpid" "$m" \
+       "test_a_json_boolean_priority_is_refused_with_400_on_every_verb_and_table"
 
 m=$(mutant b16 "$SHAPE" \
     '                return bytes.fromhex("".join(groups))' \
@@ -1108,7 +1227,8 @@ echo
 [[ "$(sha256sum "$TEST_INPORT" | cut -d' ' -f1)" == "$BASE_TEST_INPORT" ]] || { echo "🔴 baseline CHANGED -- test_in_port_value.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_L4" | cut -d' ' -f1)" == "$BASE_TEST_L4" ]] || { echo "🔴 baseline CHANGED -- test_l4_match_values.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)" == "$BASE_TEST_TIMES" ]] || { echo "🔴 baseline CHANGED -- test_rule_install_times.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (5 sources, 11 test files)"
+[[ "$(sha256sum "$TEST_NUMBERS" | cut -d' ' -f1)" == "$BASE_TEST_NUMBERS" ]] || { echo "🔴 baseline CHANGED -- test_flow_output_port_priority_dpid.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (5 sources, 12 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else

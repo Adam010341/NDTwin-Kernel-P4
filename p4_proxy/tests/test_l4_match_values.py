@@ -268,7 +268,11 @@ class AnL4ValueTheKeyCannotHoldTest(unittest.TestCase):
 
     #: The same literals a client writes. `6e0` is parsed, not typed as 6.0, so what the test
     #: refuses is what json.loads makes of the text on the wire.
-    WIRE_FLOATS = ("80.5", "80.0", "6e0", "6.9", "1.5", "0.0", "1e2", "-0.0")
+    #: NaN, Infinity, -Infinity and 1e400 are floats after json.loads too (Python's parser reads
+    #: the first three as written and 1e400 as inf); the test file for the three numbers beside
+    #: the match renders the refusal through the real app. [Co-developed with claude code -- Adam]
+    WIRE_FLOATS = ("80.5", "80.0", "6e0", "6.9", "1.5", "0.0", "1e2", "-0.0",
+                   "NaN", "Infinity", "-Infinity", "1e400")
     WIRE_BOOLS = ("true", "false")
 
     def call_wire(self, handler_name, field, text, dpid=1):

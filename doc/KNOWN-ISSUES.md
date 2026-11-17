@@ -461,7 +461,7 @@ a `ryu_rules_lost` record on that switch's node (an `id`, `cause`, `count`, the 
 calls readopt, `src/ndt_core/power_management/P4PowerStrategy.cpp:155-157`). A readopt counts and lists the
 lost rules: besides the cookie the switch reported before the push, it counts the generation of the
 switch's old client, which a fresh bmv2 does not need to report
-(`p4_proxy/proxy_agent/topology_manager.py:2121-2123`, described at `:1534-1538`); on bmv2 1.15.5
+(`TopologyManager.readopt_switch` in `p4_proxy/proxy_agent/topology_manager.py`, where it builds the `wiped` tuple; described in the docstring of `TopologyManager.close_ryu_generation`); on bmv2 1.15.5
 (2026-11-11 UTC) two power-ons through the kernel each recorded the one rule installed through
 `/ndt/install_flow_entry`. A proxy restart has no old client: a fresh bmv2 holds no cookie and reports
 nothing, so the record says 0 (`p4_proxy/proxy_agent/main.py:2339-2341`). That 0 is right only when the
@@ -475,8 +475,7 @@ the kernel has read the first hides it; the count may be short when the journal 
 or read, and is unknown (null) when the push itself failed.
 
 **Why.** The proxy pushes the pipeline to each switch at startup and readopt, which empties its tables
-(`p4_proxy/proxy_agent/main.py:2336-2345`, `p4_proxy/proxy_agent/topology_manager.py:1486-1527`,
-`:2125`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
+(`startup` in `p4_proxy/proxy_agent/main.py`, where it calls `close_ryu_generation` after the push, `TopologyManager._note_in_journal` and the `set_forwarding_pipeline_config()` call in `TopologyManager.readopt_switch`, both in `p4_proxy/proxy_agent/topology_manager.py`). Rules of the Ryu-compatible path are reported, never replayed, because the journal holds
 requests and not the reasons for them. The kernel reads the record on its regular poll of the proxy and logs it at
 ERROR (`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:797-805`;
 `src/ndt_core/power_management/P4RulesLost.cpp:99-103`); `get_graph_data` serves it on the switch node
@@ -522,7 +521,7 @@ table is unreadable. Deleting the entry with the CLI makes the table readable ag
 call through the kernel's `/ndt/p4/table_entry`.
 
 **Why.** bmv2 fails the read; the cause was not investigated
-(`p4_proxy/proxy_agent/api_routes.py:1602-1604` shows where the 503 is made). It may be the same
+(`read_table_entry` in `p4_proxy/proxy_agent/api_routes.py` shows where the 503 is made). It may be the same
 limitation as B-18; that has not been checked.
 
 **What to do.** Write members, groups and entries of such tables only from a P4Runtime controller, and
@@ -545,7 +544,7 @@ and removes the timeout.
 read-modify-write over the API. Measured on bmv2 1.15.5. A timeout written through
 `POST /p4/table_entry` with `idle_timeout_ns` is read back correctly and survives a modify that carries
 the same value; a modify without it clears it, which is bmv2's behaviour
-(`p4_proxy/proxy_agent/api_routes.py:1514-1516`).
+(`read_table_entry` in `p4_proxy/proxy_agent/api_routes.py`, its docstring).
 
 **Why.** bmv2 does not report the CLI-set timeout over P4Runtime; why was not investigated.
 

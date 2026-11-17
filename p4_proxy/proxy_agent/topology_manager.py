@@ -217,7 +217,9 @@ class FlowRequestUnusable(Exception):
     caller would be sent to look at a switch that was never asked anything:
 
       * 404 -- the dpid is not a switch connected to this proxy (POST /p4/table_entry's 404);
-      * 400 -- the match names no destination and nothing a 5-tuple rule could key on;
+      * 400 -- the match names no destination and nothing a 5-tuple rule could key on; or an
+        OUTPUT action's port is not a switch port number from 0 to 511 (`malformed action`,
+        see checked_output_port) [Co-developed with claude code -- Adam];
       * 501 -- the actions are neither a forward nor, on flow_5tuple, a drop: this data plane
         has no translation for them (outcome `unsupported_on_p4`, as the other 501s);
       * 409 -- `switch not primary`: startup did not push to the switch (see `withhold_routes`),
@@ -364,8 +366,8 @@ def _not_a_json_integer(field, value, action, noun, p4_key):
     return MalformedMatchValueError(
         field, value, action,
         expected=f"{noun} from 0 to {(1 << bits) - 1} (the key is {bits} bits wide) written as "
-                 f"a JSON integer; a boolean, or a number written with a fraction or an "
-                 f"exponent such as 80.0, is refused")
+                 f"a JSON integer or a string of digits; a boolean, or a number written with "
+                 f"a fraction or an exponent such as 80.0, is refused")
 
 
 def _check_numeric_key_value(field, value, action, noun):
@@ -404,8 +406,9 @@ def _check_in_port_value(field, value, action):
     """MalformedMatchValueError unless the 5-tuple encoder takes this in_port.
 
     [Co-developed with claude code -- Adam]
-    The accepted set is a JSON integer from 0 to 511, or a numeric string of one; a boolean and
-    a float are refused (see _check_numeric_key_value).
+    The accepted set is a JSON integer from 0 to 511, or a string that int() reads as one (digits,
+    with blanks around them, a sign or underscores); a boolean and a float are refused (see
+    _check_numeric_key_value).
     """
     _check_numeric_key_value(field, value, action, "a switch port number")
 
@@ -425,6 +428,66 @@ def _check_l4_value(field, value, action):
     noun = "a protocol number" if FIVE_TUPLE_FIELD_MAP[field] == "hdr.ipv4.protocol" \
         else "a port number"
     _check_numeric_key_value(field, value, action, noun)
+
+
+#: The key whose width an OUTPUT action's port is held to: standard_metadata.ingress_port, bit<9>,
+#: the same 0-511 the in_port match takes. ndtwin_switch.p4's forwarding action takes the port as
+#: bit<9> too (the `port` parameter of ipv4_forward). [Co-developed with claude code -- Adam]
+OUTPUT_PORT_KEY = "standard_metadata.ingress_port"
+
+
+def checked_output_port(actions_dict, action):
+    """
+    The port of the last OUTPUT action as an int (None when there is none), or a 400.
+
+    [Co-developed with claude code -- Adam]
+    The writers do `port.to_bytes(...)`, so a value that is not an int reached them as an
+    AttributeError (a float, a string, a list) or an OverflowError (a negative number, 65536 and
+    up) and answered 500, while `true` was written as port 1 and 512 as 0x0200, a port the
+    9-bit parameter cannot hold. The accepted set is what in_port accepts (see
+    _check_numeric_key_value): a JSON integer from 0 to 511, or a string that int() reads as one,
+    which is returned as that int so the writers get what they expect. A boolean and a float
+    (`true`, `1.5`, `80.0`, `NaN`, `Infinity`, `1e400`) are refused whatever their value; so is
+    a negative number, 512 and above, a string that is no number and any other type.
+
+    Every OUTPUT action's port is checked, not only the last, which is the one used: an earlier
+    one that was garbage was ignored before and is refused now, so what the journal records
+    is a request the proxy would have accepted whole. An OUTPUT action with no `port`, or a null
+    one, is not a bad port: it is the action list with no OUTPUT action, which the callers
+    already answer (a 501, or, for an empty action list on a match that names more than a
+    destination, the drop route_flow writes on flow_5tuple).
+
+    FlowRequestUnusable 400 `malformed action`, naming a number that is not a float as itself
+    and any other value by its type (a float is "a float", never its value). Nothing has been
+    written when it is raised: the callers run this before they touch a switch. `action` is the
+    past participle of what the caller asked for ("written", "modified").
+    """
+    from proxy_agent.p4_client import P4RuntimeClient
+    chosen = None
+    for act in actions_dict:
+        if act.get("type") != "OUTPUT":
+            continue
+        port = act.get("port")
+        chosen = None
+        if port is None:
+            continue
+        if not isinstance(port, (bool, float)):
+            try:
+                P4RuntimeClient._encode_5tuple_value(OUTPUT_PORT_KEY, port)
+                chosen = int(port)
+                continue
+            except (ValueError, OverflowError, TypeError, OSError):
+                pass
+        bits = P4RuntimeClient._FIVE_TUPLE_KEY_BITS[OUTPUT_PORT_KEY]
+        shown = (str(port) if isinstance(port, int) and not isinstance(port, bool)
+                 and abs(port) < 10 ** 12 else _describe_match_value(port))
+        raise FlowRequestUnusable(
+            400, "malformed action",
+            f"the OUTPUT action's port is {shown}, which is not a switch port number from "
+            f"0 to {(1 << bits) - 1} (the port is {bits} bits wide) written as a JSON "
+            f"integer or a string of digits; a boolean, or a number written with a "
+            f"fraction or an exponent such as 80.0, is refused. Nothing was {action}")
+    return chosen
 
 
 def check_match_values(match_dict, action):
@@ -1387,10 +1450,8 @@ class TopologyManager:
 
         # Parse actions
         # NDTwin sends: [{"type": "OUTPUT", "port": 1}]
-        out_port = None
-        for action in actions_dict:
-            if action.get("type") == "OUTPUT":
-                out_port = action.get("port")
+        # [Co-developed with claude code -- Adam] The port is an int from 0 to 511 or a 400.
+        out_port = checked_output_port(actions_dict, "written")
 
         if out_port is None:
             # [Co-developed with claude code -- Adam]
@@ -1781,10 +1842,8 @@ class TopologyManager:
         client = self.switches[dpid]
         ipv4_dst = match_dict.get("nw_dst") or match_dict.get("ipv4_dst")
 
-        out_port = None
-        for action in actions_dict:
-            if action.get("type") == "OUTPUT":
-                out_port = action.get("port")
+        # [Co-developed with claude code -- Adam] As route_flow: an int from 0 to 511 or a 400.
+        out_port = checked_output_port(actions_dict, "modified")
 
         if out_port is None:
             # [Co-developed with claude code -- Adam] FIXED-ISSUES C-6: see FlowRequestUnusable.
