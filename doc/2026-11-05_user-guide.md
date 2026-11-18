@@ -545,10 +545,12 @@ endpoint returns a constant unrelated to load in an emulated lab; measure CPU wi
 `tools/test_workflow/cpu_probe.py`.
 
 `ndt check` is a separate verb, a tripwire for double counting in the telemetry: it compares the
-twin's link rate with `/proc/net/dev` while traffic flows. rc 0 inside the +/-50% band or when there
-was too little traffic (under 1 Mbit/s) to compute a ratio, so read the ratio block, not the code;
-rc 1 when the kernel is not up, a declared measurement was refused, or the twin could not be read;
-rc 4 when double counting was printed.
+twin's link rate with `/proc/net/dev` while traffic flows. It compares inter-switch links only, on
+the transmit side (`tx_bytes` of the sending interface); host-facing ports are not compared, so a
+host's link that the twin reads low or high does not show in the ratio. rc 0 inside the +/-50% band
+or when there was too little traffic (under 1 Mbit/s) to compute a ratio, so read the ratio block,
+not the code; rc 1 when the kernel is not up, a declared measurement was refused, or the twin could
+not be read; rc 4 when double counting was printed.
 
 ### 4.6 Sampling rate and the other knobs
 
