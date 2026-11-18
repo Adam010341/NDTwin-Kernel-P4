@@ -136,6 +136,42 @@ check "pid_is_app REFUSES a pid whose cmdline is a different app (rc 1)" "rc=1" 
 
 # ================================================================================================
 echo
+echo "2b. ndt ping's ping_stream_alive, lifted and re-bound the same way"
+# ================================================================================================
+# It reads /proc/${pid}/cmdline for the pid a stream wrote down -- a pid that may have exited, which
+# is the whole reason the read is allowed to fail. The braces are on purpose: they keep this line
+# the only copy of its text in ndt, so the redirection-order gate can anchor on it.
+fnp="$(awk '/^ping_stream_alive\(\) \{/{s=1} s{print} s&&/^\}/{exit}' "$NDT")"
+pat='"/proc/${pid}'; rep='"$FIXPROC/${pid}'
+reboundp="${fnp//"$pat"/$rep}"
+check "ping_stream_alive was lifted out of ndt (non-empty)" "yes" "$([[ -n "$fnp" ]] && echo yes || echo no)"
+check "its /proc read was re-bound to the fixture (1 moved, 0 left)" "1 0" \
+      "$(grep -c '"\$FIXPROC/\${pid}' <<<"$reboundp") $(grep -c '"/proc/' <<<"$reboundp")"
+mkdir -p "$T/psa" "$FIXPROC/710" "$FIXPROC/711" "$FIXPROC/712"
+echo 710 > "$T/psa/gone.pid"; echo 711 > "$T/psa/mine.pid"; echo 712 > "$T/psa/other.pid"
+# 710: the pid's directory exists, its cmdline does not (the state the exit race produces).
+# 711: its argv names this stream's files.  712: a pid reused by something else.
+printf 'bash\0-c\0x\0ndt-ping\0%s\0' "$T/psa/mine" > "$FIXPROC/711/cmdline"
+printf 'sleep\0100\0'                                  > "$FIXPROC/712/cmdline"
+harness_psa() {   # $1 = the stream's base path
+    cat > "$T/hp.sh" <<HEOF
+set -uo pipefail
+FIXPROC="$FIXPROC"
+$reboundp
+ping_stream_alive "\$1"; echo "rc=\$?" >&3
+HEOF
+    bash "$T/hp.sh" "$1" 3>"$T/.rc" >"$T/.out" 2>"$T/.err"
+}
+harness_psa "$T/psa/gone"
+check "🔑 ping_stream_alive is SILENT when /proc/<pid>/cmdline is gone" "" "$(cat "$T/.err")"
+check "   ... and answers 'not running' (rc 1)" "rc=1" "$(cat "$T/.rc")"
+harness_psa "$T/psa/mine"
+check "ping_stream_alive is running when the pid's argv names this stream (rc 0)" "rc=0" "$(cat "$T/.rc")"
+harness_psa "$T/psa/other"
+check "ping_stream_alive is not running when the pid was reused by something else (rc 1)" "rc=1" "$(cat "$T/.rc")"
+
+# ================================================================================================
+echo
 echo "3. the two report paths that print an argv (ndt app_stop / apps_orphans)"
 # ================================================================================================
 # These need no rebind: the pid is above pid_max, so /proc/<pid>/cmdline cannot exist and the

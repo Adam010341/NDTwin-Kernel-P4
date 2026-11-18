@@ -6,7 +6,19 @@
 Python. It uses only the standard library, needs Python 3.10 or newer, and is synchronous. It calls
 the kernel's `/ndt/...` routes and nothing else: an app does not talk to the P4 proxy on port 8081.
 
-Install it into a virtual environment (Ubuntu 24.04's system Python is externally managed, so
+To run an app against it, nothing needs installing: from the checkout, `ndt python` runs `python3`
+with this directory first on Python's path, so the app imports the SDK of the kernel this checkout
+built, and takes the same arguments `python3` does:
+
+```bash
+tools/test_workflow/ndt python my_app.py
+```
+
+Its exit code is the app's. It refuses a `python3` older than 3.10 and runs nothing (exit 5).
+`python3 -I` or `-E` would ignore the path, so do not pass them.
+
+For an editor or a debugger that needs to import the SDK too, install it into a virtual
+environment (Ubuntu 24.04's system Python is externally managed, so
 `pip install` refuses to run outside one), from the root of the repository; it needs `setuptools`
 64 or newer, which `pip` fetches for the build:
 

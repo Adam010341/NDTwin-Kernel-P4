@@ -134,8 +134,12 @@ Starting Mininet and bmv2 needs root. `ndt` does not run as root; it calls one r
 `/usr/local/sbin/ndtwin-lab`, through `sudo -n`, and that script accepts a fixed list of verbs
 (`topo-start`, `ovs-topo-start`, `ovs-topo-4host`, `topo-cmd`, `topo-out`, `topo-stop`, `cleanup`,
 `energy-start`, `energy-stop`, `energy-out`, `sim-start`, `sim-stop`, `sim-out`, `heartbeat`,
-`status`, `config`; `topo-cmd` and `topo-out` are the way into the topology pane without root,
-4.7). Install it from the checkout, once, and again after you update the checkout:
+`host-ping`, `status`, `config`; `topo-cmd` and `topo-out` are the way into the topology pane without
+root, 4.7). `host-ping <host> <ipv4> <count> <interval>` runs one ping inside a Mininet host: the
+helper checks every argument, finds the host's shell itself and enters it only if root started it
+(every uid 0, the machine's user namespace, a network namespace of its own). It joins that network
+namespace and nothing else of the host (not its mount namespace, no `mnexec`), so it needs no
+`mnexec` grant; one call is at most 600 s of ping. Install it from the checkout, once, and again after you update the checkout:
 
 ```bash
 sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
@@ -279,7 +283,8 @@ setsid -f sudo -n mnexec -a "$pid" ping -q -c 300 -i 0.2 10.0.3.3 > ~/h1-h3.txt 
 tail -n 2 ~/h1-h3.txt      # after the minute: "300 packets transmitted, ... % packet loss"
 ```
 
-The same can be typed at the `mininet>` prompt (4.7).
+The same can be typed at the `mininet>` prompt (4.7). `ndt ping h1:h3 --for 60s` (4.12) does it
+without the `mnexec` grant: the helper finds the host's shell itself.
 
 ### 3.3 The helper's config file `/etc/ndtwin-lab.conf` (optional)
 
@@ -623,7 +628,8 @@ tail -n 2 /tmp/h1-h3.txt      # after the minute: "300 packets transmitted, ... 
 ```
 
 The hosts share the machine's file system, so the file is in the machine's `/tmp`. Without a
-`mininet>` prompt (under NTG's prompt), the `mnexec` form of 3.2 does the same.
+`mininet>` prompt (under NTG's prompt), the `mnexec` form of 3.2 does the same. `ndt ping` (4.12)
+does it at either prompt, with no `mnexec` grant, and reads each stream's loss for you.
 
 ### 4.8 Applications: `ndt apps`
 
@@ -813,6 +819,64 @@ lab
 | `prev claim`, `override` | the claim that was replaced or released, and the last `ndt up --force` |
 
 The knob baseline lives in `.test_run/round.baseline`; `ndt release` moves it to `round.baseline.prev`.
+
+### 4.12 Traffic and your own apps: `ndt ping`, `ndt python`
+
+To keep pings running between Mininet hosts while an application works, and read their loss
+afterwards:
+
+```bash
+ndt ping h1:h3,h3:h1 --for 60s --interval 0.02    # starts the streams and returns
+# ... run the application ...
+ndt ping wait                                      # waits for them to end, then prints each one's loss
+```
+
+Each `<src>:<dst>` pair is one stream of pings from host `<src>`. `<dst>` is a host name or an IPv4
+address; a name gets its address from the model the last `ndt up` of this checkout recorded, so
+after an `ndt down` (or for a fabric another checkout started) give the address instead
+(`h1:10.0.3.3`). `--for` is how long (1 to 600 s, written `60`, `60s` or `2m`; 60 s by default),
+`--interval` the gap between pings (0.01 to 10 s; 0.2 s by default), and each stream sends about
+`for / interval` pings; at most 32 streams. `--wait` starts and waits in one command:
+`ndt ping h1:h3 --for 10s --interval 0.01 --wait`. `ndt ping report` prints the last run at any time,
+with `RUNNING` for a stream that has not ended.
+
+It needs no `mininet>` prompt and no pane, so it works whichever prompt the topology holds (4.7),
+and no grant beyond the helper's of 3.2: each stream is one `sudo -n ndtwin-lab host-ping <host>
+<address> <count> <interval>` call (3.1), whose output `ndt` writes into
+`.test_run/ping/<UTC stamp>.<pid>/`, files of yours.
+
+Each stream gets one line. A loss figure is printed only from ping's own summary line
+(`3000 sent  3000 received  0% packet loss`, or ping's own figure when packets were lost). A stream
+that left no summary says `NOT MEASURED` and why, never `0%` or `100%`: sudo refused the helper (the
+grant line is printed under it), the installed helper is older than this checkout and has no
+`host-ping` verb (reinstall it, 3.1), the helper refused (for example `no Mininet host h9`), ping
+itself printed no summary (for example `ping: connect: Network is unreachable`, exit 2), ping's
+summary has no loss figure, the stream was killed before it ended, or the run's own files are
+incomplete (a stream with no plan file). `ndt down` kills every ping on the machine (its `mn -c` does), so a stream it ends says it
+was killed. When the fabric was taken down or rebuilt during the run, the
+report says so under the numbers.
+
+Exit codes. Starting: 0 every stream started; 2 usage; 3 no topology is running (nothing started);
+4 a stream could not start (each is named, the others run); 5 refused, nothing started: the lab is
+claimed by somebody else, a measurement is running, an `ndt down` is running, or the topo session
+could not be read. `--force` goes past the first two and is recorded as for `ndt up` (4.2).
+`wait`, `report` and `--wait`: 0 every stream ended with ping's summary and lost nothing; 1 a
+stream lost packets; 3 no run is recorded in this checkout; 4 a stream has no summary. 1 outranks
+4, and every stream has its own line either way.
+
+`ndt ping` was written for the P4 plane and has not been run on an OVS fabric.
+
+To run a Python application against the SDK of this checkout without installing it:
+
+```bash
+ndt python my_app.py --dry-run
+```
+
+`ndt python` runs `python3` with `sdk/python` first on Python's path, so the app imports the SDK of
+the kernel this checkout built rather than one installed elsewhere. Arguments, input and the exit
+code are the app's. It refuses a `python3` older than 3.10, and runs nothing (exit 5). With `-I` or
+`-E`, Python ignores the path. An editor or a debugger that needs the SDK too needs it installed, as
+`sdk/python/README.md` says.
 
 ## 5. Troubleshooting
 

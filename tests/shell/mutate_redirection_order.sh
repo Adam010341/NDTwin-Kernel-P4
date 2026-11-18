@@ -8,7 +8,7 @@
 # the (4)b/(4)d re-spellings of the source) put the defect back
 # one site at a time: every one of the lines the fix touched gets its silencer moved back behind
 # the input redirection, and must turn its named case red. A site whose mutation survives is a
-# site the test does not actually cover.
+# site the test does not actually cover. M17 is the same revert at `ndt ping`'s stream-liveness read.
 #
 # 🔴 M15 and M16 are the half that matters more. The gate has to forbid the two ways of being
 # green that are WORSE than the bug:
@@ -184,6 +184,14 @@ m=$(mutant m3d "$NDT" \
     'err "   it is $(tr '"'"'\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"')
 report "M3d: ndt app_kill_by_existence argv line -- order reverted" "$m" \
        "app_kill_by_existence's argv line is silent for a pid that cannot exist"
+
+# ndt ping's stream-liveness read. Its anchor carries the braces of ${pid} on purpose: that is what
+# keeps it a different text from pid_is_app's read above (M1, M16), whose anchor must stay unique.
+m=$(mutant m17 "$NDT" \
+    'mapfile -d '"'"''"'"' -t argv 2>/dev/null < "/proc/${pid}/cmdline" || return 1' \
+    'mapfile -d '"'"''"'"' -t argv < "/proc/${pid}/cmdline" 2>/dev/null || return 1')
+report "M17: ndt ping_stream_alive -- silencer back behind the read" "$m" \
+       "🔑 ping_stream_alive is SILENT when /proc/<pid>/cmdline is gone"
 
 # --- one mutation per fixed site, outside ndt ----------------------------------------------------
 m=$(mutant m4 "$GUARDS" \

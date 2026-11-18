@@ -6,8 +6,9 @@
 #
 # Why this file exists
 #
-# `ndt` calls `sudo -n` in thirteen places. Eleven go through /usr/local/sbin/ndtwin-lab,
-# which the manual teaches the reader to grant. The other two do not:
+# `ndt` calls `sudo -n` from many places. Every call goes through /usr/local/sbin/ndtwin-lab,
+# which the manual teaches the reader to grant (`ndt ping`'s host-ping verb among them, which
+# pings from inside a Mininet host without an mnexec grant), except those for two programs:
 #
 #   ovs_bridge_count   sudo -n ovs-vsctl list-br
 #   dataplane_ok       sudo -n mnexec -a <pid> ping ...
