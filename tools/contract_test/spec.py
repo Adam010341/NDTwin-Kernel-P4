@@ -248,12 +248,12 @@ DOWN_REASONS = ("none", "switch-unreachable", "declared")
 #
 #   this file      DOWN_REASONS, DECLARED, and the two link-reply schemas   (4)
 #   the kernel     downReasonToString (common_types/GraphTypes.hpp, the enum's wire form),
-#                  HttpSession.cpp:986,990 (a raw-string reply) and :1303-1305 (a json object)  (3)
+#                  HttpSession::handleLinkFailure (raw strings), ::handleInjectLinkFailure (json)  (3)
 #
-# A fourth reason added to the enum would give the two hardcoded C++ replies nothing to say
-# about it and would fail the structural check here, in the two schemas that never mention
-# DOWN_REASONS at all. tests/python/test_contract_spec.py compares all seven; that comparison
-# is the only thing that makes one vocabulary out of them.
+# A fourth reason added to the enum would give the hardcoded replies of those two handlers
+# nothing to say about it and would fail the structural check here, in the two schemas that
+# never mention DOWN_REASONS at all. tests/python/test_contract_spec.py compares all seven;
+# that comparison is the only thing that makes one vocabulary out of them.
 #
 # 🔴 `"declared"` also appears in C++ as a BandwidthSource (GraphTypes.hpp:846) -- a DIFFERENT
 # vocabulary that happens to reuse the word. A grep for the string conflates them; the check
@@ -2568,7 +2568,7 @@ ENDPOINTS = [
     # Its sibling parses the body with an unguarded json::parse, so the 400 here comes from
     # buildResponse's `catch (const json::exception&)` rather than from a validator. That is the
     # difference this check exists for: the same malformed body reaches the two endpoints by
-    # different routes, and the other route has answered 500 before (HttpSession.cpp:2814).
+    # different routes, and the other route has answered 500 before (see handleInformSwitchEntered).
     dict(name="link_recovery_detected__malformed_json", method="POST",
          path="/ndt/link_recovery_detected", raw_body="{this is not json",
          category=ERRORPATH, expect_status=[400],

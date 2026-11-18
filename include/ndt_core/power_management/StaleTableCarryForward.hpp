@@ -24,12 +24,12 @@
  * array wholesale. So the four skip paths -- empty body, unparseable body, a proxy that reported
  * a read failure, and an empty-but-slow reply -- did not keep anything. They deleted the switch.
  *
- * Four places said otherwise, in the code that does the deleting:
- *
- *   - `DeviceConfigurationAndPowerManager.cpp:1079`  "tables are left as they were"
- *   - `:1098`  "Keeping the previous table is the same conservative choice the timeout path makes"
- *   - `:1122`  "Skipping leaves the previous table in place, the conservative direction"
- *   - `:1149`  "not as a switch with no rules. Keeping the previous table."
+ * Four places said otherwise, in the code that does the deleting (all four in
+ * fetchOpenFlowTablesInternal):
+ *   - "tables are left as they were"
+ *   - "Keeping the previous table is the same conservative choice the timeout path makes"
+ *   - "Skipping leaves the previous table in place, the conservative direction"
+ *   - "not as a switch with no rules. Keeping the previous table."
  *
  * plus the header's own `SuspectTimedOut, ///< ... Keep the previous table` and two test files
  * that describe the system that way. Nine statements of a policy, no implementation of it.
@@ -37,12 +37,12 @@
  * ### Why deleting is worse than it looks
  *
  * Every consumer asks the same question the same way -- walk the array, match on `dpid`:
- * `HttpSession.cpp:1802` serves the array verbatim; `IntentTranslator.cpp:1069` and
- * `LLMAgent.cpp:275` read it whole; `tools/contract_test/spec.py:295` (`inv_tables_non_empty`),
- * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and the live-acceptance probe
- * all iterate and skip non-matching
- * dpids. For all of them a **missing** switch and a switch reporting **zero rules** produce the
- * identical answer.
+ * `HttpSession::handleGetSwitchOpenflowEntries` serves the array verbatim;
+ * `IntentTranslator.cpp:1069` and `LLMAgent.cpp:275` read it whole;
+ * `tools/contract_test/spec.py:295` (`inv_tables_non_empty`),
+ * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and the live-acceptance probe all
+ * iterate and skip non-matching dpids. For all of them a **missing** switch and a switch reporting
+ * **zero rules** produce the identical answer.
  *
  * Which means the deletion silently re-created the exact defect `classifyFlowStatsReply` exists
  * to prevent. That verdict was written after 2026-08-07, when a wedged Ryu made the kernel state
@@ -68,9 +68,9 @@
  * ### The distinction this must never lose
  *
  * Only switches whose read was **attempted and failed** are carried forward. A switch skipped
- * because it is down (`DeviceConfigurationAndPowerManager.cpp:1608`) was never read, is not in
- * the unread list, and must stay out: carrying those forward would keep a dead switch's rules
- * alive indefinitely, which is the optimistic direction of FIXED-ISSUES F-4/F-16 -- a worse
+ * because it is down (`isPollableForFlowTable` in `fetchOpenFlowTablesInternal`) was never read, is
+ * not in the unread list, and must stay out: carrying those forward would keep a dead switch's
+ * rules alive indefinitely, which is the optimistic direction of FIXED-ISSUES F-4/F-16 -- a worse
  * failure than the one being fixed here.
  *
  * Free function in a header, like `PendingEntryFilter.hpp` and for the same reason: the rule can
@@ -97,14 +97,14 @@ inline constexpr const char* kLastErrorField = "last_error";
 inline constexpr const char* kNeverReadField = "never_read";
 
 /// Empty body: the control plane did not answer at all (connection refused, or curl printed
-/// nothing). DeviceConfigurationAndPowerManager.cpp:1692.
+/// nothing). Set in DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal.
 inline constexpr const char* kUnreadNoResponse = "no_response";
 
-/// A non-empty body that will not parse as JSON. DeviceConfigurationAndPowerManager.cpp:1726.
+/// A non-empty body that will not parse as JSON. Set in fetchOpenFlowTablesInternal.
 inline constexpr const char* kUnreadUnparseable = "unparseable";
 
 /// The control plane answered "I could not read this switch" ({"error": ...}).
-/// DeviceConfigurationAndPowerManager.cpp:1757.
+/// Set in fetchOpenFlowTablesInternal.
 inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 
 /// A body that parses, and whose per-switch value is still not a list of rules -- an object, a
@@ -115,7 +115,7 @@ inline constexpr const char* kUnreadReportedFailure = "reported_failure";
 inline constexpr const char* kUnreadWrongShape = "wrong_shape";
 
 /// Empty *and* slower than kFlowStatsSuspectSeconds: Ryu's stats timeout, not an empty table.
-/// DeviceConfigurationAndPowerManager.cpp:1794.
+/// Set in fetchOpenFlowTablesInternal.
 inline constexpr const char* kUnreadSuspectTimeout = "suspect_timeout";
 
 /**

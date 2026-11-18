@@ -177,7 +177,7 @@ SHELL_SITES = {
      "std::string output = utils::execCommand(cmd);"): (
         1, NUMERIC,
         "pingSwitch(ip, timeout): the sole caller passes utils::ipToString(uint32) "
-        "(DeviceConfigurationAndPowerManager.cpp:691); the timeout is std::to_string(int).",
+        "(pingWorker); the timeout is std::to_string(int).",
     ),
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
      "std::string raw = utils::execCommandCancellable(cmd, m_stopSignal).output;"): (
@@ -195,7 +195,7 @@ SHELL_SITES = {
         1, CONFIG,
         "The relay status GET. GW_IP is AppConfig; si.plugIp comes from the static topology JSON "
         "file; si.plugIdx is an int. The request's own ip= parameter is a lookup key only "
-        "(DeviceConfigurationAndPowerManager.cpp:210) and never enters the command.",
+        "(queryTestbed's smart-plug table lookup) and never enters the command.",
     ),
     # [Co-developed with claude code -- Adam]
     # Changed 2026-09-07. This key used to be

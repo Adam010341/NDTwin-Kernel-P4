@@ -8,8 +8,8 @@ The defect (fourth instance of the fast-404 shape). `harness/invariants.py` inv0
 
     GET /ndt/set_switches_power_state?dpid={dpid}&action=on
 
-against a route `src/ndt_core/http/HttpSession.cpp:448` registers under `http::verb::post`
-alone, whose handler reads `ip` and not `dpid` (`:2127-2128`). Both halves were wrong. The
+against a route `HttpSession::buildResponse` registers under `http::verb::post`
+alone, whose handler reads `ip` and not `dpid` (`handleSetSwitchesPowerState`). Both halves were wrong. The
 request 404'd, `api_get_timed` is lenient so the body became `None`, nothing looked at it, and
 the only surviving number was the clock -- ~0.007 s, because an unrouted request is fast. The
 criterion `dt < 0.1` then returned, on every round, forever:
@@ -197,7 +197,7 @@ class Inv01SendsTheRightRequest(WithFakeKernel):
         fake = self.install(delay=0.2)
         invariants.inv01_powercycle_latency(S1)
         self.assertEqual(fake.method, "POST",
-                         "HttpSession.cpp:448 registers this route under http::verb::post only")
+                         "HttpSession::buildResponse registers this route under http::verb::post only")
         self.assertIn(f"ip={S1}", fake.url,
                       "handleSetSwitchesPowerState reads utils::queryParam(target, \"ip\")")
         self.assertNotIn("dpid=", fake.url,

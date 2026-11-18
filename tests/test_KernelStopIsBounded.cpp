@@ -282,13 +282,14 @@ fabricOfUpBmv2Switches(int count)
         props.dpid = static_cast<uint64_t>(i + 1);
         props.isUp = true;
         props.isEnabled = true;
-        // 🔴 An address, and NOT because this test needs one. fetchCpuReportInternal does
-        // `utils::ipToString(vp.ip.front())` on every SWITCH vertex with no empty check
-        // (DeviceConfigurationAndPowerManager.cpp:1689), so a switch carrying no IP segfaults the
-        // status worker -- confirmed here under gdb before this line existed: SIGSEGV on thread 4
-        // in fetchCpuReportInternal <- statusUpdateWorker. That is a defect in its own right and
-        // it is NOT what this file is about, so the fixture stays on the realistic side of it and
-        // the finding is reported separately rather than being fixed in passing.
+        // 🔴 An address, and NOT because this test needs one. When this was written,
+        // fetchCpuReportInternal did `utils::ipToString(vp.ip.front())` on every SWITCH vertex with
+        // no empty check (it now goes through managementIpForReport), so a switch with no IP
+        // segfaulted the status worker -- confirmed here under gdb before this line existed:
+        // SIGSEGV on thread 4 in fetchCpuReportInternal <- statusUpdateWorker. That was a defect in
+        // its own right and it was NOT what this file is about, so the fixture stayed on the
+        // realistic side of it and the defect was reported separately rather than being fixed in
+        // passing.
         props.ip.push_back(0x0A000001u + static_cast<uint32_t>(i)); // 10.0.0.1 upward
         boost::add_vertex(props, *graph);
     }

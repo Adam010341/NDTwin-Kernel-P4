@@ -795,10 +795,11 @@ class TopologyAndFlowMonitor
      * [Co-developed with claude code -- Adam]
      * doc/FIXED-ISSUES.md F-14 and F-16. The three discovery writers above assign `isUp = true`
      * at six sites and `false` at none, and the only writers of `false` anywhere in the process
-     * are the power actuation paths, the liveness poll (switch vertices only -- see the comment
-     * at DeviceConfigurationAndPowerManager.cpp:781) and `/ndt/link_failed`, which is keyed on a
-     * pair of dpids and so cannot name a host-facing edge at all. Between them, no host vertex
-     * and no host-facing edge had any path to `false`.
+     * are the power actuation paths, the liveness poll (switch vertices only -- see "Hosts are
+     * deliberately not touched here" in DeviceConfigurationAndPowerManager::pingWorker) and
+     * `/ndt/link_failure_detected`, which is keyed on a pair of dpids and so cannot name a
+     * host-facing edge at all. Between them, no host vertex and no host-facing edge had any path
+     * to `false`.
      *
      * What this does NOT do, and why. The obvious repair is to make the poll reconciling --
      * remember what the control plane reported this pass and take down whatever it stopped

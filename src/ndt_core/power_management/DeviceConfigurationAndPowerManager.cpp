@@ -1192,9 +1192,9 @@ DeviceConfigurationAndPowerManager::buildRelayPowerCommand(const std::string& gw
     // [Co-developed with claude code -- Adam]
     // doc/FIXED-ISSUES.md B-2b sweep. `action` is the only value in the whole remaining shell
     // population that originates in an HTTP request: it is the `action` query parameter of
-    // POST /ndt/set_switches_power_state (HttpSession.cpp:2128). It is checked against exactly
-    // {"on","off"} twice before it gets here -- at the HTTP boundary (HttpSession.cpp:2130) and
-    // fifteen lines above the call (setPowerStateTestbed) -- so it was not exploitable.
+    // POST /ndt/set_switches_power_state (HttpSession::handleSetSwitchesPowerState). It is checked
+    // against exactly {"on","off"} twice before it gets here -- at the HTTP boundary (that
+    // handler) and in setPowerStateTestbed before it calls this -- so it was not exploitable.
     //
     // It is migrated anyway, because "not exploitable" here rests on a two-element allowlist two
     // call frames away rather than on anything local. As an argv element the question stops being

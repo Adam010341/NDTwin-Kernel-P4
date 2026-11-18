@@ -223,7 +223,8 @@ check no claim at all. The typed word and the focus rules are the page's alone.
 `rc` is always the integer `ndt` exited with. `rc_class` and `meaning` are a per-verb reading
 of it. For `up`, `down` and `status --check` it is taken from `ndt help`; for plain `status`,
 `claim`, `release` and the `apps` verbs `ndt help` says nothing, and the table was read from
-ndt's code -- `verbs.RC_SOURCE` names the lines, and a test holds both kinds to the real ndt:
+ndt's code -- `verbs.RC_SOURCE` names that code by function and by its text, and a test holds
+both kinds to the real ndt:
 
 | rc_class | means |
 |---|---|

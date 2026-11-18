@@ -159,8 +159,8 @@ WARNING | ^cannot find graph vertex for switch IP | transient during convergence
 # load one that does not.
 # ============================================================================
 
-WHEN-POWERED-OFF | reported a read failure for switch (?P<dpid>\d+) | the proxy cannot read a switch the Energy-Saving-App has powered down, and DeviceConfigurationAndPowerManager.cpp:1750 keeping the previous table is the correct conservative response. For a switch that is NOT powered off this is the 2026-08-07 wedged-controller defect (all ten switches reporting zero rules while s1 held 130) and must stay red
-WHEN-POWERED-OFF | returned an empty flow table for switch (?P<dpid>\d+) after | same call site (DeviceConfigurationAndPowerManager.cpp:1785), the timeout branch: a powered-off switch's flow-stats reply legitimately never arrives. Unscoped, this is the lost-reply signal that the suspicion threshold exists to raise
+WHEN-POWERED-OFF | reported a read failure for switch (?P<dpid>\d+) | the proxy cannot read a switch the Energy-Saving-App has powered down, and DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal keeping the previous table is the correct conservative response. For a switch that is NOT powered off this is the 2026-08-07 wedged-controller defect (all ten switches reporting zero rules while s1 held 130) and must stay red
+WHEN-POWERED-OFF | returned an empty flow table for switch (?P<dpid>\d+) after | same call site (DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal), the timeout branch: a powered-off switch's flow-stats reply legitimately never arrives. Unscoped, this is the lost-reply signal that the suspicion threshold exists to raise
 
 
 # ============================================================================

@@ -69,7 +69,7 @@ KERNEL_ENDPOINTS = {
     "historical_logging": "POST",
     "get_average_link_usage": "GET",
     # [Co-developed with claude code -- Adam] Registered by the telemetry-health change
-    # (HttpSession.cpp:565, utils::pathIs) so the four sFlow ingest counters have a reader that is
+    # (HttpSession::buildResponse, utils::pathIs) so the four sFlow ingest counters have a reader that is
     # not a log line. Deliberately absent from every Component's endpoint list below, for the same
     # reason get_flow_dispatch_status is: those lists record which sibling repo actually calls
     # what, and nothing calls this one yet.
@@ -239,7 +239,7 @@ def scan_kernel_dispatch(http_session_cpp: str) -> dict[str, str]:
     [Co-developed with claude code -- Adam]
     🔴 The third form was added 2026-09-03 (FIXED-ISSUES L-5). It was missing, so the two
     routes registered through utils::pathIs -- /ndt/get_detected_flow_data and
-    /ndt/get_detected_top_k_flow_data (HttpSession.cpp:418,423) -- were reported as
+    /ndt/get_detected_top_k_flow_data (both in HttpSession::buildResponse) -- were reported as
     "the kernel no longer registers it" while both answered 200 in the same live run
     (2026-09-02). A drift detector that cries wolf
     about drift teaches its readers to ignore drift, which is the one thing it exists to

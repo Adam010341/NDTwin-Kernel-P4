@@ -33,6 +33,9 @@ import textwrap
 import time
 import unittest
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_text_anchors import resolve as resolve_anchor  # noqa: E402  [Co-developed with claude code -- Adam]
+
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SERVE_DIR = os.environ.get("NDT_SERVE_UNDER_TEST") or os.path.join(REPO, "tools", "ndt_serve")
 NDT = os.environ.get("NDT_UNDER_TEST") or os.path.join(REPO, "tools", "test_workflow", "ndt")
@@ -1126,21 +1129,23 @@ class RcProvenance(unittest.TestCase):
         return None
 
     def test_code_sourced_tables_are_in_ndt(self):
-        """Each anchor is its line, the text on it AND the function it lies in:
+        """Each anchor is the text of the code it cites AND the function that code lies in:
         `return 1` is on a great many lines, and a line number pointed back at 09-24's
-        8315 -- proc_checkout's `return 1` today -- passed a check of the text alone. Every
+        8315 -- proc_checkout's `return 1` today -- passed a check of the text alone. The
+        snippet must occur exactly once in ndt (tests/python/test_text_anchors.py's rule), the
+        text must be on one of its lines, and that line must lie in the named function. Every
         anchor is checked and every broken one named, not only the first."""
         bad = []
         for kind, src in self.verbs.RC_SOURCE.items():
             if "code" not in src:
                 continue
-            self.assertEqual(sorted({a[1] for a in src["code"]}), sorted(self.verbs.RC_TABLE[kind]), kind)
-            for line, rc, needle, func in src["code"]:
-                text = self.lines[line - 1] if 0 < line <= len(self.lines) else "<past the end of ndt>"
-                where = self.enclosing_function(line) if 0 < line <= len(self.lines) else None
-                if needle not in text or where != func:
-                    bad.append("%s rc %d: ndt:%d is %r in %s, cited as %r in %s" % (
-                        kind, rc, line, text.strip(), where, needle, func))
+            self.assertEqual(sorted({a[0] for a in src["code"]}), sorted(self.verbs.RC_TABLE[kind]), kind)
+            for rc, needle, func, snippet in src["code"]:
+                line, problem = resolve_anchor(self.lines, snippet, needle)
+                where = self.enclosing_function(line) if line else None
+                if problem or where != func:
+                    bad.append("%s rc %d: %s; cited as %r in %s, found in %s: %r" % (
+                        kind, rc, problem or "resolves", needle, func, where, snippet))
         self.assertEqual(bad, [])
 
     def test_the_function_finder_reads_ndt(self):
