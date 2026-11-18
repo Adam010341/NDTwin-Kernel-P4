@@ -669,6 +669,15 @@ process answer wins whenever it is non-zero. Do not read this rc as a gate: read
 (`ndt apps orphans > r.log 2>&1; bash tools/test_workflow/orphans_verdict.sh r.log $?`), which prints
 `VERDICT: CLEAN`, `NOT CLEAN`, `NOT CHECKED` or `UNUSABLE`.
 
+A program you start by hand from this checkout's `examples/` (for instance
+`python examples/p4_energy_saving/energy_saving_sdk.py`) is not one of the five apps above, and
+`ndt` did not start it. `ndt apps orphans` still reports it as `hand-run: pid <pid>`, counts it
+(rc 1, so the verdict is `NOT CLEAN`), and gives the remedy `kill <pid>`; `ndt apps stop` cannot
+address it. `ndt down` and `ndt up` print the same pid as a warning and do not stop it, because it
+is not theirs to stop: it keeps acting on whatever fabric is up next, so stop it yourself before
+you rebuild. A copy running from another checkout is listed under "seen elsewhere" and is not
+counted.
+
 Two things outside `ndt`: the Web-GUI is a Docker container on `:3000` that you start and stop with
 docker, and NTG is not a process but the prompt of 4.7.
 
@@ -684,7 +693,8 @@ ndt down          # stop everything and prove the machine is clean
 ndt clean         # the assertion only; it stops nothing
 ```
 
-`ndt down` prints its steps: `[0/3] apps` (only if an app is running), `[1/3] kernel + proxy/Ryu`
+`ndt down` prints its steps: `[0/3] apps` (only if an app is running, or a program started by hand from
+`examples/` is, which it names and leaves running: 4.8), `[1/3] kernel + proxy/Ryu`
 (the processes registered in `.test_run/pids/`), `[2/3] topology session` (the helper's `topo-stop`,
 which closes Mininet), `[3/3] sweep` (the helper's `cleanup`: stray topology and bmv2 processes, `mn -c`,
 and the switch manifest), then `verify clean`.

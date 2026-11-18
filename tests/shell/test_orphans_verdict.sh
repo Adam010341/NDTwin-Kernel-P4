@@ -64,6 +64,7 @@
 # report on disk.
 #
 # Env:  ORPHANS_VERDICT_UNDER_TEST=<path>   (point it at a copy to see this suite go red)
+#       NDT_UNDER_TEST=<path>               (the `ndt` the HR5 cell and the quotation cells read)
 # Run:  bash tests/shell/test_orphans_verdict.sh
 set -uo pipefail
 
@@ -565,6 +566,7 @@ check "  rc 1"                                            "1"  "$(rc_of "$OUT")"
 has   "  processes=running"                               "processes=running" "$OUT"
 has   "  VERDICT: NOT CLEAN"                              "VERDICT: NOT CLEAN" "$OUT"
 has   "  and names the remedy"                            "ndt apps stop <name>" "$OUT"
+hasnt "  an app, not a hand-run program: no kill <pid> advice" "kill <pid>" "$(grep '^VERDICT' <<<"$OUT")"
 
 # =================================================================================================
 section "RED 2 -- the tally says a dated rule sits in a window"
@@ -890,6 +892,64 @@ OUT="$(verdict "$FIX/clean" 0)"
 hasnt "🔴 and a report with no such line gets no NOTE"    "flow table read empty" "$OUT"
 
 # =================================================================================================
+section "🔴 HR5 -- a report taken over a program run by hand from examples/ is NOT CLEAN"
+# =================================================================================================
+# [Co-developed with claude code -- Adam]
+# Measured live: `ndt apps orphans` answered CLEAN over `energy_saving_sdk.py`, started by hand
+# per its README and kept alive across `ndt down` and `ndt up`, so the verdict this reader prints
+# was CLEAN over a writer that changed the next fabric. This reader needed no change -- it reads
+# the tally line -- so the cell below is end to end: a REAL python3 process wearing the example's
+# argv, the REAL apps_orphans of the `ndt` under test, and this reader over what it printed.
+#
+# Not a typed fixture: a typed report goes green on a tree that never learned to print it. The
+# network half is the clean one from the `clean` fixture, so only the process half differs.
+# The process lives in a session of its own, says "up" through a FIFO (waited for with `read -t`),
+# is killed by its exact pid, and has a TTL.
+NDT_FOR_HR5="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
+HR5_REPO="$FIX/hr5-repo"; HR5_FIFO="$FIX/hr5.fifo"; HR5_PID=""
+mkdir -p "$HR5_REPO/examples/p4_energy_saving" "$HR5_REPO/.test_run/pids"
+: > "$HR5_REPO/examples/p4_energy_saving/energy_saving_sdk.py"
+mkfifo "$HR5_FIFO"
+exec {HR5_FD}<>"$HR5_FIFO"
+( cd "$HR5_REPO" && exec setsid python3 -c 'import sys, time
+open(sys.argv[1], "w").write("up\n")
+time.sleep(float(sys.argv[2]))' "$HR5_FIFO" 90 examples/p4_energy_saving/energy_saving_sdk.py ) >/dev/null 2>&1 </dev/null {HR5_FD}>&- &
+HR5_PID=$!
+HR5_UP=""; read -t 30 -r -u "$HR5_FD" HR5_UP
+exec {HR5_FD}>&-
+check "  premise: the example's process is running" "up" "$HR5_UP"
+if [[ "$HR5_UP" == up ]]; then
+    HR5_RAW="$(bash -c "source '$NDT_FOR_HR5' >/dev/null 2>&1
+REPO='$HR5_REPO'; APP_NAMES='te'
+sudo() { return 1; }
+app_ps_snapshot() { printf '%s %s\n' '$HR5_PID' 'python3 -c x examples/p4_energy_saving/energy_saving_sdk.py'; }
+apps_orphans; echo \"ORPHANS_RC=\$?\"" 2>&1)"
+    HR5_ORC="$(sed -n 's/^ORPHANS_RC=//p' <<<"$HR5_RAW" | tail -1)"
+    { grep -v '^ORPHANS_RC=' <<<"$HR5_RAW"; sed 1d "$FIX/clean"; } > "$FIX/hr5_report"
+    OUT="$(verdict "$FIX/hr5_report" "$HR5_ORC")"
+    check "  ndt's own process half is rc 1"                    "1" "$HR5_ORC"
+    check "  🔴 the verdict is rc 1"                            "1" "$(rc_of "$OUT")"
+    has   "  VERDICT: NOT CLEAN"                                "VERDICT: NOT CLEAN" "$OUT"
+    has   "  processes=running"                                 "processes=running" "$OUT"
+    has   "  and the report it read names the pid"              "hand-run: pid $HR5_PID" "$(cat "$FIX/hr5_report")"
+    hasnt "  control: it is not read as a clean process half"   "processes=clean" "$OUT"
+    # [Co-developed with claude code -- Adam]
+    # The VERDICT line is what print-only call sites show (`| tail -1`), so its remedy has to be
+    # one that reaches a hand-run program: ndt apps stop cannot, it has no name to stop.
+    HR5_VLINE="$(grep '^VERDICT' <<<"$OUT")"
+    has   "  🔴 the VERDICT line says kill <pid> for a hand-run program" "kill <pid>" "$HR5_VLINE"
+    has   "  and still says ndt apps stop <name> for an app"    "'ndt apps stop <name>' for an app" "$HR5_VLINE"
+else
+    t_bad "  the HR5 fixture did not start" "no 'up' on the FIFO within 30 s"
+fi
+# Exact pid, identity first: the pid must still be the python3 this block started.
+if [[ -n "$HR5_PID" && "$(tr '\0' ' ' 2>/dev/null < "/proc/$HR5_PID/cmdline")" == *"$HR5_FIFO"* ]]; then
+    kill -KILL "$HR5_PID" 2>/dev/null
+    wait "$HR5_PID" 2>/dev/null
+fi
+check "  the process is gone after the cell" "no" "$([[ "$(tr '\0' ' ' 2>/dev/null < "/proc/$HR5_PID/cmdline")" == *"$HR5_FIFO"* ]] && echo yes || echo no)"
+
+# =================================================================================================
 section "🔴 the synthetic fixtures are QUOTATIONS, and this is what keeps them true"
 # =================================================================================================
 # [Co-developed with claude code -- Adam]
@@ -907,7 +967,7 @@ section "🔴 the synthetic fixtures are QUOTATIONS, and this is what keeps them
 # mouth still EXIST in tools/test_workflow/ndt; it cannot check that `ndt` prints them in this
 # arrangement, and no offline reader could. The live cells are what run the real tool. So this is
 # a drift alarm on the wording, and the next rename goes red HERE rather than three weeks later.
-NDT_SRC="$HERE/../../tools/test_workflow/ndt"
+NDT_SRC="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 if [[ ! -r "$NDT_SRC" ]]; then
     t_bad "the fixtures can be checked against ndt" "no readable ndt at $NDT_SRC"
 else
@@ -983,6 +1043,8 @@ else
     quoted_in_ndt "ndt still prints a stack: line with a verdict"   "stack: kernel="
     quoted_in_ndt "ndt still says: HALF A STACK"                    "HALF A STACK. the two halves disagree"
     quoted_in_ndt "ndt still says: seen elsewhere (not this checkout)" "seen elsewhere (not this checkout)"
+    quoted_in_ndt "ndt still says: hand-run: pid"                   "hand-run: pid"
+    quoted_in_ndt "ndt still names the remedy of a hand-run program" "stop it yourself:  kill"
     quoted_in_ndt "ndt still says: flow table read empty (G-55)"  "flow table read empty -- a window over an empty table frames nothing"
 
     # (c) 🔴 THE WHOLE SENTENCE, not its first line. The two H2 fixtures quoted `HALF A STACK` two

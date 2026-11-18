@@ -162,6 +162,14 @@ the kernel's `command failed` line in `.test_run/logs/kernel.log`: `sudo: ...: c
 means the helper is not installed, `sudo: a password is required` means the grant is missing, and
 a line starting `ndtwin-p4-power:` is the helper's own reason.
 
+## Stopping it, and `ndt down`
+
+An app you start by hand is not one of the apps `ndt` starts, and `ndt down` does not stop it. A
+run with `--every N` keeps going across `ndt down` and `ndt up`, remembers only the old fabric,
+and acts on the next one. `ndt apps orphans` reports it as `hand-run: pid <pid>` and says
+`NOT CLEAN`; `ndt down` and `ndt up` print the same pid as a warning. Stop it yourself:
+`kill <pid>`, or Ctrl-C in the terminal it runs in, before you rebuild the fabric.
+
 ## Options
 
 | option | default | meaning |
