@@ -6213,6 +6213,14 @@ cmd_down() {
             *) err "could NOT stop $a -- rerun 'ndt apps stop $a' to see why" ;;
         esac
     done
+    # A program run by hand from examples/ has no pidfile and no app name, so nothing here can
+    # stop it and this does not try: it is named, and it will act on the next fabric.
+    hand_run_scan
+    if (( ${#HAND_RUN[@]} > 0 )); then
+        (( started == 0 )) && say "[0/3] apps"
+        started=1
+        hand_run_warn down
+    fi
     # Said even when nothing of ours was running, because "this teardown saw them and
     # left them alone" is the sentence that restore log needed and did not have.
     if (( ${#APP_ELSEWHERE[@]} > 0 )) || [[ -n "$APP_ATTRIB_BLIND" ]]; then
@@ -11405,6 +11413,109 @@ apps_elsewhere_report() {
     return 0
 }
 
+# hand_run_scan -- Python programs started BY HAND from an examples/ directory, which no
+# pidfile and no app signature names.
+#
+# [Co-developed with claude code -- Adam]
+# The guide sends users to examples/p4_energy_saving/README.md, whose app is run by hand, and
+# `energy_saving_sdk.py` matches none of the five signatures in APP_NAMES. So a hand-run copy
+# survived `ndt down`, `ndt clean` and `ndt up` while `apps orphans` said CLEAN, and it went on
+# acting on the next fabric (it keeps its own memory of what it turned off).
+#
+# Result, in this shell (globals, for the reason app_scan_here gives):
+#   HAND_RUN        "<pid> <argv>" for each process this checkout counts
+#   APP_ELSEWHERE   another checkout's copy goes to the existing column, not counted
+#   APP_ATTRIB_BLIND  a pid whose owner could not be established is counted and says so
+# The caller resets APP_ELSEWHERE / APP_ATTRIB_BLIND; this adds to them and never signals.
+#
+# A candidate is chosen ARGUMENT-WISE from /proc/<pid>/cmdline (ps is only the index, as in
+# app_scan_pids): argv[0]'s basename starts with `python`, and a later element ends in `.py`
+# and names a file that also exists under $REPO/examples/ -- the path given absolute, or
+# resolved against /proc/<pid>/cwd. "Also exists under $REPO/examples/" is what lets another
+# checkout's copy of the same example be seen and filed under "elsewhere" instead of being
+# invisible; whose it is is then decided by proc_checkout, as for every other app.
+#
+# Never candidates: this shell, its parent, and any pid a *.pid file of this checkout names
+# (the stack's own; existence is all that is asked, as in pid_alive).
+HAND_RUN=()
+hand_run_scan() {
+    local pid args f v el p rp cwd tail base rc stackpids=" "
+    local -a hargv=()
+    HAND_RUN=()
+    for f in "$REPO"/.test_run/pids/*.pid; do
+        [[ -f "$f" && ! -L "$f" ]] || continue
+        v=""
+        read -r v 2>/dev/null < "$f" || continue
+        [[ "$v" =~ ^[0-9]+$ ]] && stackpids+="$v "
+    done
+    while read -r pid args; do
+        [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || continue
+        [[ "$pid" == "$$" || "$pid" == "$PPID" ]] && continue
+        [[ "$stackpids" == *" $pid "* ]] && continue
+        # The index line must at least mention a .py; a cheap filter that can only drop
+        # non-candidates, because the verdict below is read from /proc and not from this line.
+        [[ "$args" == *.py* ]] || continue
+        hargv=()
+        mapfile -d '' -t hargv 2>/dev/null < "/proc/$pid/cmdline"
+        (( ${#hargv[@]} >= 2 )) || continue
+        base="${hargv[0]##*/}"
+        [[ "$base" == python* ]] || continue
+        cwd=""
+        p=""
+        for el in "${hargv[@]:1}"; do
+            [[ "$el" == *.py ]] || continue
+            if [[ "$el" == /* ]]; then
+                p="$el"
+            else
+                [[ -n "$cwd" ]] || cwd="$(proc_cwd_link "$pid")" || cwd=""
+                p="${cwd:-.}/$el"
+            fi
+            [[ "$p" == */examples/* ]] || { p=""; continue; }
+            tail="${p##*/examples/}"
+            [[ "$tail" != *..* && -f "$REPO/examples/$tail" ]] && break
+            p=""
+        done
+        [[ -n "$p" ]] || continue
+        # [Co-developed with claude code -- Adam]
+        # A script path that resolves to an absolute path inside this checkout settles whose
+        # program it is: that is the case proc_checkout cannot see when the example was started
+        # from outside the checkout by a RELATIVE path (its cwd is elsewhere and the argv element
+        # is not absolute). A relative `p` (cwd unreadable) or a path outside this checkout still
+        # goes to proc_checkout.
+        rp=""
+        [[ "$p" == /* ]] && rp="$(readlink -m -- "$p" 2>/dev/null)"
+        if [[ -n "$rp" ]] && path_under_this_checkout "$rp"; then
+            rc=0; PROC_CHECKOUT_WHY="its script is $rp"
+        else
+            proc_checkout "$pid"; rc=$?
+        fi
+        case "$rc" in
+            0) HAND_RUN+=("$pid ${hargv[*]:0:12}") ;;
+            1) app_elsewhere_add "$pid" hand-run "$PROC_CHECKOUT_WHY" ;;
+            *) HAND_RUN+=("$pid ${hargv[*]:0:12}")
+               APP_ATTRIB_BLIND="${APP_ATTRIB_BLIND:+$APP_ATTRIB_BLIND; }hand-run pid $pid: $PROC_CHECKOUT_WHY" ;;
+        esac
+    done < <(app_ps_snapshot)
+    return 0
+}
+
+# hand_run_warn <down|up> -- say what hand_run_scan found, as a warning and never as a stop.
+hand_run_warn() {
+    local mode="$1" e pid
+    for e in ${HAND_RUN[@]+"${HAND_RUN[@]}"}; do
+        pid="${e%% *}"
+        if [[ "$mode" == up ]]; then
+            warn "hand-run: pid $pid  ${e#* }"
+            warn "    started by hand from this checkout's examples/ and tracked by nothing: it will act on"
+            warn "    the fabric this builds, and ndt does not stop it.  kill $pid  if that is not wanted"
+        else
+            warn "hand-run: still running, not started by ndt, NOT stopped: pid $pid  ${e#* }"
+            warn "    it will act on the next fabric.  stop it yourself:  kill $pid"
+        fi
+    done
+    return 0
+}
+
 apps_orphans() {
     local a found=0 pid e blind="" s spid lp known
     local -a unnamed=()
@@ -11474,6 +11585,18 @@ apps_orphans() {
             err "      $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"
         done
         err "    stop it with:  ndt apps stop $a"
+    done
+    # [Co-developed with claude code -- Adam]
+    # A program run by hand from examples/ (hand_run_scan): counted like the apps above, so the
+    # tally line below -- the one orphans_verdict.sh reads -- is what says NOT CLEAN. ndt cannot
+    # stop it (no pidfile, no app name), so the remedy is the pid.
+    hand_run_scan
+    for e in ${HAND_RUN[@]+"${HAND_RUN[@]}"}; do
+        found=$(( found + 1 ))
+        pid="${e%% *}"
+        err "hand-run: pid $pid  ${e#* }"
+        err "    started from this checkout and tracked by nothing; ndt does not stop it, and it acts on"
+        err "    whatever fabric is up next. stop it yourself:  kill $pid"
     done
     # [Co-developed with claude code -- Adam]
     # 🔴 Its own column, above the verdict, in warn() and not err(): these processes are
@@ -12709,6 +12832,11 @@ case "${1:-}" in
             err "  did you mean:  ndt up p4 --telemetry $NDT_TELEMETRY"
             exit 2
         fi
+        # A program run by hand from examples/ outlives the last fabric and acts on this one.
+        # Named, not refused: the README starts it AFTER `ndt up`, so a rebuild is the only time
+        # it is already there.
+        app_elsewhere_reset; APP_ATTRIB_BLIND=""
+        hand_run_scan; hand_run_warn up
         # shellcheck disable=SC2086 -- plan is "<fn> <arg>", both produced by resolve_up_target
         $plan
         ;;
@@ -13075,9 +13203,10 @@ usage: ndt <command>
                     clean and the rules-in-window could NOT BE CHECKED (kernel down, a
                     reading failed, or the plane has no time axis -- every P4
                     fabric). 4 and 5 are new on 09-07 and are deliberately not 1:
-                    a live process needs 'ndt apps stop', a leftover rule needs a
-                    delete_flow_entry by hand. Every gate that reads this rc has
-                    to be updated. (G-12)
+                    a live process needs 'ndt apps stop' (a program started by
+                    hand from examples/ needs 'kill <pid>'), a leftover rule
+                    needs a delete_flow_entry by hand. Every gate that reads
+                    this rc has to be updated. (G-12)
                     🔴 THE CODES ARE NOT DISJOINT IN PRACTICE: the PROCESS answer
                     wins whenever it is non-zero, so 2 outranks both 4 and 5 -- and
                     2 is the ordinary answer on this machine, because /proc/<pid>/fd

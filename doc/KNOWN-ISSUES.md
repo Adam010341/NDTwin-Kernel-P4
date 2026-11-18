@@ -31,9 +31,9 @@ nothing is counted twice: the twin is only lagging behind the measured traffic, 
 fall in the real rate.
 
 **Why.** The verdict is chosen by the ratio alone: above 1.5 it prints DOUBLE-COUNTING and the command
-exits 4 (`tools/test_workflow/ndt:8450-8452`, `:8612`). The verdict word no longer names a mechanism,
+exits 4 (`tools/test_workflow/ndt`, `cmd_check`: `verdict_lines` and the `sys.exit(4)` after `twin_bps / truth_bps > 1.5`). The verdict word no longer names a mechanism,
 and the lines under it list both possible causes (stacked duplicates, or a lagging twin) side by
-side from the per-sub-window ratios (`tools/test_workflow/ndt:8373-8428`); but a lag still produces
+side from the per-sub-window ratios (`cause_lines` in `cmd_check` of `tools/test_workflow/ndt`); but a lag still produces
 the same word and the same exit code as a real stack of duplicates.
 
 **What to do.** Read the cause lines under the verdict, not the exit code alone: they say whether every
@@ -52,19 +52,19 @@ and exits 3.
 
 **When.** After every `ndt down` whose own `verify clean` finds none of the fabric itself (no bmv2
 switch, no Mininet host or switch process, no topo session): that `ndt down` clears the recorded
-`ndt up` target, `.test_run/up.target` (`tools/test_workflow/ndt:6427-6428`, `clear_up_target` at
-`:623`). If the fabric is still there the record is kept and `--check` does not answer 3: `ndt down`
+`ndt up` target, `.test_run/up.target` (`tools/test_workflow/ndt`, `cmd_down`: the `clear_up_target` call under
+`CLEAN_FABRIC_LEFT`; the function is `clear_up_target`). If the fabric is still there the record is kept and `--check` does not answer 3: `ndt down`
 keeps it when `verify clean` still finds bmv2 switches, Mininet hosts or switches, the topo session, or a
 topo session it could not read (for example because the lab helper's sudo grant is missing), and when its
-own `verify clean` was refused because another `ndt down` is running (`:6598`). It then prints what it
+own `verify clean` was refused because another `ndt down` is running (`cmd_clean`, the assignment of `CLEAN_FABRIC_LEFT` that `cmd_down` reads). It then prints what it
 found and "kept the 'ndt up' target record", and `ndt status --check` goes on comparing the running lab
 with that record. Anything else `verify clean` reports (a stranger on a port, the app knob) does not keep
-it (`:6414-6429`). A kept record goes with the next `ndt down` that finds none of the fabric, or with the
+it (`cmd_down`, the same test of `CLEAN_FABRIC_LEFT`). A kept record goes with the next `ndt down` that finds none of the fabric, or with the
 next `ndt up` that builds a fabric (one that refuses leaves it as it is); once the fabric is gone you can
 remove it yourself with `rm .test_run/up.target` (`:634-647`; user guide, section 4.9).
 
 **Why.** `--check` compares the running lab with the recorded `up` target; with no target there is
-nothing to compare (`tools/test_workflow/ndt:8271-8278`). It does not fall back to checking that
+nothing to compare (`tools/test_workflow/ndt`, `cmd_status`: the `utrc == 3` branch). It does not fall back to checking that
 nothing should be running. This is documented behaviour (`doc/2026-11-05_user-guide.md`, section 4.5,
 exit-code table); whether `--check` should do more after `down` is undecided.
 
@@ -127,17 +127,17 @@ longer while the cache is carried forward after failed polls).
 
 **Why.** Two edges of the window are fixed in whole seconds from the clock of a different moment. The
 start is the app's elapsed time in whole seconds (`ps etimes`) turned into an absolute time
-(`tools/test_workflow/ndt:10516-10523`), which can be up to a second late; it is stored when the app
-is stopped (`:10217`, `app_window_record` at `:8821`). A rule's age is `now - duration_sec`, and the
+(`app_started_at` in `tools/test_workflow/ndt`), which can be up to a second late; it is stored when the app
+is stopped (`app_stop` calls `app_window_record`). A rule's age is `now - duration_sec`, and the
 table that supplies `duration_sec` is the kernel's cached copy, polled about every 10 seconds
-(`:11009-11021`), so the age can be later than the real install time by the age of the cache.
+(`residue_report` in `tools/test_workflow/ndt`), so the age can be later than the real install time by the age of the cache.
 Rules outside the window are by design not reported.
 
 **What to do.** Do not read "no flow entry arrived" as proof that the app left nothing behind. Read the
 switch tables from the controller's REST API (not from the kernel's cached copy) for the rules the app
 is known to install. Waiting before you run the report does not help: a rule's install time is computed
 from the cached table as it was last polled, and the window's end is fixed when the app is stopped
-(`tools/test_workflow/ndt:8824`, `:10219`), so no amount of waiting closes the gap. This applies to OVS
+(`app_window_record` and `app_stop` in `tools/test_workflow/ndt`), so no amount of waiting closes the gap. This applies to OVS
 only; on P4 the report prints `NOT CHECKED` (see "On P4, `ndt` cannot tell when a rule was installed"
 under Limitations). None yet that makes the window exact.
 
@@ -626,7 +626,7 @@ check the queueing tree before and after with `tools/test_workflow/qdisc_snapsho
 
 The P4 proxy now stamps every rule it installs, so the flow statistics it serves carry a real age for
 those rules. `ndt` still treats the whole P4 plane as having no time axis
-(`tools/test_workflow/ndt:10747-10749`). On a P4 fabric, `ndt apps stop`, `ndt apps orphans` and
+(`window_blindspot` in `tools/test_workflow/ndt`). On a P4 fabric, `ndt apps stop`, `ndt apps orphans` and
 `ndt status --check` therefore cannot date any rule to an app's time window, and their `rules-in-window`
 row prints `NOT CHECKED`, which is not "clean". To find the rules an app left behind on P4, read the
 switch tables themselves. The user guide describes this in section 4.5 (`doc/2026-11-05_user-guide.md`,

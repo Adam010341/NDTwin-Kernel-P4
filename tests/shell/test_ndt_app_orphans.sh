@@ -121,6 +121,9 @@ cleanup_fixtures() {
     # and that run still ends 0 or 1, not 130 or 143.
     trap '' INT TERM
     [[ -f "$FIXTURE_REG" ]] && reap_fixtures >/dev/null
+    declare -F reap_hr >/dev/null && reap_hr >/dev/null
+    [[ -n "${HR_FIFODIR:-}" && "$HR_FIFODIR" == /tmp/ndt-hr-fifo-* ]] && rm -rf "$HR_FIFODIR"
+    [[ -n "${HR_OTHER:-}" && "$HR_OTHER" == /tmp/ndt-hr-other-* ]] && rm -rf "$HR_OTHER"
     [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-app-orphans-* ]] && rm -rf "$TMPROOT"
     return 0
 }
@@ -586,6 +589,252 @@ check "  and a pid that is gone is 'could not read'"  2 \
 
 SNAPSHOT_LINES=""
 rm -f "$PIDDIR"/app_*.pid
+
+# --- 11. a program run by hand from examples/ is counted, and `ndt down` names it ------
+#
+# [Co-developed with claude code -- Adam]
+# Measured live on a P4 fabric (the energy-saving example, started by hand per its README, kept
+# alive across `ndt down` / `ndt clean` / `ndt up`): `ndt apps orphans` answered CLEAN three
+# times over it, and the next fabric was changed by it. `energy_saving_sdk.py` carries none of
+# the five app signatures, so no channel above could have seen it. The cells below are HR1-HR6.
+#
+# 🔴 REAL PROCESSES WITH REAL ARGV. The fixtures above are `exec -a "<one fake argv0>" sleep`:
+# a single argv element with spaces in it, which is not the shape of a hand-run program. These
+# are python3 itself, started as `python3 -c <sleeper> <fifo> <ttl> <script.py>`, so /proc really
+# shows argv[0]=python3 and a later element ending in .py. Each one is in a session of its own,
+# says "up" through a FIFO when it is running (the suite waits with `read -t`, never a sleep), is
+# killed by its exact pid, and has a TTL so that a SIGKILLed suite cannot leave it behind.
+#
+# 🔴 THE CONTROLS ARE INPUTS THAT MUST NOT BE COUNTED, each one the opposite of one condition the
+# scan tests: argv[0] not python (HR2), a script that is not under examples/ (HR2b) or not a file
+# there (HR2c), another checkout's copy (HR3), a pid the stack's own *.pid names (HR4).
+echo "a program run by hand from examples/ (HR1-HR6)"
+
+command -v python3 >/dev/null 2>&1 || { check "this section needs python3 on PATH" yes no; echo; echo "Ran $((PASS + FAIL)) checks, $FAIL failed"; exit 1; }
+command -v setsid  >/dev/null 2>&1 || { check "this section needs setsid on PATH" yes no; echo; echo "Ran $((PASS + FAIL)) checks, $FAIL failed"; exit 1; }
+HR_TTL=90
+HR_FIFODIR="$(mktemp -d /tmp/ndt-hr-fifo-XXXXXX)"      # outside $REPO: a fifo fd must not attribute a fixture to it
+HR_OTHER="$(mktemp -d /tmp/ndt-hr-other-XXXXXX)"       # another tree with its own examples/, outside $REPO
+HR_REG="$HR_FIFODIR/pids"; : > "$HR_REG"
+HR_REL=examples/p4_energy_saving/energy_saving_sdk.py
+mkdir -p "$TMPROOT/examples/p4_energy_saving" "$HR_OTHER/examples/p4_energy_saving" "$TMPROOT/tools"
+: > "$TMPROOT/$HR_REL"; : > "$HR_OTHER/$HR_REL"; : > "$TMPROOT/tools/helper.py"
+: > "$TMPROOT/examples/p4_energy_saving/data.txt"
+HR_CODE='import sys, time
+open(sys.argv[1], "w").write("up\n")
+time.sleep(float(sys.argv[2]))'
+HR_PID=""; HR_N=0
+
+# hr_alive <pid> -- is that pid still the fixture THIS run started (its argv carries this run's fifo directory)?
+hr_alive() {
+    local cl
+    cl="$(tr '\0' ' ' 2>/dev/null < "/proc/$1/cmdline")"
+    [[ "$cl" == *"$HR_FIFODIR"* ]] && echo yes || echo no
+}
+# reap_hr -- kill every fixture of this section by exact pid; echo how many are still alive.
+reap_hr() {
+    local pid left=0
+    [[ -f "$HR_REG" ]] || { echo 0; return 0; }
+    while read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        [[ "$(hr_alive "$pid")" == yes ]] && kill -KILL "$pid" 2>/dev/null
+        wait "$pid" 2>/dev/null
+    done < "$HR_REG"
+    while read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        [[ "$(hr_alive "$pid")" == yes ]] && left=$((left + 1))
+    done < "$HR_REG"
+    echo "$left"
+}
+# spawn_hr <cwd> <argv0> <script-arg>... -- python3 wearing that argv[0], in <cwd>, in a session of
+# its own; its pid is left in HR_PID. Called as a plain command, never from a substitution.
+spawn_hr() {
+    [[ $BASHPID == "$$" ]] || { echo "  FAILED   ${FUNCNAME[0]} called outside this suite's own shell (BASHPID $BASHPID, suite $$): ending the run" >&2; kill -TERM "$$"; exit 1; }
+    local dir="$1" a0="$2" fifo fd line="" pid argv0 sid
+    shift 2
+    HR_N=$((HR_N + 1)); fifo="$HR_FIFODIR/f$HR_N"; HR_PID=""
+    mkfifo "$fifo" || { check "mkfifo $fifo" yes no; exit 1; }
+    exec {fd}<>"$fifo"
+    HR_CODE="$HR_CODE" setsid bash -c 'cd "$1" || exit 1; a0="$2"; shift 2; exec -a "$a0" python3 -c "$HR_CODE" "$@"' \
+        _ "$dir" "$a0" "$fifo" "$HR_TTL" "$@" >/dev/null 2>&1 </dev/null {fd}>&- &
+    pid=$!
+    echo "$pid" >> "$HR_REG"
+    read -t 30 -r -u "$fd" line
+    exec {fd}>&-
+    argv0="$(tr '\0' '\n' 2>/dev/null < "/proc/$pid/cmdline" | head -1)"
+    sid="$(ps -o sid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    check "fixture $HR_N is running ($line), argv0=$a0, in a session of its own" "up $a0 $pid" "$line $argv0 $sid"
+    HR_PID="$pid"
+    [[ "$line" == up ]] || { echo; echo "Ran $((PASS + FAIL)) checks, $FAIL failed"; exit 1; }
+}
+orph_rc() { local o; o="$(apps_orphans 2>&1)"; ORPH_RC=$?; ORPH_OUT="$o"; }
+
+rm -f "${PIDDIR:?}"/*.pid "${PIDDIR:?}"/*.pgid
+spawn_hr "$TMPROOT" python3 "$HR_REL";               HR1="$HR_PID"
+spawn_hr "$TMPROOT" tail "$HR_REL";                  HR2="$HR_PID"
+spawn_hr "$TMPROOT" python3 tools/helper.py;         HR2B="$HR_PID"
+spawn_hr "$TMPROOT" python3 examples/nonesuch.py;    HR2C="$HR_PID"
+spawn_hr "$HR_OTHER" python3 "$HR_REL";              HR3="$HR_PID"
+spawn_hr "$TMPROOT/examples/p4_energy_saving" python3 energy_saving_sdk.py; HR1B="$HR_PID"
+spawn_hr "$TMPROOT" python3 tools/helper.py examples/p4_energy_saving/data.txt; HR2D="$HR_PID"
+# HR1c: this checkout's own example, started from the checkout's PARENT directory by a relative path.
+spawn_hr "${TMPROOT%/*}" python3 "${TMPROOT##*/}/$HR_REL"; HR1C="$HR_PID"
+HR1_LINE="$(fix_line "$HR1" "python3 -c x $HR_REL")"
+HR2_LINE="$(fix_line "$HR2" "tail -f $HR_REL")"
+HR2B_LINE="$(fix_line "$HR2B" "python3 -c x tools/helper.py")"
+HR2C_LINE="$(fix_line "$HR2C" "python3 -c x examples/nonesuch.py")"
+HR3_LINE="$(fix_line "$HR3" "python3 -c x $HR_REL")"
+HR1B_LINE="$(fix_line "$HR1B" "python3 -c x energy_saving_sdk.py")"
+HR2D_LINE="$(fix_line "$HR2D" "python3 -c x tools/helper.py examples/p4_energy_saving/data.txt")"
+HR1C_LINE="$(fix_line "$HR1C" "python3 -c x ${TMPROOT##*/}/$HR_REL")"
+check "premise: the first fixture is this checkout's by cwd"      0 "$(proc_checkout "$HR1" >/dev/null; echo $?)"
+check "premise: the other tree's fixture is not"                  1 "$(proc_checkout "$HR3" >/dev/null; echo $?)"
+
+# HR1: the process nothing tracks.
+SNAPSHOT_LINES="$HR1_LINE"
+orph_rc
+check "HR1 a hand-run example -> rc 1"                            1 "$ORPH_RC"
+check "  it is named, with its pid"                               yes "$(has "hand-run: pid $HR1" "$ORPH_OUT")"
+check "  and it is in the tally line orphans_verdict.sh reads"    yes "$(has "1 app(s) are running with nothing tracking them" "$ORPH_OUT")"
+check "  the remedy is the pid"                                   yes "$(has "kill $HR1" "$ORPH_OUT")"
+check "  it does not say the machine is clean"                    no  "$(has "ok  no untracked app processes" "$ORPH_OUT")"
+check "  and it is still alive (nothing here signals)"            yes "$(hr_alive "$HR1")"
+
+# HR1b: run from inside examples/, by bare filename: only the process's cwd says where the script is.
+SNAPSHOT_LINES="$HR1B_LINE"; orph_rc
+check "HR1b run from inside examples/ by bare filename -> rc 1"   1 "$ORPH_RC"
+check "  and it is named"                                         yes "$(has "hand-run: pid $HR1B" "$ORPH_OUT")"
+
+# HR1c: the same example, started from OUTSIDE the checkout by a relative path (cwd is the parent
+# directory): its script still resolves into this checkout, so it is ours, not "elsewhere".
+check "premise: its cwd is not inside this checkout"              no  "$(path_under_this_checkout "$(readlink "/proc/$HR1C/cwd")" && echo yes || echo no)"
+SNAPSHOT_LINES="$HR1C_LINE"; orph_rc
+check "HR1c relative path from outside the checkout -> rc 1"      1 "$ORPH_RC"
+check "  it is named, with its pid"                               yes "$(has "hand-run: pid $HR1C" "$ORPH_OUT")"
+check "  and it is not filed under seen elsewhere"                no  "$(has "seen elsewhere" "$ORPH_OUT")"
+
+# HR2: the controls. Each is rc 0 and says nothing about hand-run.
+SNAPSHOT_LINES="$HR2_LINE"; orph_rc
+check "HR2 argv[0] is not python (tail -f the same file) -> rc 0" 0 "$ORPH_RC"
+check "  and no hand-run line"                                    no  "$(has "hand-run:" "$ORPH_OUT")"
+SNAPSHOT_LINES="$HR2B_LINE"; orph_rc
+check "HR2b a script outside examples/ -> rc 0"                   0 "$ORPH_RC"
+SNAPSHOT_LINES="$HR2C_LINE"; orph_rc
+check "HR2c examples/nonesuch.py, not a file there -> rc 0"       0 "$ORPH_RC"
+check "  and no hand-run line"                                    no  "$(has "hand-run:" "$ORPH_OUT")"
+SNAPSHOT_LINES="$HR2D_LINE"; orph_rc
+check "HR2d a data file under examples/ beside a script outside it -> rc 0" 0 "$ORPH_RC"
+
+# HR3: another checkout's copy of the same example.
+SNAPSHOT_LINES="$HR3_LINE"; orph_rc
+check "HR3 another checkout's copy -> rc 0"                       0 "$ORPH_RC"
+check "  listed under seen elsewhere"                             yes "$(has "seen elsewhere (not this checkout): 1 process(es)" "$ORPH_OUT")"
+check "  by pid, as a hand-run"                                   yes "$(has "hand-run  pid $HR3" "$ORPH_OUT")"
+check "  and not as an orphan"                                    no  "$(has "hand-run: pid" "$ORPH_OUT")"
+check "  nor in the tally"                                        no  "$(has "app(s) are running with nothing tracking them" "$ORPH_OUT")"
+SNAPSHOT_LINES="$HR1_LINE
+$HR3_LINE"; orph_rc
+check "HR3 ours and theirs together -> rc 1"                      1 "$ORPH_RC"
+check "  ours is the orphan"                                      yes "$(has "hand-run: pid $HR1" "$ORPH_OUT")"
+check "  theirs is not"                                           no  "$(has "hand-run: pid $HR3" "$ORPH_OUT")"
+check "  one counted, one elsewhere"                              yes "$(has "1 app(s) are running with nothing tracking them" "$ORPH_OUT")"
+check "  elsewhere names theirs"                                  yes "$(has "hand-run  pid $HR3" "$ORPH_OUT")"
+
+# HR4: a pid the stack's own *.pid names is the stack's.
+SNAPSHOT_LINES="$HR1_LINE"
+echo "$HR1" > "$PIDDIR/hr_stack_member.pid"
+orph_rc
+check "HR4 a pid named in .test_run/pids/*.pid -> rc 0"           0 "$ORPH_RC"
+check "  and no hand-run line"                                    no  "$(has "hand-run:" "$ORPH_OUT")"
+rm -f "${PIDDIR:?}/hr_stack_member.pid"
+orph_rc
+check "HR4 control: the same process without the file -> rc 1"    1 "$ORPH_RC"
+
+# HR7: a process this user cannot look inside (cwd and fds unreadable) is counted, and says so --
+# the same fail-closed reading section 10 pins for the five apps.
+SNAPSHOT_LINES="$HR1_LINE"
+HR7_OUT="$(in_ndt "$blind_both" "app_ps_snapshot() { printf '%s %s\n' $HR1 'python3 -c x $HR_REL'; }
+rm -f '$PIDDIR'/app_*.pid
+apps_orphans; echo \"ORPHANS_RC=\$?\"")"
+check "HR7 cwd and fds unreadable -> rc 1"                        ORPHANS_RC=1 "$(grep -o 'ORPHANS_RC=[0-9]*' <<<"$HR7_OUT")"
+check "  it is named"                                             yes "$(has "hand-run: pid $HR1" "$HR7_OUT")"
+check "  and the report says who owns it was not established"     yes "$(has "who owns these could NOT be established" "$HR7_OUT")"
+
+# HR6: `ndt down` and `ndt up` say so, and do not stop it. The teardown is the real cmd_down over a
+# stubbed stack (the shape of tests/shell/test_ndt_down_stops_only_ours.sh): no lab, no root.
+mkdir -p "$TMPROOT/tools/test_workflow" "$TMPROOT/etc" "$TMPROOT/.test_run/logs"
+printf 'helper\n' > "$TMPROOT/installed-ndtwin-lab"
+printf '#!/usr/bin/env bash\necho "stopped kernel"\nexit 0\n' > "$TMPROOT/stack.sh"; chmod +x "$TMPROOT/stack.sh"
+HR_STUBS='
+REPO="'"$TMPROOT"'"
+HERE="'"$TMPROOT"'/tools/test_workflow"
+LAB="'"$TMPROOT"'/installed-ndtwin-lab"
+STACK="'"$TMPROOT"'/stack.sh"
+MANIFEST="'"$TMPROOT"'/manifest.json"
+CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
+LAB_CONF="'"$TMPROOT"'/etc/ndtwin-lab.conf"
+LAB_DEFAULT_KERNEL_DIR="'"$TMPROOT"'"
+APP_NAMES="te"
+sudo() { return 0; }
+bmv2_count() { echo 0; }
+mn_count() { echo 0; }
+fabric_host_count() { echo 0; }
+topo_session() { return 1; }
+in_flight() { :; }
+foreign_claim() { :; }
+measuring_declared() { :; }
+guard_no_live_ovs() { return 0; }
+check_up_target() { UP_TARGET_PROBLEMS=(); return 0; }
+ndt_sudo_report() { return 0; }
+ndt_sudo_rows() { echo one-row; }
+git_lines() { :; }
+ovs_bridge_count() { echo 0; }
+ovs_daemon_running() { return 1; }
+netem_count() { echo 0; }
+port_open() { return 1; }
+ndt_port_open() { return 1; }
+ndt_port_listener_pids() { return 0; }
+http_get_graph() { :; }
+curl() { return 1; }
+wait_reaped() { return 0; }
+app_ps_snapshot() { cat "'"$TMPROOT"'/hr_snapshot" 2>/dev/null; return 0; }
+'
+hr_drive() {   # hr_drive <shell-code> -> its output plus a trailing RC=<n>
+    bash -c "source '$NDT' >/dev/null 2>&1
+$HR_STUBS
+$1
+echo \"RC=\$?\"" 2>&1
+}
+hr_rc() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
+
+printf '%s\n' "$HR1_LINE" > "$TMPROOT/hr_snapshot"
+HR_DOWN="$(NDT_OWNER=hr-test hr_drive cmd_down)"
+check "HR6 down: the apps step is shown"                          yes "$(has "[0/3] apps" "$HR_DOWN")"
+check "  it names the hand-run program, not stopped"              yes "$(has "hand-run: still running, not started by ndt, NOT stopped: pid $HR1" "$HR_DOWN")"
+check "  with the remedy"                                         yes "$(has "stop it yourself:  kill $HR1" "$HR_DOWN")"
+check "  🔴 the program is still running after the teardown"      yes "$(hr_alive "$HR1")"
+check "  and the teardown went on to [1/3]"                       yes "$(has "[1/3] kernel + proxy/Ryu" "$HR_DOWN")"
+: > "$TMPROOT/hr_snapshot"
+HR_DOWN0="$(NDT_OWNER=hr-test hr_drive cmd_down)"
+check "  control: nothing on the field -> no hand-run line"       no  "$(has "hand-run:" "$HR_DOWN0")"
+check "  premise: that teardown ends 3 (nothing was up), so a changed rc shows" 3 "$(hr_rc "$HR_DOWN0")"
+check "  🔴 and the exit status is the same with and without it"  "$(hr_rc "$HR_DOWN0")" "$(hr_rc "$HR_DOWN")"
+printf '%s\n' "$HR3_LINE" > "$TMPROOT/hr_snapshot"
+HR_DOWN3="$(NDT_OWNER=hr-test hr_drive cmd_down)"
+check "  control: another checkout's copy is not warned about as ours" no "$(has "hand-run: still running" "$HR_DOWN3")"
+check "  it is in the elsewhere column"                           yes "$(has "seen elsewhere (not this checkout): 1 process(es)" "$HR_DOWN3")"
+# up: the warning is its own function, and the `up)` arm must call it before the plan runs.
+printf '%s\n' "$HR1_LINE" > "$TMPROOT/hr_snapshot"
+HR_UP="$(hr_drive 'hand_run_scan; hand_run_warn up')"
+check "HR6 up: the same program is named"                         yes "$(has "hand-run: pid $HR1" "$HR_UP")"
+check "  and it says it will act on the fabric being built"       yes "$(has "it will act on" "$HR_UP")"
+check "  🔴 the up) arm of ndt calls it before the plan runs"     yes \
+      "$(awk '/^    up\)$/ {f=1} f && /hand_run_scan/ {h=NR} f && /^        \$plan$/ {p=NR; exit} END {print (h && p && h < p) ? "yes" : "no"}' "$NDT")"
+: > "$TMPROOT/hr_snapshot"
+check "  control: nothing on the field -> up says nothing"        "RC=0" "$(hr_drive 'hand_run_scan; hand_run_warn up')"
+check "no hand-run fixture survives this section"                  0 "$(reap_hr)"
+SNAPSHOT_LINES=""
+rm -f "${PIDDIR:?}"/*.pid
 
 # --- 9. this suite does not become the thing it tests ------------------------------
 #

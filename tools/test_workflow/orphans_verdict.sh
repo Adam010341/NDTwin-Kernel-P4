@@ -395,7 +395,15 @@ grep -E -- 'CANNOT BE ASKED|CANNOT READ|CANNOT WINDOW|window is LOST|NOT CHECKED
 # --- the verdict --------------------------------------------------------------------------------
 REASONS=()
 case "$PROCESSES" in
-    running) REASONS+=("untracked app processes are running -- 'ndt apps stop <name>'") ;;
+    running)
+        # [Co-developed with claude code -- Adam]
+        # A program started by hand from examples/ has no pidfile and no app name, so `ndt apps
+        # stop` cannot reach it; the report names it `hand-run: pid N` and the remedy is the pid.
+        if grep -qF -- 'hand-run: pid' <<<"$REPORT"; then
+            REASONS+=("untracked app processes are running -- 'kill <pid>' for each hand-run program named above, 'ndt apps stop <name>' for an app")
+        else
+            REASONS+=("untracked app processes are running -- 'ndt apps stop <name>'")
+        fi ;;
     unknown) REASONS+=("a liveness channel was blind, so the process half was NOT answered (a check that could not look must not look like a clean check)") ;;
 esac
 # 🔴 A stack the report itself calls HALF is a finding, and the remedy is `ndt down` --
