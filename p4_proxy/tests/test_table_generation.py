@@ -230,7 +230,7 @@ class SwitchStateCarriesTheGenerationTest(unittest.TestCase):
     GET /p4/switch_state is where this has to surface.
 
     The kernel already polls it once a second (api_routes.switch_state), and it reads named
-    keys out of each switch entry -- DeviceConfigurationAndPowerManager.cpp:426 looks up
+    keys out of each switch entry -- DeviceConfigurationAndPowerManager::p4LivenessFor looks up
     "probe_ok", then "probe_age_s", then "last_lldp_age_s" -- so extra keys are inert to the
     existing parse. Adding a second endpoint would mean a second poll and a second thing that
     can be forgotten.

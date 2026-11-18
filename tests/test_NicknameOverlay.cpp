@@ -16,8 +16,8 @@
  *
  * 2026-09-05, on a live OVS fabric, that turned out not to be enough, and the reason is not a
  * bug in that fix. `ndt status --check` compares the model file's sha256 against the one
- * recorded by the `ndt up` that loaded it (tools/test_workflow/ndt:2239-2255). A sha256 does
- * not count lines. One nickname change, a two-line diff, `--check` rc=1 and "the topology file
+ * recorded by the `ndt up` that loaded it (check_up_target in tools/test_workflow/ndt). A sha256
+ * does not count lines. One nickname change, a two-line diff, `--check` rc=1 and "the topology file
  * has been edited since the ndt up that loaded it". The same run carried two controls proving
  * this was the check working rather than failing: renaming and renaming BACK left the file
  * byte-identical and `--check` green, and an unrelated writer earned the identical sentence.

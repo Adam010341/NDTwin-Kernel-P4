@@ -6,12 +6,12 @@
  * `fetchOpenFlowTablesInternal` builds a fresh array every poll and `continue`s past any switch it
  * could not read; `openflowTablesUpdateWorker` then assigned that array over the whole cache. So
  * the four skip paths deleted the switch -- while saying, in four places, that they were doing the
- * opposite:
+ * opposite (all four in fetchOpenFlowTablesInternal):
  *
- *     DeviceConfigurationAndPowerManager.cpp:1079  "tables are left as they were"
- *     :1098  "Keeping the previous table is the same conservative choice the timeout path makes"
- *     :1122  "Skipping leaves the previous table in place, the conservative direction"
- *     :1149  "not as a switch with no rules. Keeping the previous table."
+ *     "tables are left as they were"
+ *     "Keeping the previous table is the same conservative choice the timeout path makes"
+ *     "Skipping leaves the previous table in place, the conservative direction"
+ *     "not as a switch with no rules. Keeping the previous table."
  *
  * plus `FlowStatsVerdict::SuspectTimedOut`'s own "Keep the previous table" in the header, the note
  * on buildFlowStatsCommand, and -- the reason this survived -- two test files whose prose already
@@ -21,16 +21,15 @@
  *
  * ### Why deleting is the worse of the two dishonesties
  *
- * Every consumer walks the array matching on `dpid` -- `HttpSession.cpp:1802` serves it verbatim,
- * `IntentTranslator.cpp:1069` and `LLMAgent.cpp:275` read it whole, and the three checkers
- * (`tools/contract_test/spec.py:295`,
+ * Every consumer matches the array on `dpid` -- `HttpSession::handleGetSwitchOpenflowEntries`
+ * serves it verbatim, `IntentTranslator.cpp:1069` and `LLMAgent.cpp:275` read it whole, and the
+ * three checkers (`tools/contract_test/spec.py:295`,
  * `doc/audit/2026-08-28_chaos-harness/harness/invariants.py:147` and a live-acceptance probe) all
  * iterate and skip non-matching dpids. For every one of them, a *missing* switch and a switch
  * reporting *zero rules* are the same answer -- which is precisely the 2026-08-07 failure
  * `classifyFlowStatsReply` was written to prevent. The verdict refused to apply the empty table;
- * the wholesale swap applied it anyway, by
- * omission. And `inv_tables_non_empty` iterates only the entries that are present, so nothing in
- * the tree could see it happen.
+ * the wholesale swap applied it anyway, by omission. And `inv_tables_non_empty` iterates only the
+ * entries that are present, so nothing in the tree could see it happen.
  *
  * So the property under test is not "the table is right". It is that **an answer the kernel is not
  * sure of says so**: the entry is present, and it carries `stale_since`, `stale_polls` and
@@ -263,7 +262,7 @@ TEST(StaleTableCarryForward, LastErrorReportsTheLatestReasonNotTheFirst)
 TEST(StaleTableCarryForward, ASwitchThatWasNeverAttemptedIsNotCarriedForward)
 {
     // A switch that is down is skipped before any request is made
-    // (DeviceConfigurationAndPowerManager.cpp:1608), so it never reaches the unread list.
+    // (isPollableForFlowTable in fetchOpenFlowTablesInternal), so it never reaches the unread list.
     const json previous = json::array({switchWithRules(3, "10.0.0.3")});
     json fresh = json::array();
 
@@ -353,7 +352,7 @@ TEST(StaleTableCarryForward, ASwitchThatStaysUnreadSinceBootKeepsCountingAndStay
 TEST(StaleTableCarryForward, TheStaleMarkersSurviveTheT11PendingEntryFilter)
 {
     // getOpenFlowTables copies the cache and runs stripUnprogrammedEntries over it before
-    // answering (DeviceConfigurationAndPowerManager.cpp:2954-2955). That filter rewrites
+    // answering (in DeviceConfigurationAndPowerManager.cpp). That filter rewrites
     // sw["flows"]; if it ever rebuilt the switch object instead, F-6's markers would be silently
     // dropped on the way out and the endpoint would be back to serving a stale table as fresh --
     // with the unit test above still green, because it never runs the filter.
@@ -376,9 +375,9 @@ TEST(StaleTableCarryForward, TheStaleMarkersSurviveTheT11PendingEntryFilter)
 // --- the wiring: what get_switch_openflow_table_entries actually serves ----------------------
 //
 // Everything above tests the rule. These test that the rule is CONNECTED -- that the cache the
-// endpoint reads (HttpSession.cpp:1802 -> getOpenFlowTables) really keeps the switch. Without
-// these, a mutation that stops the worker calling carryForwardUnreadTables leaves every test
-// above green, which is the same "decided correctly, wired to nothing" shape as F-6 itself.
+// endpoint reads (handleGetSwitchOpenflowEntries -> getOpenFlowTables) really keeps the switch.
+// Without these, a mutation that stops the worker calling carryForwardUnreadTables leaves every
+// test above green, which is the same "decided correctly, wired to nothing" shape as F-6 itself.
 
 namespace
 {

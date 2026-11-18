@@ -25,7 +25,7 @@ check() {  # check <name> <condition...>
 UP_NOTE="in use: ndt up p4 6 at 2026-10-03 18:00:00 by p4h-test"
 
 # The knob exactly as ndt writes it -- a copy of the two printf lines of app_knob_write
-# (tools/test_workflow/ndt:1699-1700; the two-line shape is pinned by tests/shell/test_ndt_app_package.sh:334-335):
+# (tools/test_workflow/ndt, app_knob_write; the two-line shape is pinned by tests/shell/test_ndt_app_package.sh:334-335):
 # a "# written by ..." comment line, THEN the directory. The fixture used to write the directory alone,
 # which ndt never does, and recover.sh read the first line of the file.
 write_knob() {  # write_knob <file> <package dir>
@@ -52,7 +52,7 @@ setup() {  # setup <case> -- a fresh run dir, knobs, claim, override, fake /proc
 #!/usr/bin/env bash
 # Every behaviour a recovery's outcome depends on follows the real tool; the lines are cited next to it.
 echo "$s $*" >> "$d/calls"
-host_count() {  # a copy of host_count_in, tools/test_workflow/ndt:1626-1635: the first line that is not blank, not a comment; 4 if none
+host_count() {  # a copy of host_count_in in tools/test_workflow/ndt, apart from the knob's path: the first line that is not blank, not a comment; 4 if none
     local f="$d/knobs/host_count_override" line
     [[ -f "$f" ]] || { echo 4; return; }
     while read -r line; do

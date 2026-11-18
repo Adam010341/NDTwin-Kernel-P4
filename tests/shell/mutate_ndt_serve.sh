@@ -601,68 +601,10 @@ m=$(mutant m60 "$DEMO_PY" \
 report "M60: the demo's slot probe is a real POST /down with the token" "$m" \
        DemoProbes.test_demo_probes_cannot_touch_the_lab
 
-# [Co-developed with claude code -- Adam] 2026-09-28: M61, M64 and M65 re-anchored on the lines
-# ndt's one-clock residue change moved (apps.status 10346 -> 10382, lock_probe +13); on this
-# branch status --measuring adds 23 more above them (10405, lock_probe 9452-9467), and the
-# external detect-only changes 117 more (10522, lock_probe 9569-9584); the port-probe verdict
-# change adds 41 more (10563, lock_probe 9610-9625). verbs.py's own row had read 10556, not the
-# 10563 above; the NTG_DIR config key (+2) and the .test_run/logs guard (+41) move it 10556 -> 10599.
-# 2026-10-28: the NTG_DIR lookup for `ndt ntg` (+53) moves it 10599 -> 10652, and M63's and G62h's
-# rows move by the same 53 (9115 -> 9168, proc_checkout 8655 -> 8708; 6903 -> 6956, 6841 -> 6894).
-# 2026-10-29: the exercise path of `ndt up p4 --app` and its host-count record (+279, 158 of them the
-# record) move it 10652 -> 10931, and M63's and G62h's rows by the same 279 (9168 -> 9447,
-# proc_checkout 8708 -> 8987; 6956 -> 7235, 6894 -> 7173).
-# 2026-10-30: the record's put-back in cmd_down and knob_row's --app answer (+18) move it
-# 10931 -> 10949, and M63's and G62h's rows by the same 18 (9465, 9005; 7253, 7191).
-# 2026-10-30, later: a claim and a release forgetting the --app record (+16) move it 10949 -> 10965,
-# and M63's and G62h's rows by the same 16 (9481, 9021; 7269, 7207).
-# 2026-10-30, wording: three comment lines in the record's header in ndt move it 10965 -> 10968, and M63's
-# and G62h's rows by the same 3 (9484, 9024; 7272, 7210).
-# 2026-10-31: the path of `ndt ntg`'s config module at the top of ndt and the ready line's
-# fresh-or-reused word (+13) move it 10968 -> 10981, and M63's and G62h's rows by the same 13
-# (9497, 9037; 7285, 7223).
-# [Co-developed with claude code -- Adam] 2026-11-01: the refusal unwind in up_p4 and what goes with it (189
-# lines above status --measuring's row, counted from the ndt that already carried 'ndt ntg' mode) moves it
-# 10981 -> 11170, and M63's and G62h's rows by the same 189 (9686, 9226; 7474, 7412), each found by text
-# and function.
-# [Co-developed with claude code -- Adam] 2026-11-01, later: 9 lines (4 for the unreadable-file checks, 4 in
-# up_p4's app-knob failure block, 1 telemetry mark) move it 11170 -> 11179, and M63's and G62h's rows by the
-# same 9 (9695, 9235; 7483, 7421).
-# [Co-developed with claude code -- Adam] 2026-11-04: up_p4's fabric wait watching the bridge's topo session
-# (+13, all above these rows) moves it 11179 -> 11192, and M63's and G62h's rows by the same 13 (9708, 9248;
-# 7496, 7434), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-05: the topo session look's three answers at its callers
-# (+71 above these rows) move it 11192 -> 11263, and M63's and G62h's rows by the same 71 (9779, 9319; 7560,
-# 7498), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-05, later: 8 more lines above these rows (the hint's third case) move
-# it 11263 -> 11271, and M63's and G62h's rows by the same 8 (9787, 9327; 7568, 7506), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-06: up_p4's refusal of an NTG config NTG cannot start on (+3, all above
-# these rows) moves it 11271 -> 11274, and M63's and G62h's rows by the same 3 (9790, 9330; 7571, 7509), each found by
-# text and function.
-# [Co-developed with claude code -- Adam] 2026-11-06, later: `ndt down`'s stop and sweep saying when they did not
-# run, the 'ndt up' record kept only over the fabric itself, and the guard's rc 5 (+134, all above these rows)
-# move it 11274 -> 11408, and M63's and G62h's rows by the same 134 (9924, 9464; 7705, 7643), each found by
-# text and function.
-# [Co-developed with claude code -- Adam] 2026-11-08: `ndt down`'s note on a component killed after the stop
-# window (+2 in cmd_down, above these rows) moves it 11408 -> 11410, and M63's and G62h's rows by the same 2
-# (9926, 9466; 7707, 7645), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-13: the footer's line on reaching the pane without root
-# (+10, all above these rows) moves it 11410 -> 11420, and M63's and G62h's rows by the same 10
-# (9936, 9476; 7717, 7655), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-13, later: `ndt down`'s [1/3] leaves out stack.sh's report on a
-# deferred port (+44, all above these rows) moves it 11420 -> 11464, and M63's and G62h's rows by the same 44
-# (9980, 9520; 7761, 7699), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-15: a P4 rollback reading stack.sh's port report the way
-# `ndt down` does (+69, all above these rows) moves it 11464 -> 11533, and M63's and G62h's rows by the same 69
-# (10049, 9589; 7830, 7768), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-16: a rollback over a reused fabric saying what it took
-# down, and a switch manifest naming the fabric's ports (+49, all above these rows) moves it 11533 -> 11582,
-# and M63's and G62h's rows by the same 49 (10098, 9638; 7879, 7817), each found by text and function.
-# [Co-developed with claude code -- Adam] 2026-11-16, later: a rollback over a reused fabric naming only the stages
-# that stopped something (+15, all above these rows) moves it 11582 -> 11597, and M63's and G62h's rows by the
-# same 15 (10113, 9653; 7894, 7832), each found by text and function.
+# [Co-developed with claude code -- Adam] M61, M63 and G62h name RC_SOURCE rows by their text. A row is
+# (rc, text, function, snippet of ndt), so lines added elsewhere in ndt no longer move these anchors.
 m=$(mutant m61 "$VERBS_PY" \
-    '    "apps.status": {"code": [(11597, 0, "return 0", "cmd_apps")]},' \
+    '    "apps.status": {"code": [(0, "return 0", "cmd_apps", ("[[ \"$sub\" == status ]] && return 0",))]},' \
     '')
 report "M61: an rc table with no source" "$m" \
        RcProvenance.test_every_table_names_its_source
@@ -873,8 +815,12 @@ report "M63b: up's rc 5 sentence drops the refusals it gained" "$m" \
        RcProvenance.test_up_refused_names_the_refusals_help_names
 
 m=$(mutant m63 "$VERBS_PY" \
-    '(10113, 1, "return 1", "app_start")' \
-    '(9653, 1, "return 1", "app_start")')
+    '(1, "return 1", "app_start",
+                             ("err \"   not starting a second instance. stop the first:  ndt apps stop $name\"",
+                              "return 1"))' \
+    '(1, "return 1", "app_start",
+                             ("PROC_CHECKOUT_WHY=\"nothing ties it to $REPO${t:+ (it runs in $t)}\"",
+                              "return 1"))')
 report "M63: apps.start rc 1 cites proc_checkout's return 1" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
@@ -1643,8 +1589,10 @@ report "G62g: --measuring's rc 0 cites a phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 
 m=$(mutant g62h "$VERBS_PY" \
-    '                         "code": [(7894, 0, "return 0", "cmd_status")]},' \
-    '                         "code": [(7832, 0, "return 0", "cmd_status")]},')
+    '(0, "return 0", "cmd_status", ("status_measuring_rows", "return 0"))' \
+    '(0, "return 0", "cmd_status",
+                                   ("STATUS_APP_PROBLEMS+=(\"the app package at $state has no readable package.json control_plane.mode -- the proxy cannot start on it\")",
+                                    "return 0"))')
 report "G62h: --measuring's rc 0 cites a return 0 of another function (app_package_row)" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 

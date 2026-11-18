@@ -2384,7 +2384,7 @@ class TopologyManager:
                         #
                         # Both claims above are unchanged and still true -- exactly those two
                         # flags, exactly one caller. What is gone is their line numbers
-                        # (HttpSession.cpp:1080-1081 and IntentTranslator.cpp:227), which were
+                        # (one in HttpSession.cpp, one in IntentTranslator.cpp), which were
                         # exact when written and had drifted by two commits later. This comment
                         # exists to be the accurate correction of an earlier wrong one, so it is
                         # the last place that should carry a pointer with a shelf life.
@@ -2564,7 +2564,7 @@ class TopologyManager:
                     # POST /p4/readopt/{dpid} wipes one switch with no restart at all.
                     #
                     # Additive: the kernel reads named keys out of this entry
-                    # (DeviceConfigurationAndPowerManager.cpp:426 looks up "probe_ok", then
+                    # (DeviceConfigurationAndPowerManager::p4LivenessFor looks up "probe_ok", then
                     # "probe_age_s", then "last_lldp_age_s"), so an unknown key is inert to
                     # the existing parse and no reader has to be updated in lockstep.
                     "table_generation": getattr(client, "table_generation", None),

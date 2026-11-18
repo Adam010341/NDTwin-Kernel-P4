@@ -2452,12 +2452,12 @@ class DownReasonVocabularyTest(unittest.TestCase):
 
         spec.py   DOWN_REASONS, DECLARED, LINK_FAILURE_REPORTED, LINK_FAILURE_INJECTED
         kernel    downReasonToString (the enum's wire form, common_types/GraphTypes.hpp),
-                  HttpSession.cpp:986,990 (a raw-string reply) and :1303-1305 (a json object)
+                  HttpSession::handleLinkFailure (raw strings), ::handleInjectLinkFailure (json)
 
-    Nothing compared them. This is not a defect today -- the seven agree -- and the guard is
-    the point: a fourth reason added to the C++ enum would pass every existing check while
-    the two link-reply schemas, which never mention DOWN_REASONS, refused it, and the two
-    hardcoded replies said nothing about it. The mutation gate is where this file's red lives.
+    Nothing compared them. This is not a defect today -- the seven agree -- and the guard is the
+    point: a fourth reason added to the C++ enum would pass every existing check while the two
+    link-reply schemas, which never mention DOWN_REASONS, refused it, and the hardcoded replies of
+    those two handlers said nothing about it. The mutation gate is where this file's red lives.
 
     🔴 `"declared"` is also a BandwidthSource spelling in the same header, a different
     vocabulary reusing the word. Grepping the string conflates the two; the scan below reads

@@ -1050,7 +1050,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *
      * 🔴 WHY THIS HAD TO EXIST BEFORE THE FIX COULD. `/ndt/inject_link_failure` and
      * `/ndt/inject_link_recovery` wrote `const auto runner = utils::netem::realTcRunner();` INLINE
-     * (HttpSession.cpp:856 and :945 on trunk 153b5ca1), and `grep -rn realTcRunner tests/` found
+     * (their handlers on trunk 153b5ca1), and `grep -rn realTcRunner tests/` found
      * nothing at all: every wire test builds its peer with utils::TESTBED, so the handler returned
      * at `"tc": "skipped (not MININET)"` and the whole tc branch was unreachable from ctest by
      * construction. A1 was therefore answerable only on a live fabric -- which is how it went

@@ -18,10 +18,11 @@ exited with, whatever this table says about it. An rc the table does not know is
 
 Where each table comes from is RC_SOURCE, below, and it is not one place:
 `up`, `down` and `status --check` are in `ndt help`; plain `status`, `claim`, `release` and the
-three `apps` verbs are NOT -- they were read from ndt's code, and RC_SOURCE names the lines.
+three `apps` verbs are NOT -- they were read from ndt's code, and RC_SOURCE names that code
+by the function it lies in and by its text, not by line number.
 tests/python/test_ndt_serve.py RcProvenance holds both kinds to the real ndt of this tree: a
-help phrase that is no longer printed, or a cited line that no longer says what it is cited
-for, turns it red.
+help phrase that is no longer printed, or cited code that is no longer in ndt or no longer in
+the function named, turns it red.
 """
 import os
 import re
@@ -259,101 +260,14 @@ RC_TABLE = {
 
 
 # Where each table's codes come from. "help": the phrase `ndt help` prints for each rc (compared
-# whitespace-normalised). "code": (line, rc, text that line must contain, the function that line
-# lies in) in tools/test_workflow/ndt -- this tree's line numbers: status_measuring_rows and
-# `status --measuring` (10-01) added 23 lines above cmd_status's verdict, and every row from there
-# down moved by that much. Before that, trunk cafd518a's line numbers (the heartbeat
-# change added 124 lines to ndt above these rows -- 122 before cmd_status and 2 inside
-# it, the `heartbeat` row, before its verdict; the 11 rows below them moved by that much, each
-# located by its old line's text in the same function): the `serve)` dispatch lies
-# below every anchor. 🔴 The function is half the anchor: `return
-# 1` is on 187 lines of this tree's ndt, and 09-24's apps.start line 8315 was one of them --
-# proc_checkout's, 8439 since the heartbeat change. [Co-developed with claude code -- Adam]
-# 2026-09-28: the one-clock residue change put 36 lines above the apps.stop and apps.status rows
-# (app_started_at and residue_report); nothing above cmd_apps' own rows moved otherwise.
-# 2026-10-02, external detect-only branch: the heartbeat drop check and the external-plane
-# rows put 99 lines above status --measuring's row, 117 above cmd_status's verdict and every
-# row below it; each row was re-read at its new line. The claim and release rows did not move.
-# 2026-10-09: the port-probe verdict change put 4 lines above the claim rows, 18 above the apps.start
-# and cmd_down area, 35 above cmd_clean and 41 above everything from status --measuring down; each
-# anchor was moved to the line that holds the same code, matched against the unchanged lines of the
-# earlier ndt (the text on it and the function it lies in are the same).
-# 2026-10-27: the NTG_DIR key in ndt's read-only config parser put 2 lines above status
-# --measuring's row and every row below it; the claim and release rows did not move.
-# 2026-10-27, .test_run/logs: guard_run_logs_writable and its call in preflight put 41 more lines
-# above the same rows; the claim and release rows did not move.
-# 2026-10-28: lab_ntg_dir and its shared parser in ndt's read-only config reader put 53 more
-# lines above the same rows; the claim and release rows did not move.
-# 2026-10-29: app_is_exercise, app_from_exercise and up_p4's exercise branch (`ndt up p4 --app
-# <exercise dir>`) and the record of the host count an --app bring-up writes put 279 more lines
-# above the same rows (158 of them the record); the claim and release rows did not move.
-# 2026-10-30: the record's second-bring-up rule, its put-back moved from cmd_clean to cmd_down and
-# knob_row's --app answer put 18 more lines above the same rows; the claim and release rows did not move.
-# 2026-10-30, later: a claim and a release forgetting the --app record, and release's advice to run
-# 'ndt down' over it, put 4 lines above the claim rows and release's first two, 10 above release's
-# knob refusal and 16 above every row below it.
-# 2026-10-30, wording: three lines in the record's header comment in ndt (the record ends at release
-# or at a claim that finds the knob moved) put 3 lines above every row below it; the claim and
-# release rows did not move.
-# 2026-10-31: the path of `ndt ntg`'s config module, set at the top of ndt, put 4 lines above every
-# row; the ready line's fresh-or-reused word (its global, up_p4 and lab_entry_points) put 9 more
-# above status --check's row and every row below it.
-# 2026-11-01, [Co-developed with claude code -- Adam]: `ndt up p4`'s refusals that only read the
-# machine moved above its writes, up_p4 gained an unwind for what it wrote (refusal_unwind and the
-# functions under it) and the model comparison became its own function (up_target_check): 13 lines
-# above the claim and release rows, and 189 above status --measuring's row and every row below it,
-# counted from the ndt that already carried 'ndt ntg' mode. Each anchor was moved to the line that
-# holds the same code, found by matching against the unchanged lines of the earlier ndt (text and
-# function checked), not by adding one number to all of them.
-# 2026-11-01, later still: 9 more lines above status --measuring's row and every row below it (the
-# claim and release rows did not move): 4 for the unreadable-file checks in refusal_snapshot and
-# refusal_mark, 4 in up_p4's app-knob failure block (a mark and its comment) and 1 for the
-# telemetry mark. Each anchor was moved to the line that holds the same code (text and function
-# checked).
-# 2026-11-04: 13 more lines above status --measuring's row and every row below it (the claim and
-# release rows did not move): up_p4's fabric wait now also watches the bridge's topo session.
-# Each anchor was moved to the line that holds the same code (text and function checked).
-# 2026-11-05: 64 more lines above status --measuring's row and 7 more above status --check's rows (the
-# claim and release rows did not move): the topo session look now has three answers at its callers
-# (lab_status_failed_hint, up_p4's sweep and stop, the rollback, lab_subject, cmd_clean, cmd_status and
-# the guard). Each anchor was moved to the line that holds the same code (text and function checked).
-# 2026-11-05, later: 8 more lines above status --measuring's row and every row below it (the claim and
-# release rows did not move): the hint under a failed status call has a third case. Each anchor was moved
-# to the line that holds the same code (text and function checked).
-# 2026-11-06: 3 more lines above status --measuring's row and every row below it (the claim and release rows did
-# not move): up_p4 refuses a fabric whose NTG config names a mode NTG does not know or a hosts file that does not
-# exist, before any fabric, knob, target or claim-note write. Each anchor was moved to the line that holds the same
-# code (text and function checked).
-# 2026-11-06, later: 23 more lines above the claim and release rows and 134 more above status --measuring's
-# row and every row below it: `ndt down`'s stop and sweep saying when they did not run, the 'ndt up' record
-# kept only while verify clean still finds the fabric itself (cmd_clean's list of what of it is left), the
-# hint's verb, lab_call_verdict and the guard's rc 5. Each anchor was moved to the line that holds the same
-# code (text and function checked).
-# 2026-11-08: `ndt down`'s explanation of a red stack.sh half names a component killed after the stop
-# window (2 more lines in cmd_down, above status --measuring's row and every row below it; the claim
-# and release rows did not move). Each anchor was moved to the line that holds the same code (text and
-# function checked).
-# 2026-11-13: the footer under 'up. ready' names the way into the topology pane without root
-# (lab_pane_without_root and one line in lab_entry_points): 10 more lines above status --measuring's
-# row and every row below it; the claim and release rows did not move. Each anchor was moved to the
-# line that holds the same code (text and function checked).
-# 2026-11-13, later: `ndt down` leaves stack.sh's report on a deferred port out of [1/3] and names the
-# holder at the re-read instead (a new function above cmd_down and a few lines in cmd_down): 44 more
-# lines above status --measuring's row and every row below it; the claim and release rows did not move.
-# Each anchor was moved to the line that holds the same code (text and function checked).
-# 2026-11-15: a P4 rollback reads stack.sh's port report the way `ndt down` does (a new port helper and
-# a few lines in rollback_up): 69 more lines above status --measuring's row and every row below it; the
-# claim and release rows did not move. Each anchor was moved to the line that holds the same code (text
-# and function checked).
-# 2026-11-16: a rollback over a reused fabric says what it took down, and a held port counts as that
-# fabric's only when its switch manifest lists it (a new helper that reads the manifest, one comment
-# line above the filter's helper and the rest in rollback_up): 49 more lines above status --measuring's
-# row and every row below it; the claim and release rows did not move. Each anchor was moved to the
-# line that holds the same code (text and function checked).
-# 2026-11-16, later: a rollback over a reused fabric names only the stages that stopped something (a few
-# more lines in rollback_up): 15 more lines above status --measuring's row and every row below it; the
-# claim and release rows did not move. Each anchor was moved to the line that holds the same code (text
-# and function checked).
+# whitespace-normalised). "code": (rc, text the cited line must contain, the function that line
+# lies in, a snippet) in tools/test_workflow/ndt. The snippet is a run of whole lines of ndt,
+# compared with surrounding whitespace stripped, that must occur exactly once in ndt; the cited
+# line is the one of them that holds the text. Lines added or removed elsewhere in ndt do not
+# move it, and a change to the code it names breaks it (tests/python/test_text_anchors.py).
+# 🔴 The function is half the anchor: `return 1` is on over 200 lines of ndt, and 09-24's
+# apps.start row once cited proc_checkout's (RcProvenance in tests/python/test_ndt_serve.py
+# checks the function). [Co-developed with claude code -- Adam]
 RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
@@ -367,21 +281,52 @@ RC_SOURCE = {
     "status.check": {"help": {0: "exit 0 all compared fields match",
                               1: "1 one of them does not (the message names it)",
                               3: "3 nothing was compared, because there is no baseline RIGHT NOW"},
-                     "code": [(8280, 3, "return 3", "cmd_status"), (8285, 0, "return 0", "cmd_status"),
-                              (8289, 1, "return 1", "cmd_status")]},
-    "status": {"code": [(8291, 0, "return 0", "cmd_status")]},
+                     "code": [(3, "return 3", "cmd_status",
+                               ("printf '  - %s\\n' \"${problems[@]}\"", "fi", "return 3")),
+                              (0, "return 0", "cmd_status",
+                               ("printf '  %s\\n' \"compared against the last 'ndt up': dataplane, fabric hosts, kernel graph, topology file\"",
+                                "return 0")),
+                              (1, "return 1", "cmd_status",
+                               ("printf '  - %s\\n' \"${problems[@]}\"", "return 1"))]},
+    "status": {"code": [(0, "return 0", "cmd_status",
+                         ("printf '  - %s\\n' \"${problems[@]}\"", "return 1", "fi", "return 0"))]},
     "status.measuring": {"help": {0: "exit 0 always: like plain status it judges nothing"},
-                         "code": [(7894, 0, "return 0", "cmd_status")]},
-    "claim": {"code": [(800, 2, "return 2", "cmd_claim"), (809, 2, "return 2", "cmd_claim"),
-                       (834, 1, "return 1", "claim_take"), (906, 1, "return 1", "claim_take"),
-                       (908, 0, 'ok "lab claimed by', "claim_take")]},
-    "release": {"code": [(912, 0, "return 0", "cmd_release"), (917, 1, "return 1", "cmd_release"),
-                         (951, 1, "return 1", "cmd_release")]},
-    "apps.start": {"code": [(10109, 0, "return 0", "app_start"), (10113, 1, "return 1", "app_start"),
-                            (10186, 1, "return 1", "app_start")]},
-    "apps.stop": {"code": [(11664, 1, "return 1", "cmd_apps"), (11667, 2, "return 2", "cmd_apps"),
-                           (11670, 0, "return 0", "cmd_apps")]},
-    "apps.status": {"code": [(11597, 0, "return 0", "cmd_apps")]},
+                         "code": [(0, "return 0", "cmd_status", ("status_measuring_rows", "return 0"))]},
+    "claim": {"code": [(2, "return 2", "cmd_claim",
+                        ("err \"  export NDT_OWNER='my-session-name'\"", "return 2")),
+                       (2, "return 2", "cmd_claim",
+                        ("err \"  NDT_MEASURING='...'  a measurement is running that 'ndt check' must not perturb\"",
+                         "return 2")),
+                       (1, "return 1", "claim_take",
+                        ("err \"the lab is already claimed by $other\"", "fi", "return 1")),
+                       (1, "return 1", "claim_take",
+                        ("err \"  do NOT start a run. The replaced claim, if there was one, is in ${CLAIM#$REPO/}.prev\"",
+                         "return 1")),
+                       (0, "ok \"lab claimed by", "claim_take",
+                        ("ok \"lab claimed by $NDT_OWNER for ${mins}m${note:+ ($note)}\"",))]},
+    "release": {"code": [(0, "return 0", "cmd_release",
+                          ("if [[ ! -f \"$CLAIM\" ]]; then ok \"no claim to release\"; return 0; fi",)),
+                         (1, "return 1", "cmd_release",
+                          ("err \"if they are gone:  ndt release --force\"", "return 1")),
+                         (1, "return 1", "cmd_release",
+                          ("err \"release anyway (it stays at $knob_now):  ndt release --force\"",
+                           "return 1"))]},
+    "apps.start": {"code": [(0, "return 0", "app_start",
+                             ("if [[ \"$APP_STATE\" == running ]]; then warn \"$name already running\"; return 0; fi",)),
+                            (1, "return 1", "app_start",
+                             ("err \"   not starting a second instance. stop the first:  ndt apps stop $name\"",
+                              "return 1")),
+                            (1, "return 1", "app_start",
+                             ("*) err \"unknown app: $name (known: $APP_NAMES)\"; return 1 ;;",))]},
+    "apps.stop": {"code": [(1, "return 1", "cmd_apps",
+                            ("(( n_fail > 0 )) && { err \"$n_fail app(s) could not be stopped\"; return 1; }",)),
+                           (2, "return 2", "cmd_apps",
+                            ("info \"nothing to stop ($n_noop app(s) were already not running)\"",
+                             "return 2")),
+                           (0, "return 0", "cmd_apps",
+                            ("(( n_noop > 0 )) && info \"stopped $n_stopped; $n_noop were already not running\"",
+                             "return 0"))]},
+    "apps.status": {"code": [(0, "return 0", "cmd_apps", ("[[ \"$sub\" == status ]] && return 0",))]},
 }
 
 

@@ -8,13 +8,13 @@
  * every one of them is in the "optimistic" column, meaning the twin says healthy when the fabric
  * is not.
  *
- *   F-14  A host can never be marked down: no code path does it. The four production callers of
- *         setVertexDown all sit behind `vertexType == VertexType::SWITCH`
- *         (DeviceConfigurationAndPowerManager.cpp:684), and the only writer of a host vertex is
+ *   F-14  A host can never be marked down: no code path does it. The three production callers of
+ *         setVertexDown, all in DeviceConfigurationAndPowerManager::pingWorker, sit behind
+ *         `vertexType == VertexType::SWITCH`, and the only writer of a host vertex is
  *         updateHosts, which assigns `isUp = true` and nothing else.
  *   F-16  When a switch dies, only switch-to-switch edges are marked down. The only writer of
  *         edge-down is HttpSession::handleLinkFailure, which locates its edge by a *pair of
- *         dpids* (HttpSession.cpp:911, :934) -- and a host has no dpid, so a host-facing edge was
+ *         dpids* (findEdgeBySrcAndDstDpid) -- and a host has no dpid, so a host-facing edge was
  *         not addressable by it at all.
  *   F-4   A dead switch-to-switch link is resurrected to is_up=true on the next poll, because
  *         updateHosts locates a host's edges by IP alone and a switch's own management address is
@@ -460,7 +460,7 @@ TEST(OptimisticTopologyReportingTest, OneMissedPollDoesNotIsolateAnything)
  * absent), but it has no evidence that anything is up. Raising is discovery's job. A derivation
  * that both lowered and raised would be the seventh site in TopologyAndFlowMonitor.cpp asserting
  * liveness it never observed -- which is exactly the branch that was deleted from
- * DeviceConfigurationAndPowerManager.cpp:781-802 for the same reason.
+ * DeviceConfigurationAndPowerManager::pingWorker for the same reason.
  */
 TEST(OptimisticTopologyReportingTest, RecoveryClearsTheReasonWithoutRaisingAnything)
 {

@@ -302,7 +302,7 @@ report "an isolated host carries no down_reason" \
 # --- 5. Recovery raises instead of only releasing ---------------------------------------------
 # The derivation has evidence for down (a switch positively observed absent) and none whatever for
 # up. This mutant makes it the seventh site in that file asserting liveness it never observed --
-# which is the exact branch deleted from DeviceConfigurationAndPowerManager.cpp:781-802.
+# which is the exact branch deleted from DeviceConfigurationAndPowerManager::pingWorker.
 mutate "$SRC" \
     '            ep.downReason = DownReason::None;
             ++edgesReleased;' \

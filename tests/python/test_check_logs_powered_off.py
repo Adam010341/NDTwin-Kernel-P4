@@ -8,7 +8,7 @@ FIXED-ISSUES A-8. The kernel writes
     [warning] localhost:8081 reported a read failure for switch 5 (...) -- keeping the
     previous table rather than treating it as a switch with no rules
 
-(src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1750) *because it is
+(DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal) *because it is
 correctly handling a switch the Energy-Saving-App powered down. The allowlist did not carry
 it, so the log check went red -- the third of three tools that turn red when the system is
 working.
