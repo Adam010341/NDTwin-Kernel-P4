@@ -135,6 +135,7 @@ gRPC **client**, so Mininet starts first. `stack.sh up` follows the right order 
 ./stack.sh wait       # block until the kernel reports a converged topology
 ./stack.sh status
 ./stack.sh down
+./stack.sh stop p4_proxy   # only the named components (kernel, p4_proxy, ryu); reads no port
 ./stack.sh logs
 ```
 

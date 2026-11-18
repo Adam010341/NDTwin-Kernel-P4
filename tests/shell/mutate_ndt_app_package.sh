@@ -336,12 +336,10 @@ check_fires "M8: external mode is judged by NDTwin's own routes" m8 \
 
 # --- M9 (widening): a rollback deletes a knob it never wrote -------------------------------
 # Every "the knob is gone" cell passes, and a bring-up that failed has destroyed a file that
-# belongs to whatever is still running. APP_KNOB_WRITTEN is the whole difference, and only the
-# control cell for it can see this.
+# belongs to whatever is still running. The put-back reads what this run wrote (refusal_mark) and
+# leaves anything else alone; only the control cell for it can see this.
 cat > "$A/m9.old" <<'EOF'
-    if [[ -n "$APP_KNOB_WRITTEN" ]]; then
-        app_knob_clear "this bring-up was rolled back" || rc=1
-    fi
+    refusal_put_back "$(app_knob_path)" "this bring-up was rolled back" || rc=1
 EOF
 cat > "$A/m9.new" <<'EOF'
     app_knob_clear "this bring-up was rolled back" || rc=1

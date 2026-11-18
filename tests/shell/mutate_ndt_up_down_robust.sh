@@ -966,8 +966,8 @@ report_green "W16 (behaviour-preserving): the exception's manifest-present test 
 
 # M173 (widening): a rollback over a reused fabric is always complete.
 m=$(mutant m173 "$NDT" \
-    '    if (( rc == 0 && left == 0 )) && [[ "${UP_P4_FABRIC:-}" == reused ]]; then' \
-    '    if [[ "${UP_P4_FABRIC:-}" == reused ]]; then')
+    '    if (( rc == 0 && left == 0 )) && (( ${#UP_LEFT[@]} + ${#UP_REPLACED[@]} )); then' \
+    '    if (( ${#UP_LEFT[@]} + ${#UP_REPLACED[@]} )); then')
 report "M173 (widening): a reuse rollback is complete whatever was left" "$m" \
        "🔴 a reuse rollback whose stack did not stop cleanly is INCOMPLETE"
 
@@ -1029,10 +1029,10 @@ report "M181 (widening): a manifest a fresh rollback left behind excuses the por
 
 # M182: the success line over a reused fabric says the machine is back as it was.
 m=$(mutant m182 "$NDT" \
-    '    if (( rc == 0 && left == 0 )) && [[ "${UP_P4_FABRIC:-}" == reused ]]; then' \
+    '    if (( rc == 0 && left == 0 )) && (( ${#UP_LEFT[@]} + ${#UP_REPLACED[@]} )); then' \
     '    if false; then')
 report "M182: a reuse rollback says the machine is back to what it was" "$m" \
-       "🔴 the line names what was stopped, newest first, that they may have been running before, and that the fabric was not stopped"
+       "🔴 the line names what was taken down, newest first, and what was left running because it was up before"
 
 # M183: the unread ports lose their colons.
 m=$(mutant m183 "$NDT" \
@@ -1110,16 +1110,14 @@ m=$(mutant m188 "$NDT" \
     "                if grep -Eq '^[[:space:]]*stopped (kernel|p4_proxy|ryu)\$' <<<\"\$out\"; then stopped=" \
     '                if true; then stopped=')
 report "M188: a stack that was not running is listed as stopped" "$m" \
-       "🔴 a reuse rollback that stopped nothing says no stage stopped anything"
+       "🔴 a reuse rollback that stopped nothing says nothing was taken down"
 
-# M189: the line over a reused fabric always lists stages, even when none stopped anything.
+# M189: the line over a reused fabric prints an empty list when nothing was taken down.
 m=$(mutant m189 "$NDT" \
-    '        if [[ -n "$stopped" ]]; then
-            ok "rolled back: stopped $stopped,' \
-    '        if true; then
-            ok "rolled back: stopped $stopped,')
+    '        line="rolled back: ${taken:-nothing} taken down"' \
+    '        line="rolled back: ${taken} taken down"')
 report "M189: a reuse rollback that stopped nothing prints an empty list" "$m" \
-       "🔴 a reuse rollback that stopped nothing says no stage stopped anything"
+       "🔴 a reuse rollback that stopped nothing says nothing was taken down"
 
 # M190: the deferral note claims every other stop has already succeeded.
 m=$(mutant m190 "$NDT" \
@@ -1725,14 +1723,18 @@ report "M96: neither the residue text nor prc == 2 makes ndt clean red" "$m" \
 #   M99 claim_note_up recorded a sentence (refusal_claim_written's rule)
 #   M100 a sentence was recorded at all (the -n test; only an emptied note reaches it)
 m=$(mutant m97 "$NDT" \
-    '          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then' \
-    '          && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then')
+    '          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        if claim_rewrite note "$REFUSAL_NOTE_BEFORE"; then' \
+    '          && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        if claim_rewrite note "$REFUSAL_NOTE_BEFORE"; then')
 report "M97: a claim that is no longer ours gets its note rewritten" "$m" \
        "🔴 a claim that is no longer ours keeps its note"
 
 m=$(mutant m98 "$NDT" \
-    '          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then' \
-    '          && "$(claim_field owner)" == "$NDT_OWNER" ]]; then')
+    '          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        if claim_rewrite note "$REFUSAL_NOTE_BEFORE"; then' \
+    '          && "$(claim_field owner)" == "$NDT_OWNER" ]]; then
+        if claim_rewrite note "$REFUSAL_NOTE_BEFORE"; then')
 report "M98: a note that is no longer our sentence is reverted" "$m" \
        "🔴 a note that is no longer our sentence is kept"
 
@@ -1745,8 +1747,12 @@ report "M99: 'the note changed' is read as 'claim_note_up wrote it'" "$m" \
        "🔴 a note this run did not write is not reverted"
 
 m=$(mutant m100 "$NDT" \
-    'if [[ -n "$REFUSAL_NOTE_WRITTEN" && -n "${NDT_OWNER:-}" && -f "$CLAIM"' \
-    'if [[ -n "${NDT_OWNER:-}" && -f "$CLAIM"')
+    'if [[ -n "$REFUSAL_NOTE_WRITTEN" && -n "${NDT_OWNER:-}" && -f "$CLAIM" \
+          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        if claim_rewrite note "$REFUSAL_NOTE_BEFORE"; then' \
+    'if [[ -n "${NDT_OWNER:-}" && -f "$CLAIM" \
+          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        if claim_rewrite note "$REFUSAL_NOTE_BEFORE"; then')
 report "M100: an emptied note is filled in again (no sentence was recorded)" "$m" \
        "🔴 an emptied note is not filled in again"
 
@@ -1854,9 +1860,11 @@ report "M112: nothing is snapshotted before the writes" "$m" \
        "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical"
 
 m=$(mutant m113 "$NDT" \
-    '    refusal_mark "$(up_target_file)"
+    '    record_up_target p4 "$hosts" "$topo" || return $?
+    refusal_mark "$(up_target_file)"
 ' \
-    '')
+    '    record_up_target p4 "$hosts" "$topo" || return $?
+')
 report "M113: up.target is never marked as this run's" "$m" \
        "🔴 up.target, both knobs, the claim and the host-count knob are byte-identical"
 
@@ -1929,10 +1937,12 @@ m=$(mutant m123 "$NDT" \
     if (( reuse )); then
         ok "already up: $n switches, $live_hosts hosts, reusing"
         UP_P4_FABRIC=reused
+        up_left_running "bmv2 fabric ($live_hosts hosts)"
     else' \
     '    if (( reuse )); then
         ok "already up: $n switches, $live_hosts hosts, reusing"
         UP_P4_FABRIC=reused
+        up_left_running "bmv2 fabric ($live_hosts hosts)"
     fi
     UP_P4_FABRIC=fresh
     if (( reuse )); then :
@@ -2446,6 +2456,251 @@ m=$(mutant d31 "$NDT" \
     app_knob_clear "this checkout is being put back" || { rc=1; fabric_left "the app knob"; }')
 report "D31: an app knob that cannot be removed counts as the fabric" "$m" \
        "🔴 an app knob it cannot remove is not the fabric: the record is cleared"
+
+# --- section 33: what a rolled-back bring-up puts back ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# M195-M204 each take one piece of the put-back away or loosen it; N132/N133 are widenings (the
+# put-back that does nothing, a rollback that drops the record it should keep); W17/W18 change no
+# behaviour.
+m=$(mutant m195 "$NDT" \
+    '    refusal_put_back "$(app_knob_path)" "this bring-up was rolled back" || rc=1' \
+    '    app_knob_clear "this bring-up was rolled back" || rc=1')
+report "M195: the rollback clears the app knob instead of putting the earlier one back" "$m" \
+       "🔴 33f the app knob is the one it was (package X, not cleared)"
+
+m=$(mutant m196 "$NDT" \
+    '    refusal_put_back "$(telemetry_knob_path)" "this bring-up was rolled back" || rc=1' \
+    '    :')
+report "M196: the rollback leaves the telemetry knob this run wrote" "$m" \
+       "🔴 33f the telemetry knob is the one it was (link, not cooperative)"
+
+m=$(mutant m197 "$NDT" \
+    '        (( complete && ${#UP_REPLACED[@]} == 0 )) && before_ok=1' \
+    '        before_ok=1')
+report "M197: the old note is restored whatever the verdict of the rollback" "$m" \
+       "🔴 33g the note is not 'down ... verified clean' over a half-torn lab"
+
+m=$(mutant m198 "$NDT" \
+    '    refusal_snapshot
+    record_up_target ovs "$ovs_hosts" "$ovs_topo"; rut_rc=$?' \
+    '    record_up_target ovs "$ovs_hosts" "$ovs_topo"; rut_rc=$?')
+report "M198: up_ovs takes no snapshot, so its rollback has nothing to put back" "$m" \
+       "🔴 33i the earlier record is back"
+
+m=$(mutant m199 "$NDT" \
+    '        refusal_put_back "$f" "$why" || rc=1' \
+    '        :')
+report "M199: a complete rollback keeps the record of the run that failed" "$m" \
+       "🔴 33f up.target is the earlier record, not this run's"
+
+m=$(mutant m200 "$NDT" \
+    '    elif (( UP_FABRIC_GONE )); then' \
+    '    elif false; then')
+report "M200: the record is put back over a fabric this run replaced" "$m" \
+       "🔴 33k the record is cleared, not put back over a fabric that is gone"
+
+m=$(mutant m201 "$NDT" \
+    '(( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session";' \
+    '(( sess_rc == 0 )) && { info "stopping the existing topo session";')
+report "M201: [1/3] stops a running fabric without recording that it replaced one" "$m" \
+       "🔴 33k the note names what was replaced"
+
+m=$(mutant m202 "$NDT" \
+    '        up_left_running "bmv2 fabric ($live_hosts hosts)"' \
+    '        :')
+report "M202: a reused fabric is not recorded as left running" "$m" \
+       "🔴 the reused fabric's ports do not make the rollback incomplete, and the line claims only what was done"
+
+m=$(mutant m203 "$NDT" \
+    '          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        # Everything the rollback stopped was this run'"'"'s, so a complete rollback that replaced nothing leaves' \
+    '          && "$(claim_field owner)" == "$NDT_OWNER" ]]; then
+        # Everything the rollback stopped was this run'"'"'s, so a complete rollback that replaced nothing leaves')
+report "M203: the rollback rewrites a note somebody else rewrote during the run" "$m" \
+       "🔴 33h2 a note somebody rewrote during the run is theirs"
+
+m=$(mutant m204 "$NDT" \
+    '    if [[ "$now" != "$after" ]]; then
+        warn "$(short_repo_path "$p") left as it is: it changed after this run wrote it ($why)"' \
+    '    if false; then
+        warn "$(short_repo_path "$p") left as it is: it changed after this run wrote it ($why)"')
+report "M204: a file somebody changed during the run is put back over" "$m" \
+       "🔴 33h a telemetry knob changed during the run is left as it is"
+
+m=$(mutant n132 "$NDT" \
+    '    local complete="$1" why="$2" f rc=0 before_ok=0 text="" after now' \
+    '    return 0
+    local complete="$1" why="$2" f rc=0 before_ok=0 text="" after now')
+report "N132 (widening): the record and note put-back is a no-op that returns 0" "$m" \
+       "🔴 33f up.target is the earlier record, not this run's"
+
+m=$(mutant n133 "$NDT" \
+    '    if (( ! complete )); then
+        [[ -e "$f" ]] && {' \
+    '    if (( ! complete )); then rm -f "$f"
+        [[ -e "$f" ]] && {')
+report "N133 (widening): an INCOMPLETE rollback drops the record it should keep" "$m" \
+       "  the record is kept on purpose"
+
+m=$(mutant w17 "$NDT" \
+    '    refusal_put_back "$(app_knob_path)" "this bring-up was rolled back" || rc=1
+    refusal_put_back "$(telemetry_knob_path)" "this bring-up was rolled back" || rc=1' \
+    '    refusal_put_back "$(telemetry_knob_path)" "this bring-up was rolled back" || rc=1
+    refusal_put_back "$(app_knob_path)" "this bring-up was rolled back" || rc=1')
+report_green "W17 (behaviour-preserving): the two knobs are put back in the other order" "$m" \
+       "the files are independent of each other"
+
+m=$(mutant w18 "$NDT" \
+    'join_list() { local out="" x; for x in "$@"; do out+="${out:+, }$x"; done; printf '"'"'%s'"'"' "$out"; }' \
+    'join_list() { local out="" x; for x in "$@"; do out="${out:+$out, }$x"; done; printf '"'"'%s'"'"' "$out"; }')
+report_green "W18 (behaviour-preserving): the list joiner builds the string by assignment, not +=" "$m" \
+       "the same comma-and-space join for every item, whatever it holds"
+
+# --- section 33, the heartbeat: a daemon the previous run started is not this run's to stop ---
+#
+# [Co-developed with claude code -- Adam]
+# M205-M207 each break one part of the ownership reading; N134 is the widening (the rollback never
+# stops a heartbeat); W19/W20 change no behaviour.
+m=$(mutant m205 "$NDT" \
+    '    if [[ -n "$HB_BEFORE" ]]; then' \
+    '    if false; then')
+report "M205: the heartbeat stage is recorded whatever was running before" "$m" \
+       "🔴 33a the rollback did not ask the helper to stop the heartbeat"
+
+m=$(mutant m206 "$NDT" \
+    '    [[ "${av[n-1]}" == daemon && "${av[n-2]##*/}" == heartbeat.py ]] || return 1' \
+    '    :')
+report "M206: any live process the pidfile names is taken for the daemon" "$m" \
+       "33a2 a live process that is not the daemon: the stage is recorded, as before"
+
+m=$(mutant m207 "$NDT" \
+    '        pid="$(hb_report_pid)"' \
+    '        pid=""')
+report "M207: an unreadable pidfile is read as no heartbeat" "$m" \
+       "33a3 an unreadable pidfile: the report names the daemon, and it is left running"
+
+m=$(mutant n134 "$NDT" \
+    '        up_started heartbeat
+    fi' \
+    '        :
+    fi')
+report "N134 (widening): the rollback never stops a heartbeat" "$m" \
+       "33b a heartbeat this run started is in the stage list"
+
+m=$(mutant w19 "$NDT" \
+    ' -- a rollback leaves it as it is"' \
+    ' -- the rollback does not stop it"')
+report_green "W19 (behaviour-preserving): the tail of the left-running line reworded" "$m" \
+       "the cells read the sentence up to the clause, not the clause"
+
+m=$(mutant w20 "$NDT" \
+    '    ticks="$(awk '"'"'{print $20}'"'"' <<<"$rest")"
+    [[ "$ticks" =~ ^[0-9]+$ ]] || return 1
+    echo "$pid $ticks"' \
+    '    ticks="$(cut -d" " -f20 <<<"$rest")"
+    [[ "$ticks" =~ ^[0-9]+$ ]] || return 1
+    echo "$pid $ticks"')
+report_green "W20 (behaviour-preserving): the start ticks read with cut instead of awk" "$m" \
+       "field 20 either way"
+
+# --- section 33, the stack: only what this run started is stopped ---------------------------
+#
+# [Co-developed with claude code -- Adam]
+# M208-M216 each break one part of the ownership reading or what the rollback says about it; N135/N136
+# are widenings (the snapshot records nothing; the rollback stops every component); W21/W22 change no
+# behaviour.
+m=$(mutant m208 "$NDT" \
+    '                if (( ${#STACK_BEFORE[@]} )); then
+                    if (( ${#STACK_STOPSET[@]} )); then' \
+    '                if false; then
+                    if (( ${#STACK_STOPSET[@]} )); then')
+report "M208: the rollback brings the whole stack down whatever was running before" "$m" \
+       "33c stack.sh was asked to stop the proxy, by name"
+
+m=$(mutant m209 "$NDT" \
+    '        elif [[ -n "$now" && "$now" == "$earlier" ]]; then' \
+    '        elif false; then')
+report "M209: a component that was running before and still is, is read as replaced" "$m" \
+       "🔴 33c the kernel that was running before is still running"
+
+m=$(mutant m210 "$NDT" \
+    '            up_replaced "$name (was pid ${earlier%% *})"' \
+    '            :')
+report "M210: a replaced component is stopped but not named as replaced" "$m" \
+       "🔴 33d the line says what was replaced and not restored, with the old pid"
+
+m=$(mutant m211 "$NDT" \
+    '            up_replaced "$name (was pid ${earlier%% *}, gone)"' \
+    '            :')
+report "M211: a component that was running before and is gone is not named" "$m" \
+       "🔴 33n the line names the lost kernel with its old pid"
+
+m=$(mutant m212 "$NDT" \
+    '        elif [[ -n "$now" ]]; then
+            STACK_STOPSET+=("$name")' \
+    '        elif [[ -n "$now" ]]; then
+            :')
+report "M212: the new component that replaced a running one is left running" "$m" \
+       "33d the new proxy is stopped by name"
+
+m=$(mutant m213 "$NDT" \
+    '                        deferred="$(stack_ports_of "${STACK_STOPSET[@]}")"' \
+    '                        deferred=""')
+report "M213: the ports of the components stopped by name are not read again" "$m" \
+       "33c2 a port of what was stopped that is still held makes the rollback INCOMPLETE"
+
+m=$(mutant m214 "$NDT" \
+    '    if (( rc == 0 && left == 0 )) && (( ${#UP_LEFT[@]} + ${#UP_REPLACED[@]} )); then' \
+    '    if false; then')
+report "M214: a rollback that replaced something says the machine is back as it was" "$m" \
+       "🔴 33d and never says the machine is back as it was"
+
+m=$(mutant m215 "$NDT" \
+    '        (( complete && ${#UP_REPLACED[@]} == 0 )) && before_ok=1' \
+    '        (( complete )) && before_ok=1')
+report "M215: the old note is put back although something was replaced" "$m" \
+       "  33d the note says it too, instead of the old sentence"
+
+m=$(mutant m216 "$NDT" \
+    '    elif (( UP_FABRIC_GONE )); then' \
+    '    elif (( ${#UP_REPLACED[@]} )); then')
+report "M216: the record is cleared for any replaced component, not only a fabric" "$m" \
+       "  33d the earlier record is back: only a replaced fabric clears it"
+
+m=$(mutant m217 "$NDT" \
+    '{ [[ -e "$pf" || -L "$pf" ]] && stack_pf_changed "$name"; }' \
+    '{ [[ -e "$pf" || -L "$pf" ]]; }')
+report "M217: a stale record that was there before is taken for this run's and cleared" "$m" \
+       "🔴 33o a stale record from before is left as it was"
+
+m=$(mutant n135 "$NDT" \
+    '        id="$(stack_reg_id "$name")" && STACK_BEFORE+=("$name $id")' \
+    '        id="$(stack_reg_id "$name")" && :')
+report "N135 (widening): the snapshot records no component, so every rollback is a 'down'" "$m" \
+       "33c stack.sh was asked to stop the proxy, by name"
+
+m=$(mutant n136 "$NDT" \
+    '    STACK_STOPSET=()
+    for name in $STACK_COMPONENTS; do
+        pf=' \
+    '    STACK_STOPSET=($STACK_COMPONENTS)
+    for name in $STACK_COMPONENTS; do
+        pf=')
+report "N136 (widening): every component is stopped, named or not" "$m" \
+       "🔴 33c the kernel that was running before is still running"
+
+m=$(mutant w21 "$NDT" \
+    '                        [[ -n "$names" ]] && stopped="${stopped:+$stopped, }$names"' \
+    '                        if [[ -n "$names" ]]; then stopped="${stopped:+$stopped, }$names"; fi')
+report_green "W21 (behaviour-preserving): the stopped-names list written with an if" "$m" \
+       "the same list either way"
+
+m=$(mutant w22 "$NDT" \
+    '                        info "stopping what this run started of the stack: ${STACK_STOPSET[*]}"' \
+    '                        info "stopping the stack components this run started: ${STACK_STOPSET[*]}"')
+report_green "W22 (behaviour-preserving): the line that names what is being stopped reworded" "$m" \
+       "the cells read what stack.sh was asked, not this sentence"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

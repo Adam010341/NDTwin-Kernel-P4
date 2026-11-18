@@ -1306,6 +1306,7 @@ m=$(nmutant n06 "$NDT" \
     info "stack.sh prompt is answered immediately: the fabric is already up"
     # CONVERGE_WAIT is an upper bound, not a sleep. 128 hosts means 16256 destination paths.
     local out rc
+    stack_snapshot
     up_started stack
     out="$(printf '"'"'\n'"'"' \
            | TOPO_P4="$topo" CONVERGE_WAIT="${CONVERGE_WAIT:-300}" NO_COLOR=1 \
@@ -1316,6 +1317,7 @@ m=$(nmutant n06 "$NDT" \
     info "stack.sh prompt is answered immediately: the fabric is already up"
     # CONVERGE_WAIT is an upper bound, not a sleep. 128 hosts means 16256 destination paths.
     local out rc
+    stack_snapshot
     up_started stack
     out="$(printf '"'"'\n'"'"' \
            | TOPO_P4="$topo" CONVERGE_WAIT="${CONVERGE_WAIT:-300}" NO_COLOR=1 \
@@ -1410,9 +1412,11 @@ m=$(nmutant n13 "$NDT" \
                 ;;')
 nreport "N13: a rollback leaves the heartbeat running" "$m" "🔴 the rollback stopped the heartbeat"
 m=$(nmutant n14 "$NDT" \
-    '    up_started heartbeat
+    '        up_started heartbeat
+    fi
     out="$(sudo -n "$LAB" heartbeat start 2>&1)"; rc=$?' \
-    '    UP_STARTED=(heartbeat ${UP_STARTED[@]+"${UP_STARTED[@]}"})
+    '        UP_STARTED=(heartbeat ${UP_STARTED[@]+"${UP_STARTED[@]}"})
+    fi
     out="$(sudo -n "$LAB" heartbeat start 2>&1)"; rc=$?')
 nreport "N14: a rollback stops the heartbeat after the fabric" "$m" "🔴 before it stopped the topology"
 m=$(nmutant n15 "$NDT" \
@@ -1518,9 +1522,11 @@ nreport "N36: (control of the counter) the teardown asks sudo once more" "$m" \
         "  and the teardown's own two sudo calls are the only ones"
 m=$(nmutant n37 "$NDT" \
     '            stack)
-                info "stopping what stack.sh started (kernel, proxy, Ryu)"' \
+                # [Co-developed with claude code -- Adam]
+                # Some stack component was running before this run asked stack.sh for one: only what' \
     '            heartbeat_x)
-                info "stopping what stack.sh started (kernel, proxy, Ryu)"')
+                # [Co-developed with claude code -- Adam]
+                # Some stack component was running before this run asked stack.sh for one: only what')
 nreport "N37: a rollback does not stop the stack first" "$m" "  and after the stack"
 m=$(nmutant n38 "$NDT" \
     '|| true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }' \

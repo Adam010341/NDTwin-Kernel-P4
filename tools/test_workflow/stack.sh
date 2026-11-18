@@ -1463,6 +1463,38 @@ cmd_down() {
     ok "done"
 }
 
+# [Co-developed with claude code -- Adam]
+# cmd_stop <name>... -- stop the named components and no others. `down` stops all three and then
+# asserts that the port table is clear; a caller that started only some of them (a failed `ndt up` over a
+# stack that was already running) needs to stop what it started and leave the rest, and must not be told
+# the machine is dirty because a component it never touched still holds its port. So: stop_one for each
+# name (its refusals carry over: a symlinked pidfile, a pidfile older than its process, a pid that is
+# not a number), the sweep of the endings stop_one cannot reach, and no port check.
+#
+# A name that is not a component is refused, rc 2, before anything is stopped. rc 1: stop_one refused, or
+# a component ended on a fatal signal; the same line `down` draws.
+cmd_stop() {
+    local name rc=0
+    if (( $# == 0 )); then
+        err "usage: stack.sh stop <name>...   (kernel, p4_proxy, ryu)"
+        return 2
+    fi
+    for name in "$@"; do
+        case "$name" in
+            kernel|p4_proxy|ryu) ;;
+            *) err "stop: $name is not a component this script starts (kernel, p4_proxy, ryu); nothing was stopped"
+               return 2 ;;
+        esac
+    done
+    for name in "$@"; do stop_one "$name" || rc=1; done
+    sweep_orphan_exits
+    if [[ -n "$STACK_FATAL_ENDINGS" ]]; then
+        err "  a component the command stopped crashed or had to be killed rather than stopping: $STACK_FATAL_ENDINGS"
+        rc=1
+    fi
+    return $rc
+}
+
 cmd_logs() {
     echo "logs in $LOG_DIR:"
     ls -1t "$LOG_DIR" 2>/dev/null | sed 's/^/  /' || echo "  (none)"
@@ -1495,6 +1527,7 @@ case "${1:-}" in
     wait)   shift; cmd_wait "$@" ;;
     status) cmd_status ;;
     down)   cmd_down ;;
+    stop)   shift; cmd_stop "$@" ;;
     logs)   cmd_logs ;;
     *)
         cat <<EOF
@@ -1506,6 +1539,7 @@ usage: $0 <command>
   wait [secs]   block until every switch is up AND enabled (default 90s)
   status        show process/port/graph state
   down          stop kernel, proxy/Ryu (Mininet needs 'sudo mn -c')
+  stop <name>...  stop only the named components (kernel, p4_proxy, ryu); reads no port
   logs          list logs and show the log-check command
 
 run artefacts: $RUN_DIR

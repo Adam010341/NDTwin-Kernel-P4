@@ -61,7 +61,7 @@ found and "kept the 'ndt up' target record", and `ndt status --check` goes on co
 with that record. Anything else `verify clean` reports (a stranger on a port, the app knob) does not keep
 it (`cmd_down`, the same test of `CLEAN_FABRIC_LEFT`). A kept record goes with the next `ndt down` that finds none of the fabric, or with the
 next `ndt up` that builds a fabric (one that refuses leaves it as it is); once the fabric is gone you can
-remove it yourself with `rm .test_run/up.target` (`:634-647`; user guide, section 4.9).
+remove it yourself with `rm .test_run/up.target` (`up_target_kept` prints the same advice; user guide, section 4.9).
 
 **Why.** `--check` compares the running lab with the recorded `up` target; with no target there is
 nothing to compare (`tools/test_workflow/ndt`, `cmd_status`: the `utrc == 3` branch). It does not fall back to checking that
@@ -89,7 +89,7 @@ loses the abort message the same way.
 **Why.** The helper starts the bridge in a detached tmux session (`tools/test_workflow/ndtwin-lab:585`)
 without `remain-on-exit`, and tmux removes the session when the bridge exits. `ndt` notices the missing
 session at two checks in a row and prints the `look at the pane` line, and then the log tail
-(`tools/test_workflow/ndt:4473-4507`).
+(`up_p4` in `tools/test_workflow/ndt`, the wait loop after `topo-start`).
 
 **What to do.** Read `.test_run/logs/topo.log` (the bridge writes its output there as well); `ndt up p4`
 prints its tail. For a hand-run bring-up, read that file directly.
@@ -148,12 +148,14 @@ Failure direction: optimistic.
 **What you see.** The rollback prints `held by the fabric this run reused, which stays up: <ports>`.
 Those ports do not make the rollback incomplete, and the line does not say which process holds them.
 
-**When.** `ndt up p4` finds a fabric already up (`already up: ... reusing`), fails after it has started
-the stack, and rolls back. The fabric is left running, so it still holds its switches' gRPC and Thrift
+**When.** `ndt up p4` finds a fabric already up (`already up: ... reusing`), fails after it has called
+`stack.sh up`, and rolls back what it started. The fabric is left running, so it still holds its switches' gRPC and Thrift
 ports when the rollback reads them again.
 
 **Why.** After its stages have run, the rollback reads again each port that `stack.sh down` named as
-held by a process it did not start (`rollback_up` in `tools/test_workflow/ndt`). A port that is still
+held by a process it did not start (`rollback_up` in `tools/test_workflow/ndt`). (When a stack component
+was already running before the bring-up, the rollback stops only the components it started, with
+`stack.sh stop`, and reads their ports itself; those are never switch ports.) A port that is still
 held then is counted as the reused fabric's when two things hold. The switch manifest
 (`/tmp/ndtwin_p4_switches.json`, read by `ndt_manifest_ports`) lists it as a switch's `grpc_port` or
 `thrift_port`. And the port table gives it a bmv2 row (`ndt_port_is_bmv2`). The manifest is opened as

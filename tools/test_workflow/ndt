@@ -1262,13 +1262,18 @@ claim_note_unwritten() {
 # way still leaves Ryu, a topo session and a data plane behind, and that half-built fabric
 # is precisely the state whose note must not still say the lab is free.
 CLAIM_NOTE_UP_TEXT=""
+# [Co-developed with claude code -- Adam] What the note was written about and when, for the sentence
+# rollback_up writes in its place when the lab is not as it was.
+CLAIM_NOTE_UP_WHAT=""; CLAIM_NOTE_UP_AT=""
 claim_note_up() {
-    local what="$1" text
-    text="in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}"
+    local what="$1" text at
+    at="$(date '+%Y-%m-%d %H:%M:%S')"
+    text="in use: ndt up $what at $at by ${NDT_OWNER:-unset}"
     CLAIM_NOTE_UP_TEXT=""
     if set_claim_note "$text"; then
         # [Co-developed with claude code -- Adam] The sentence this call wrote, for refusal_unwind.
         CLAIM_NOTE_UP_TEXT="${text//$'\n'/ }"
+        CLAIM_NOTE_UP_WHAT="$what"; CLAIM_NOTE_UP_AT="$at"
         info "claim note now says the lab is in use (owner and expiry unchanged)"
     else
         claim_note_unwritten
@@ -1763,7 +1768,7 @@ host_count() { host_count_in "$REPO"; }
 # left behind is not inert: the next `ndt up p4`, the next hand-run p4_testbed_topo.py and the
 # next proxy all read it, so a forgotten one silently builds somebody else's exercise fabric
 # and every topology view still reads correct. That is the 2026-08-21 shape, and it is the
-# reason `up` without --app, `down`, `clean` and `rollback_up` all clear it.
+# reason `up` without --app, `down` and `clean` clear it, and `rollback_up` puts it back.
 app_knob_path() { printf '%s\n' "$REPO/p4_proxy/mininet/app_package_override"; }
 
 # app_knob_dir -- the package directory the knob names. Empty output for BOTH "no file" and
@@ -3409,6 +3414,122 @@ UP_STARTED=()
 # session and its data plane; `stack` = whatever stack.sh starts (Ryu, proxy, kernel).
 up_started() { UP_STARTED+=("$1"); }
 
+# [Co-developed with claude code -- Adam]
+# What a rollback cannot make as it was, kept as the run goes: UP_LEFT is what this 'ndt up' found
+# running and left alone (the reused fabric), UP_REPLACED is what it took down to build its own
+# and cannot put back. rollback_up reads them for the up.target record, the claim note and the
+# closing line.
+UP_LEFT=()
+UP_REPLACED=()
+UP_FABRIC_GONE=0
+up_left_running() { UP_LEFT+=("$1"); }
+up_replaced() { UP_REPLACED+=("$1"); }
+# up_replaced_fabric <hosts> -- the fabric that was running is taken down to build this run's own: what
+# up.target describes is not up any more, whatever the rollback does next.
+up_replaced_fabric() { UP_FABRIC_GONE=1; up_replaced "bmv2 fabric ($1 hosts)"; }
+# [Co-developed with claude code -- Adam]
+# The stack components that were running, registered and vouched for, before this 'ndt up' called
+# stack.sh: one "<name> <pid> <start ticks>" per component. stack.sh's start_bg reuses a component whose
+# command is unchanged and replaces one whose command differs, so what a failed `stack.sh up` leaves
+# in the registry is a mixture, and only a reading taken before it can say which part is this run's.
+STACK_BEFORE=()
+# What each component's pidfile held before (its bytes, or ABSENT): a record that names nothing alive and
+# is still what it was is not this run's, and the rollback leaves it.
+declare -A STACK_PF_BEFORE=()
+# The components a rollback stops (this run's), found by rollback_stack_classify.
+STACK_STOPSET=()
+STACK_COMPONENTS="kernel p4_proxy ryu"
+
+# stack_reg_id <name> -- "<pid> <start ticks>" of the component its pidfile names, when that is a live
+# process the pidfile vouches for (pidfile_judge), else rc 1.
+stack_reg_id() {
+    local rest ticks
+    pidfile_judge "$REPO/.test_run/pids/$1.pid"
+    [[ "$PF_STATE" == live ]] || return 1
+    rest="$(proc_stat_rest "$PF_PID")" || return 1
+    ticks="$(awk '{print $20}' <<<"$rest")"
+    [[ "$ticks" =~ ^[0-9]+$ ]] || return 1
+    echo "$PF_PID $ticks"
+}
+
+# stack_snapshot -- the reading above, for every component, before the call that may start or replace them.
+stack_snapshot() {
+    local name id pf
+    STACK_BEFORE=(); STACK_PF_BEFORE=()
+    for name in $STACK_COMPONENTS; do
+        id="$(stack_reg_id "$name")" && STACK_BEFORE+=("$name $id")
+        pf="$REPO/.test_run/pids/$name.pid"
+        if [[ -L "$pf" ]]; then STACK_PF_BEFORE[$name]="SYMLINK"
+        elif [[ -e "$pf" ]]; then STACK_PF_BEFORE[$name]="$(cat -- "$pf" 2>/dev/null; printf x)"
+        else STACK_PF_BEFORE[$name]=ABSENT; fi
+    done
+    return 0
+}
+
+# stack_pf_changed <name> -- has the component's pidfile changed since stack_snapshot (written, replaced
+# or removed)? A pidfile that is there now and is not what it was is the work of this run's stack.sh.
+stack_pf_changed() {
+    local pf="$REPO/.test_run/pids/$1.pid" now
+    if [[ -L "$pf" ]]; then now="SYMLINK"
+    elif [[ -e "$pf" ]]; then now="$(cat -- "$pf" 2>/dev/null; printf x)"
+    else now=ABSENT; fi
+    [[ "$now" != "${STACK_PF_BEFORE[$1]:-ABSENT}" ]]
+}
+
+# stack_before_id <name> -- "<pid> <start ticks>" it had before, or nothing.
+stack_before_id() {
+    local e
+    for e in ${STACK_BEFORE[@]+"${STACK_BEFORE[@]}"}; do
+        [[ "$e" == "$1 "* ]] && { echo "${e#* }"; return 0; }
+    done
+    return 1
+}
+
+# stack_ports_of <name>... -- the ports a stopped component leaves to be read again (ports.sh's rows).
+stack_ports_of() {
+    local c out=""
+    for c in "$@"; do
+        case "$c" in
+            kernel)   out+="8000 6343 " ;;
+            p4_proxy) out+="8081 " ;;
+            ryu)      out+="8080 6653 6633 " ;;
+        esac
+    done
+    printf '%s' "${out% }"
+}
+
+# rollback_stack_classify -- sort each component into what this run started (stopped by the rollback),
+# what it found running and left alone, and what stack.sh replaced or lost on the way. Sets
+# STACK_STOPSET and adds to UP_LEFT / UP_REPLACED. Only meaningful when stack_snapshot ran.
+#   started   not running before, registered now (alive, or dead and leaving a record of its own) -> ours: stopped
+#   reused    the same pid and start time as before                                         -> left running
+#   replaced  running before, another process registered now (stack.sh's DIFFERENT-command restart)
+#             -> the new one is ours and is stopped; the old one is gone and is not restored
+#   lost      running before, nothing live now -> nothing to stop but its record; the old one is gone
+rollback_stack_classify() {
+    local name earlier now pf
+    STACK_STOPSET=()
+    for name in $STACK_COMPONENTS; do
+        pf="$REPO/.test_run/pids/$name.pid"
+        earlier="$(stack_before_id "$name")" || earlier=""
+        now="$(stack_reg_id "$name")" || now=""
+        if [[ -z "$earlier" ]]; then
+            if [[ -n "$now" ]] || { [[ -e "$pf" || -L "$pf" ]] && stack_pf_changed "$name"; }; then STACK_STOPSET+=("$name"); fi
+        elif [[ -n "$now" && "$now" == "$earlier" ]]; then
+            up_left_running "$name (pid ${earlier%% *})"
+        elif [[ -n "$now" ]]; then
+            STACK_STOPSET+=("$name")
+            up_replaced "$name (was pid ${earlier%% *})"
+        else
+            if [[ -e "$pf" || -L "$pf" ]]; then STACK_STOPSET+=("$name"); fi
+            up_replaced "$name (was pid ${earlier%% *}, gone)"
+        fi
+    done
+}
+
+# join_list <item>... -- the items, comma separated, on one line.
+join_list() { local out="" x; for x in "$@"; do out+="${out:+, }$x"; done; printf '%s' "$out"; }
+
 up_did_start() {   # <stage> -- did this run start it?
     local s
     for s in ${UP_STARTED[@]+"${UP_STARTED[@]}"}; do [[ "$s" == "$1" ]] && return 0; done
@@ -3677,6 +3798,53 @@ hb_drop_check_step() {
     return 0
 }
 
+# [Co-developed with claude code -- Adam]
+# Who started the heartbeat that is running. The helper answers `heartbeat start` with "already
+# running (pid N) -- not starting a second one" and rc 0, and the rollback used to stop whatever daemon
+# the pidfile named, so a failed `ndt up` over a lab whose heartbeat the previous run started took that
+# heartbeat down. The reading below is taken before the start call: a daemon that is running then is not
+# this run's, and the rollback leaves it.
+HB_BEFORE=""
+
+# hb_report_pid -- the pid heartbeat.json names while it says `running`, or nothing. No sudo: the report
+# is 0644 in a 0755 directory, which is what `ndt status` already reads it with.
+hb_report_pid() {
+    python3 -I - "$HB_REPORT" 2>/dev/null <<'HBPID'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    if d.get("status") == "running" and isinstance(d.get("pid"), int):
+        print(d["pid"])
+except Exception:
+    pass
+HBPID
+}
+
+# hb_live_id -- "<pid> <start ticks>" of the heartbeat daemon running now, or rc 1. The pidfile names the
+# pid (the report does, when this user cannot read the pidfile); the process is the daemon only when its
+# argv ends in `heartbeat.py daemon`, the helper's own test (hb_is_daemon) without the uid, and it is not
+# a zombie. The start ticks tell two daemons with one pid apart.
+hb_live_id() {
+    local pid="" rest ticks n
+    local -a av=()
+    [[ -L "$HB_PIDFILE" ]] && return 1
+    if [[ -r "$HB_PIDFILE" ]]; then
+        IFS= read -r pid < "$HB_PIDFILE" 2>/dev/null || true
+    elif [[ -e "$HB_PIDFILE" ]]; then
+        pid="$(hb_report_pid)"
+    fi
+    [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+    mapfile -t av < <(tr '\0' '\n' 2>/dev/null < "/proc/$pid/cmdline")
+    n=${#av[@]}
+    (( n >= 2 )) || return 1
+    [[ "${av[n-1]}" == daemon && "${av[n-2]##*/}" == heartbeat.py ]] || return 1
+    rest="$(proc_stat_rest "$pid")" || return 1
+    [[ "${rest%% *}" == Z ]] && return 1
+    ticks="$(awk '{print $20}' <<<"$rest")"
+    [[ "$ticks" =~ ^[0-9]+$ ]] || return 1
+    echo "$pid $ticks"
+}
+
 # heartbeat_wanted <app_pipe> <app_mode> -- does this bring-up start the heartbeat?
 # [Co-developed with claude code -- Adam] The mode no longer decides whether (09-27: external
 # too); heartbeat_up_step still reads it, to say what the heartbeat is for on this fabric.
@@ -3703,9 +3871,18 @@ heartbeat_up_step() {
         printf 'withheld %s %s\n' "$(date +%s)" "$why" > "$(hb_withheld_file)" 2>/dev/null
         return 0
     fi
-    # Recorded before the call, like every stage: a start that fails part way has still changed
-    # the machine, and a stop of nothing is harmless (it is pidfile-gated).
-    up_started heartbeat
+    # [Co-developed with claude code -- Adam] A daemon that is running already is not this run's: no
+    # stage, so a rollback does not stop it, and the line says so. The call below is still made -- the
+    # helper answers "already running" and nothing starts.
+    HB_BEFORE="$(hb_live_id)" || HB_BEFORE=""
+    if [[ -n "$HB_BEFORE" ]]; then
+        info "heartbeat already running (pid ${HB_BEFORE%% *}), started before this 'ndt up' -- a rollback leaves it as it is"
+        up_left_running "heartbeat (pid ${HB_BEFORE%% *})"
+    else
+        # Recorded before the call, like every stage: a start that fails part way has still changed
+        # the machine, and a stop of nothing is harmless (it is pidfile-gated).
+        up_started heartbeat
+    fi
     out="$(sudo -n "$LAB" heartbeat start 2>&1)"; rc=$?
     [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/      /'
     case "$rc" in
@@ -3786,7 +3963,7 @@ HBROW
 
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
 rollback_up() {
-    local why="$1" i stage rc=0 out src crc left=0 deferred="" stopped=""
+    local why="$1" i stage rc=0 out src crc left=0 deferred="" stopped="" names="" deferred_what="the port(s) stack.sh down named"
     # [Co-developed with claude code -- Adam]
     # 🔴 FIRST, because it is true in both branches: the P4 host knob is the
     # one persistent file `ndt up p4 <n>` writes, so "the machine is back to what it was before
@@ -3795,27 +3972,34 @@ rollback_up() {
     # with no count -- those runs took no snapshot.
     knob_restore "this bring-up was rolled back"
     # [Co-developed with claude code -- Adam]
-    # 🔴 And the app knob, for the same sentence: "the machine is back to what it was before
-    # this 'ndt up'" may not be printed while a file THIS run wrote still points the next proxy
-    # and the next hand-run p4_testbed_topo.py at a package whose fabric has just been taken
-    # down. Only a knob this run wrote is removed -- APP_KNOB_WRITTEN, the same discipline
-    # KNOB_SAVED enforces above -- so a rollback cannot undo somebody else's state.
-    if [[ -n "$APP_KNOB_WRITTEN" ]]; then
-        app_knob_clear "this bring-up was rolled back" || rc=1
-    fi
+    # 🔴 And the app and telemetry knobs, for the same sentence: "the machine is back to what it
+    # was before this 'ndt up'" may not be printed while a file THIS run wrote still points the next
+    # proxy and the next hand-run p4_testbed_topo.py at a package or a telemetry source whose fabric
+    # has just been taken down. They go back to the bytes they had (refusal_put_back, the rule a
+    # refused bring-up already uses): a knob that named the same package before is not cleared, one
+    # that was absent is removed, and one somebody changed since this run wrote it is left alone and
+    # said so -- a rollback cannot undo somebody else's state.
+    refusal_put_back "$(app_knob_path)" "this bring-up was rolled back" || rc=1
+    refusal_put_back "$(telemetry_knob_path)" "this bring-up was rolled back" || rc=1
+    APP_KNOB_WRITTEN=""
     if (( ${#UP_STARTED[@]} == 0 )); then
         info "nothing to roll back: this 'ndt up' had not changed the machine yet"
-        # $rc, not 0: clearing the app knob is the only thing a rollback can have to DO when no
-        # stage was started, and an app knob that could not be removed is the one outcome this
+        # $rc, not 0: putting the app knob back is the only thing a rollback can have to DO when no
+        # stage was started, and a knob that could not be put back is the one outcome this
         # sentence must not be printed over -- it still points the next proxy at a package.
         # (knob_restore's own failure keeps the status it always had: it prints and does not
         # set rc, which is behaviour this change is not in a position to re-decide.)
+        rollback_record_back $(( rc == 0 )) "$why" || rc=1
         return $rc
     fi
     echo
     say "rollback"
     warn "$why"
+    # [Co-developed with claude code -- Adam] Which stack components are this run's, before anything is stopped.
+    STACK_STOPSET=()
+    if up_did_start stack && (( ${#STACK_BEFORE[@]} )); then rollback_stack_classify; fi
     info "this bring-up started: ${UP_STARTED[*]} -- taking them back down"
+    (( ${#UP_LEFT[@]} )) && info "up before this 'ndt up', and not touched by this rollback: $(join_list "${UP_LEFT[@]}")"
     for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
         stage="${UP_STARTED[$i]}"
         case "$stage" in
@@ -3833,6 +4017,26 @@ rollback_up() {
                 fi
                 ;;
             stack)
+                # [Co-developed with claude code -- Adam]
+                # Some stack component was running before this run asked stack.sh for one: only what
+                # this run started or replaced is stopped, by name (`stack.sh stop`), and the ports of
+                # those components are read again below. With nothing running before, everything
+                # registered is this run's and `down` is the call, as it always was.
+                if (( ${#STACK_BEFORE[@]} )); then
+                    if (( ${#STACK_STOPSET[@]} )); then
+                        info "stopping what this run started of the stack: ${STACK_STOPSET[*]}"
+                        out="$(NO_COLOR=1 bash "$STACK" stop "${STACK_STOPSET[@]}" 2>&1)"; src=$?
+                        names="$(sed -n -E 's/^[[:space:]]*stopped (kernel|p4_proxy|ryu)$/\1/p' <<<"$out" | paste -sd, - | sed 's/,/, /g')"
+                        [[ -n "$names" ]] && stopped="${stopped:+$stopped, }$names"
+                        stack_down_lines "$out"
+                        if (( src != 0 )); then err "stack.sh stop exited $src"; rc=1; fi
+                        deferred="$(stack_ports_of "${STACK_STOPSET[@]}")"
+                        deferred_what="the port(s) of what this rollback stopped"
+                    else
+                        info "no stack component to stop: nothing this run started is registered now"
+                    fi
+                    continue
+                fi
                 info "stopping what stack.sh started (kernel, proxy, Ryu)"
                 out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"; src=$?
                 # [Co-developed with claude code -- Adam] stack.sh's stop_one prints "stopped <name>"
@@ -3911,7 +4115,7 @@ rollback_up() {
         done
         [[ -n "$kept" ]] && info "held by the fabric this run reused, which stays up: $kept"
         if [[ -z "$held$unread$kept" ]]; then
-            ok "the port(s) stack.sh down named are closed now: $deferred"
+            ok "$deferred_what are closed now: $deferred"
         elif [[ -n "$closed" ]]; then
             ok "closed now: $closed"
         fi
@@ -3930,15 +4134,23 @@ rollback_up() {
             left=1
         fi
     fi
-    if (( rc == 0 && left == 0 )) && [[ "${UP_P4_FABRIC:-}" == reused ]]; then
-        # [Co-developed with claude code -- Adam] A reused fabric was running before this 'ndt up', and
-        # what a stage stopped can have been something it already had (a heartbeat, a stack), so the
-        # line names only the stages that stopped something and does not say the machine is as it was.
-        if [[ -n "$stopped" ]]; then
-            ok "rolled back: stopped $stopped, which may have been running before this 'ndt up'; the fabric this run reused was not stopped"
-        else
-            ok "rolled back: no stage stopped anything; the fabric this run reused was not stopped"
-        fi
+    # [Co-developed with claude code -- Adam]
+    # The record of what this run asked for and the claim note it wrote go back once the stages are
+    # done, because what they say depends on whether the rollback finished. A put-back that fails
+    # makes the rollback incomplete, as a knob that cannot be put back does.
+    local complete=0
+    (( rc == 0 && left == 0 )) && complete=1
+    rollback_record_back "$complete" "$why" || rc=1
+    if (( rc == 0 && left == 0 )) && (( ${#UP_LEFT[@]} + ${#UP_REPLACED[@]} )); then
+        # [Co-developed with claude code -- Adam] Said by name: what the rollback took down, what it left
+        # running because it was up before this 'ndt up', and what it replaced or lost and cannot put back.
+        # Only a rollback that left, replaced and lost nothing says the machine is as it was.
+        local taken="$stopped" line
+        up_did_start fabric && taken="${taken:+$taken, }fabric"
+        line="rolled back: ${taken:-nothing} taken down"
+        (( ${#UP_LEFT[@]} )) && line+="; left running (up before this 'ndt up'): $(join_list "${UP_LEFT[@]}")"
+        (( ${#UP_REPLACED[@]} )) && line+="; replaced and not restored: $(join_list "${UP_REPLACED[@]}")"
+        ok "$line"
     elif (( rc == 0 && left == 0 )); then
         ok "rolled back: the machine is back to what it was before this 'ndt up'"
     elif [[ "${UP_P4_FABRIC:-}" == reused ]]; then
@@ -3952,11 +4164,69 @@ rollback_up() {
         err "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep"
         rc=1
     fi
-    # Today's behaviour stands: the record survives a failed
-    # bring-up. This run DID ask for a fabric, and `ndt status --check` should be able to call
-    # whatever is left red rather than answering "could not check".
-    info "kept .test_run/up.target: this run asked for a fabric, so 'ndt status --check' still"
-    info "has a baseline to judge the leftovers against. 'ndt down' is what clears it."
+    return $rc
+}
+
+# [Co-developed with claude code -- Adam]
+# rollback_record_back <complete 0|1> <why> -- the up.target record
+# and the claim note, back to what a failed 'ndt up' found, when the machine is.
+#
+# 🔴 Complete AND nothing replaced: the machine is as it was, so the record and the note are put
+# back through refusal_put_back and the rule refusal_unwind uses -- only while they still hold what
+# this run wrote. Over a reused fabric that restores the previous run's baseline instead of
+# replacing it with a record of a bring-up that never finished.
+# 🔴 Complete but a fabric was replaced: what the record describes is not up, so it is cleared.
+# 🔴 INCOMPLETE: the record stays on purpose -- this run DID ask for a fabric, and
+# `ndt status --check` should be able to call whatever is left red rather than answering "could not
+# check". 'ndt down' is what clears it.
+# The note, when the lab is not as it was, says what is true instead of "down ... verified clean":
+# putting that sentence back over a half-torn lab would be the stale-note defect again.
+rollback_record_back() {
+    local complete="$1" why="$2" f rc=0 before_ok=0 text="" after now
+    f="$(up_target_file)"
+    if (( ! complete )); then
+        [[ -e "$f" ]] && {
+            info "kept ${f#$REPO/}: this run asked for a fabric, so 'ndt status --check' still"
+            info "has a baseline to judge the leftovers against. 'ndt down' is what clears it."; }
+    elif (( UP_FABRIC_GONE )); then
+        after="${REFUSAL_AFTER[$f]:-}"
+        if [[ -e "$f" ]]; then now="$(cat -- "$f" 2>/dev/null; printf x)"; else now=ABSENT; fi
+        if [[ -n "$after" && "$now" == "$after" ]]; then
+            clear_up_target "this run replaced the fabric it described, which is not up now"
+        elif [[ "$now" != ABSENT ]]; then
+            warn "$(short_repo_path "$f") left as it is: it changed after this run wrote it"
+        fi
+    else
+        refusal_put_back "$f" "$why" || rc=1
+    fi
+    # The note. Taken from what this run wrote and nothing else (REFUSAL_NOTE_WRITTEN), owner and
+    # sentence checked again now, exactly as refusal_unwind does.
+    if [[ -n "$REFUSAL_NOTE_WRITTEN" && -n "${NDT_OWNER:-}" && -f "$CLAIM" \
+          && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]]; then
+        # Everything the rollback stopped was this run's, so a complete rollback that replaced nothing leaves
+        # the lab as the note before it described it, whatever was left running.
+        (( complete && ${#UP_REPLACED[@]} == 0 )) && before_ok=1
+        if (( before_ok )); then
+            text="$REFUSAL_NOTE_BEFORE"
+        else
+            text="ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} failed"
+            if (( complete )); then
+                text+=" and was rolled back ($why)"
+                (( ${#UP_LEFT[@]} )) && text+="; left running from before: $(join_list "${UP_LEFT[@]}")"
+                (( ${#UP_REPLACED[@]} )) && text+="; replaced and not restored: $(join_list "${UP_REPLACED[@]}")"
+            else
+                text+="; the rollback is INCOMPLETE -- read 'ndt status'"
+            fi
+        fi
+        if claim_rewrite note "$text"; then
+            if (( before_ok )); then warn "$(short_repo_path "$CLAIM"): the note is back to what it was: $why"
+            else warn "$(short_repo_path "$CLAIM"): the note now says: $text"; fi
+        else
+            err "could NOT rewrite the claim note this 'ndt up' wrote"
+            rc=1
+        fi
+    fi
+    REFUSAL_NOTE_WRITTEN=""
     return $rc
 }
 
@@ -4376,6 +4646,7 @@ up_p4() {
     if (( reuse )); then
         ok "already up: $n switches, $live_hosts hosts, reusing"
         UP_P4_FABRIC=reused
+        up_left_running "bmv2 fabric ($live_hosts hosts)"
     else
         if topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -ne "$hosts" ]]; then
             info "the running fabric has $live_hosts hosts, this run wants $hosts; rebuilding it"
@@ -4441,7 +4712,10 @@ up_p4() {
             refusal_unwind "the topo session could not be checked; nothing was built" || return 1
             return 5
         fi
-        (( sess_rc == 0 )) && { info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+        # [Co-developed with claude code -- Adam] A fabric that was running is taken down here and
+        # is not rebuilt if this run fails: the rollback says so by name and does not call the
+        # machine back as it was (up_replaced is recorded before the call, like every stage).
+        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
         # Recorded before the call, not after: a topo-start that fails part way through has
         # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
         up_started fabric
@@ -4526,6 +4800,7 @@ up_p4() {
     info "stack.sh prompt is answered immediately: the fabric is already up"
     # CONVERGE_WAIT is an upper bound, not a sleep. 128 hosts means 16256 destination paths.
     local out rc
+    stack_snapshot
     up_started stack
     out="$(printf '\n' \
            | TOPO_P4="$topo" CONVERGE_WAIT="${CONVERGE_WAIT:-300}" NO_COLOR=1 \
@@ -5407,8 +5682,12 @@ up_ovs() {
     # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
     # before the first thing that changes the machine.
     local rut_rc
+    # [Co-developed with claude code -- Adam] The snapshot rollback_up puts the record, the app knob
+    # and the claim note back from: taken before the first of them is written, as up_p4 does.
+    refusal_snapshot
     record_up_target ovs "$ovs_hosts" "$ovs_topo"; rut_rc=$?
     (( rut_rc != 0 )) && { rm -f "$fifo" "$out"; return "$rut_rc"; }
+    refusal_mark "$(up_target_file)"
     # [Co-developed with claude code -- Adam]
     # 🔴 THE OVS PLANE CLEARS THE APP KNOB TOO, and it is not housekeeping. The knob is P4-only
     # in the sense that only P4 readers act on it -- which is exactly why an OVS round is where
@@ -5418,7 +5697,9 @@ up_ovs() {
     # the machine. `--app` on this plane was refused at the dispatch, so there is never a
     # package to keep.
     app_knob_clear "this 'ndt up ovs' does not use one" || { rm -f "$fifo" "$out"; return 1; }
+    refusal_mark "$(app_knob_path)"
     claim_note_up "ovs $ovs_hosts"
+    refusal_claim_written
 
     say "[1/4] control plane (Ryu)"
     # NDTWIN_RYU_TOPO_FILE is set to the SAME file as TOPO_OVS, and that is the whole point.
@@ -5438,6 +5719,7 @@ up_ovs() {
     # [Co-developed with claude code -- Adam]
     # Recorded before the launch: this is the first thing in up_ovs that changes the machine,
     # and by the time it has failed Ryu may already own :8080/:6653/:6633. See rollback_up.
+    stack_snapshot
     up_started stack
     ( cd "$REPO" && TOPO_OVS="$ovs_topo" NDTWIN_RYU_TOPO_FILE="$ovs_topo" \
         CONVERGE_WAIT="${CONVERGE_WAIT:-400}" NO_COLOR=1 \
@@ -12886,6 +13168,10 @@ usage: ndt <command>
                                     measurement in flight -- and written down
                 OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
                 parameter. For any other size, name the plane: 'ndt up p4 N'.
+                A bring-up that fails after it changed the machine rolls back what it
+                started and puts back what it wrote (the knobs, up.target, the claim
+                note). A fabric, heartbeat or stack component that was already running
+                is left running, and the rollback names what it left, replaced or lost.
                 NDT_TOPO=<file> forces a specific kernel model.
 
                 --app <dir> brings the P4 plane up on an app package -- a directory
