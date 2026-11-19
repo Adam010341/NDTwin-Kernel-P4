@@ -423,7 +423,9 @@ ndt up p4 --app <dir>   # bmv2 on a P4 app package or tutorials exercise (2026-1
   first:  ndt down`; the OVS bring-up likewise refuses when Mininet is already running.
 - `ndt up p4 --telemetry {auto|none|cooperative|link}` chooses where a bmv2 switch's sFlow samples
   come from. `--app` and `--telemetry` are P4 flags: on the OVS plane they are usage errors (rc 2),
-  not ignored arguments.
+  not ignored arguments. With `--app`, the word is also given to the package's pre-flight: a program
+  that cannot do `cooperative` is refused there (rc 5, nothing started or written), not after the
+  fabric is built.
 - `--force` goes past somebody else's claim or a measurement in flight, and is written down (4.2).
 
 Progress is printed as numbered steps. P4: `[1/3] bmv2 fabric`, `[2/3] proxy + kernel`,

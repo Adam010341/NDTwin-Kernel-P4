@@ -2228,7 +2228,7 @@ except Exception:                                            # noqa: BLE001
 # silently. The environment override is honoured so a test can point it at a stub.
 p4_proxy_py() { printf '%s\n' "${P4_PROXY_PY:-$REPO/p4_proxy/venv/bin/python}"; }
 
-# app_preflight <dir> -- tools/p4_exercise/preflight.py, its table printed VERBATIM.
+# app_preflight <dir> -- tools/p4_exercise/preflight.py, its table printed VERBATIM, and given --telemetry's word when one was given.
 #
 # Verbatim and not summarised: the table's whole design is that the reader sees which row is
 # red. Re-rendering it here would be a second opinion about a package this script cannot
@@ -2249,7 +2249,7 @@ app_preflight() {
     # conversion replaces. The way to choose a role there is an ndt flag, which one_step.py prints.
     local -a extra=()
     app_is_generated "$dir" && extra=(--no-role-suggestion)
-    out="$("$py" "$tool" "$dir" ${extra[@]+"${extra[@]}"} 2>&1)"; rc=$?
+    out="$("$py" "$tool" "$dir" ${extra[@]+"${extra[@]}"} ${NDT_TELEMETRY:+--telemetry "$NDT_TELEMETRY"} 2>&1)"; rc=$?
     printf '%s\n' "$out"
     return $rc
 }

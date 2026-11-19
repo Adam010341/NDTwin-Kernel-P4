@@ -2480,6 +2480,47 @@ data["links"][2] = ["s1-p600", "s3-p1"]
 json.dump(data, open(path, "w"), indent=4)
 PY
 e2e_refused port_above_510 "$E2E_PORT" "bmv2 port range" "port 600"
+# [Co-developed with claude code -- Adam]
+# A telemetry word the package's program cannot do. `--telemetry cooperative` over a package whose
+# switches carry their own program with no controller header used to pass pre-flight, build the
+# whole fabric and fail at the proxy. The real pre-flight is handed the word now, so it is refused
+# with rc 5 before any file is written: the host count, the app knob, the telemetry knob,
+# up.target, the claim file and the claim note are each as they were, and nothing is started.
+E2E_COOP="$FIX/exercises/e2e/pkg_basic"; rm -rf "$E2E_COOP"; mkdir -p "$(dirname "$E2E_COOP")"
+reset_fix
+e2e coop_package_source "$E2E_EX"
+cp -r "$(e2e_gen)" "$E2E_COOP"
+refused_state() {   # the six things a refused bring-up must not have moved, as bytes
+    local f
+    for f in "$FIX/p4_proxy/mininet/host_count_override" "$KNOB" "$TELKNOB" \
+             "$FIX/.test_run/up.target" "$FIX/.test_run/lab.claim" "$FIX/claim_note.calls"; do
+        if [[ -e "$f" ]]; then sha256sum "$f" | cut -c1-16; else echo absent; fi
+    done | tr '\n' ' '
+}
+refused_drive() {   # refused_drive <telemetry word> -> OUT; the claim note is recorded, not written
+    OUT="$(drive "$REAL"'claim_note_up() { echo "$*" >> '"$FIX"'/claim_note.calls; }; NDT_TELEMETRY='"$1"'; NDT_APP_DIR='"$(q "$E2E_COOP")"'; up_p4')"
+}
+reset_fix; rm -f "$FIX/claim_note.calls" "$FIX/.test_run/lab.claim"
+printf '7\n' > "$FIX/p4_proxy/mininet/host_count_override"
+printf '# written by ndt up p4 --app at 2026-10-29T00:00:00Z\n%s\n' "$PKG_OK" > "$KNOB"
+printf 'link\n' > "$TELKNOB"
+printf 'plane=ovs\nhosts=4\nby=an-earlier-bring-up\n' > "$FIX/.test_run/up.target"
+printf 'owner=someone-else\n' > "$FIX/.test_run/lab.claim"
+REFUSED_BEFORE="$(refused_state)"
+refused_drive cooperative
+check "🔴 --telemetry cooperative on a program that cannot do it is refused (5)" "5" "$(rc_of "$OUT")"
+has   "  and the table says which row refused"           "FAIL  telemetry cooperative is possible" "$OUT"
+has   "🔴 and that row names the flag the user gave"     "asked for with --telemetry cooperative" "$OUT"
+has   "  and that nothing was started"                    "nothing was started" "$OUT"
+check "🔴 host count, app knob, telemetry knob, up.target, claim file and claim note are as they were" "$REFUSED_BEFORE" "$(refused_state)"
+check "🔴 nothing was reached (no sudo, no stack)"        "sudo=0 stack=0" "$(touched)"
+hasnt "  and no topology was started"                     "topo-start" "$(cat "$FIX/sudo.log")"
+# The control: the same package under a word it can do goes through, so the refusal above is the
+# word and not the package.
+reset_fix; rm -f "$FIX/claim_note.calls" "$FIX/.test_run/lab.claim"
+refused_drive link
+check "  the same package asked for --telemetry link comes up" "0" "$(rc_of "$OUT")"
+check "  and that is the bring-up reaching the machine"   "stack=1" "$(touched | sed 's/^sudo=[0-9]* //')"
 rm -rf "$FIX/exercises/e2e" "$FIX/.test_run/packages" "$FIX/.test_run/packages-staging"
 
 # =============================================================================================

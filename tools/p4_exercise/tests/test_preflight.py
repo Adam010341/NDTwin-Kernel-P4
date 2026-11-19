@@ -1765,6 +1765,56 @@ class TheCooperativeRefusal(PackageCase):
         self.assert_green()
 
 
+class TheRequestedTelemetryWord(PackageCase):
+    """`--telemetry WORD`: the source the bring-up will be asked for, checked before it is built.
+
+    [Co-developed with claude code -- Adam]
+    The package here declares nothing and carries its own program (so, no controller header).
+    Run through main(), because the command a user types is what `ndt` calls.
+    """
+
+    p4 = "solution/basic.p4"
+
+    def run_main(self, *flags):
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = preflight.main([self.pkg, "--no-compile", *flags])
+        return rc, out.getvalue()
+
+    def test_cooperative_asked_for_on_a_program_that_cannot_do_it_is_refused(self):
+        rc, text = self.run_main("--telemetry", "cooperative")
+        self.assertEqual(rc, 1, text)
+        self.assertIn("telemetry cooperative is possible", text)
+        self.assertIn("cannot clone to the CPU port", text)
+        # The detail names the flag the user typed, not a package field they did not write.
+        self.assertIn("--telemetry cooperative", text)
+        self.assertNotIn("declare telemetry.source", text)
+
+    def test_the_flag_outranks_what_the_package_declares(self):
+        # A package declaring `cooperative` fails by itself; asking for `link` is what the
+        # bring-up will run, so that is what is checked.
+        self.edit_package(lambda d: d.__setitem__("telemetry", {"source": "cooperative"}))
+        rc, text = self.run_main("--telemetry", "link")
+        self.assertEqual(rc, 0, text)
+        self.assertNotIn("FAIL", text)
+        # ... and `auto` is the knob's "no opinion": the declaration stays in force.
+        rc, text = self.run_main("--telemetry", "auto")
+        self.assertEqual(rc, 1, text)
+        self.assertIn("declare telemetry.source", text)
+
+    def test_without_the_flag_the_rows_are_what_they_always_were(self):
+        before = self.report().rows
+        self.assertEqual(preflight.run(self.pkg, compile_p4=False, telemetry=None).rows, before)
+        self.assertNotIn("telemetry flag", [r[1] for r in before])
+        self.edit_package(lambda d: d.__setitem__("telemetry", {"source": "cooperative"}))
+        rc, text = self.run_main()
+        self.assertEqual(rc, 1, text)
+        self.assertIn("declare telemetry.source", text)
+        self.assertNotIn("--telemetry", text)
+
+
 class TheCooperativeIncludeIsAccepted(PackageCase):
     """The same package built from basic_telemetry -- the include's whole point."""
 

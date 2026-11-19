@@ -2119,6 +2119,21 @@ check_fires "M143: the host count is written before pre-flight refuses" m143 \
             "🔴 cpu_port_on_a_cable: the app knob and the host count are byte for byte as they were" \
             "🔴 port_above_510: the app knob and the host count are byte for byte as they were"
 
+# [Co-developed with claude code -- Adam]
+# M144: app_preflight does not hand --telemetry to the package pre-flight. The word is still
+# validated and written by the bring-up, but a program that cannot do it is only found at the
+# proxy, after the fabric is built: the refusal cell sees a bring-up that proceeds, not rc 5.
+cat > "$A/m144.old" <<'EOF'
+    out="$("$py" "$tool" "$dir" ${extra[@]+"${extra[@]}"} ${NDT_TELEMETRY:+--telemetry "$NDT_TELEMETRY"} 2>&1)"; rc=$?
+EOF
+cat > "$A/m144.new" <<'EOF'
+    out="$("$py" "$tool" "$dir" ${extra[@]+"${extra[@]}"} 2>&1)"; rc=$?
+EOF
+check_fires "M144: app_preflight does not pass --telemetry" m144 \
+            "🔴 --telemetry cooperative on a program that cannot do it is refused (5)" \
+            "🔴 and that row names the flag the user gave" \
+            "🔴 host count, app knob, telemetry knob, up.target, claim file and claim note are as they were"
+
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
