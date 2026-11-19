@@ -324,6 +324,9 @@ stale_pipeline() { return 1; }
 guard_no_live_ovs() { return 0; }
 sample_rate() { echo 256; }
 verify_sflow() { return 0; }
+# The step after the note fails here on purpose, and the cells read what the bring-up WROTE; the
+# rollback that follows would put the note back, which is test_ndt_up_down_robust.sh section 33's subject.
+rollback_up() { return 0; }
 $1 >/dev/null 2>&1" >/dev/null 2>&1
 }
 

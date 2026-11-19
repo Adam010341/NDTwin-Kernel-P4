@@ -442,26 +442,39 @@ has   "  and names what it removed"                       "app package cleared: 
 # readers act on it -- which is exactly why an OVS round is where a stale one survives
 # unnoticed, and the next `ndt up p4 4` in this checkout then builds somebody's exercise under
 # a banner reading `app package  none`. up_ovs is driven for real and is expected to fail later
-# on (the stubbed fabric has no hosts); what this cell is about is the file, and up_ovs's own
-# rollback cannot be what removed it -- APP_KNOB_WRITTEN is empty on this plane.
+# on (the stubbed fabric has no hosts); what this cell is about is the file the bring-up wrote, so
+# the rollback that follows is stubbed out: what a rollback puts back is the cells below.
 reset_fix; plant_knob
-OUT="$(drive 'up_ovs 4')"
+OUT="$(drive 'rollback_up() { return 0; }
+up_ovs 4')"
 check "🔴 'ndt up ovs 4' clears it as well"               "absent" "$(knob_state)"
 has   "  and names what it removed"                       "app package cleared: $PKG_OK" "$OUT"
 has   "  saying it is this plane that does not use one"   "this 'ndt up ovs' does not use one" "$OUT"
 
 # 🔴 The rollback. A bring-up that wrote the knob and then failed must not leave it: the
-# fabric it describes has just been taken back down.
+# fabric it describes has just been taken back down. It goes back to what it was -- here nothing,
+# so the file is removed; the next cell has an earlier knob.
 reset_fix
-OUT="$(drive "app_knob_write $(q "$PKG_OK") >/dev/null; rollback_up 'test'")"
-check "🔴 a rolled-back bring-up clears the knob it wrote" "absent" "$(knob_state)"
-has   "  saying why"                                      "app package cleared: $PKG_OK -- this bring-up was rolled back" "$OUT"
-# The control: a rollback must not remove a knob this run never wrote. APP_KNOB_WRITTEN is
-# what tells the two apart, and without it "clear on rollback" would be "clear whatever is
-# there", which would undo another session's state from a command that failed.
+OUT="$(drive "refusal_snapshot; app_knob_write $(q "$PKG_OK") >/dev/null; refusal_mark \"\$(app_knob_path)\"; rollback_up 'test'")"
+check "🔴 a rolled-back bring-up removes the knob it created" "absent" "$(knob_state)"
+has   "  saying why"                                      "removed p4_proxy/mininet/app_package_override: this bring-up was rolled back (this run created it)" "$OUT"
+# An earlier knob is put back, not cleared: the run wrote the same file over it.
+reset_fix; plant_knob
+PKG_OTHER="$FIX/packages/other"; mkdir -p "$PKG_OTHER"
+OUT="$(drive "refusal_snapshot; app_knob_write $(q "$PKG_OTHER") >/dev/null; refusal_mark \"\$(app_knob_path)\"; rollback_up 'test'")"
+check "🔴 a rolled-back bring-up puts an earlier knob back, it does not clear it" "$PKG_OK" "$(knob_state)"
+has   "  saying why"                                      "put back to what it was: this bring-up was rolled back" "$OUT"
+# The control: a rollback must not touch a knob this run never wrote. The put-back reads what the
+# run left (refusal_mark), so without a record of a write "put back on rollback" would be "change
+# whatever is there", which would undo another session's state from a command that failed.
 reset_fix; plant_knob
 OUT="$(drive 'rollback_up "test"')"
 check "🔴 but NOT one this run did not write"             "$PKG_OK" "$(knob_state)"
+# ...and not one somebody changed since this run wrote it.
+reset_fix
+OUT="$(drive "refusal_snapshot; app_knob_write $(q "$PKG_OK") >/dev/null; refusal_mark \"\$(app_knob_path)\"; printf '%s\n' $(q "$PKG_OTHER") > \"\$(app_knob_path)\"; rollback_up 'test'")"
+check "🔴 nor one that changed after this run wrote it"   "$PKG_OTHER" "$(knob_state)"
+has   "  and says it was left"                            "left as it is: it changed after this run wrote it" "$OUT"
 
 # =============================================================================================
 section "5. 🔴 never a knob that is present and empty"
@@ -735,7 +748,7 @@ has   "🔴 the PROXY's own last words are printed"         "AppPackageError: ho
 has   "  named as the proxy's log"                        "the last 10 line(s) of .test_run/logs/p4_proxy.log" "$OUT"
 has   "  and the bring-up was rolled back"                "rollback" "$OUT"
 check "🔴 the knob THIS run wrote does not outlive it"    "absent" "$(knob_state)"
-has   "  saying why it went"                              "app package cleared: $PKG_OK -- this bring-up was rolled back" "$OUT"
+has   "  saying why it went"                              "removed p4_proxy/mininet/app_package_override: this bring-up was rolled back (this run created it)" "$OUT"
 # The control: with no proxy log there is no traceback to print, and the absence is SAID.
 reset_fix
 : > "$STACK_FAIL"

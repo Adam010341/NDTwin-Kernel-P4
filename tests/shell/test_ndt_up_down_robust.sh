@@ -73,7 +73,7 @@ hasnt() { grep -qF -- "$2" <<<"$3" && t_bad "$1" "unexpected '$2' in the output"
 section() { printf '\n%s\n' "$1"; }
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-updown-XXXXXX")"
-trap 'chmod -R u+rwx "$FIX" 2>/dev/null; rm -rf "$FIX"' EXIT
+trap 'chmod -R u+rwx "$FIX" 2>/dev/null; rm -rf "$FIX"; kill ${HB33_PIDS:-} ${SP33_PIDS:-} $(cat "$FIX/spawned.pids" 2>/dev/null) 2>/dev/null' EXIT
 export FIX
 mkdir -p "$FIX/.test_run/pids" "$FIX/setting" "$FIX/p4_proxy/mininet" \
          "$FIX/p4_proxy/venv/bin" "$FIX/p4_proxy/p4_src/build" "$FIX/build/bin" "$FIX/tools/test_workflow"
@@ -125,11 +125,26 @@ case "$1 ${2:-}" in
         [[ -f "$FIX/stack_ovs_dies_early" ]] && exit 9
         echo "[2/3] data plane (Mininet, needs sudo)"
         [[ -f "$FIX/stack_ovs_no_prompt" ]] && { sleep 0.05; exit 9; }
+        [[ -f "$FIX/stack.up.hook" ]] && . "$FIX/stack.up.hook"
         read -r _ || true
         echo "converged"
         exit "$(rc_of stack_up)" ;;
     "up p4")
-        echo "[1/3] data plane"; echo "started"; exit "$(rc_of stack_up)" ;;
+        # [Co-developed with claude code -- Adam] stack.up.hook is what this `up` leaves in the registry
+        # (a started component, a replaced one, one that went): sourced, so a test writes it as shell.
+        echo "[1/3] data plane"; echo "started"
+        [[ -f "$FIX/stack.up.hook" ]] && . "$FIX/stack.up.hook"
+        exit "$(rc_of stack_up)" ;;
+    "stop"*)
+        # `stack.sh stop <name>...`: signals what each named pidfile names and says so, as stop_one does.
+        shift
+        for n in "$@"; do
+            [[ -f "$FIX/.test_run/pids/$n.pid" ]] || continue
+            kill "$(cat "$FIX/.test_run/pids/$n.pid")" 2>/dev/null
+            rm -f "$FIX/.test_run/pids/$n.pid"
+            echo "  stopped $n"
+        done
+        exit "$(rc_of stack_stop)" ;;
     "down"*)
         # A1: what a teardown SAYS is a fixture too, not two hard-coded lines. `out.stack_down`
         # is how section 12 replays stack.sh cmd_down's real prose -- report_exit's two halves,
@@ -146,7 +161,7 @@ chmod +x "$FIX/stack.sh"
 # The scripted exit statuses and the reading sequences, reset between groups.
 reset_fix() {
     rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" \
-          "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" \
+          "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" "$FIX/stack.up.hook" \
           "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" \
           "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target"
     echo '{"switches":[]}' > "$FIX/manifest.json"
@@ -340,7 +355,14 @@ SUDO="$(cat "$FIX/sudo.log")"; STACKLOG="$(cat "$FIX/stack.log")"
 has   "  stops the topo session"                           "topo-stop" "$SUDO"
 has   "  sweeps the data plane"                            "cleanup" "$SUDO"
 has   "  and takes the control plane down through stack.sh" "down" "$STACKLOG"
-has   "🔴 keeps .test_run/up.target on purpose"            "kept .test_run/up.target" "$OUT"
+# [Co-developed with claude code -- Adam] A rollback that finished puts the record back to what it
+# found (this fixture had none); one that did not finish keeps it, so `ndt status --check` still has
+# a baseline to compare the leftovers with.
+hasnt "  a complete rollback does not keep the record"     "kept .test_run/up.target" "$OUT"
+check "🔴 it puts the record back: none was there before" "no" "$( [[ -f "$FIX/.test_run/up.target" ]] && echo yes || echo no )"
+reset_fix; rc_for stack_up 1; rc_for cleanup 1; echo "0 14 0" > "$FIX/mn.seq"
+OUT="$(drive 'up_ovs 4')"
+has   "🔴 an INCOMPLETE rollback keeps .test_run/up.target on purpose" "kept .test_run/up.target" "$OUT"
 check "  the record really is still there"                 "yes" "$( [[ -f "$FIX/.test_run/up.target" ]] && echo yes || echo no )"
 
 # 🔴 The control against "roll back on any non-zero exit". A stack that came UP and then failed
@@ -850,8 +872,12 @@ section "11. H4 REGRESSION: the tab-packed reading left a newline in the middle 
 # resolved path lands, it is written by the function every plane passes through, and its
 # topology_sha256 is a reading OF THE FILE -- so it is 64 hex characters when the path names a
 # file and "unavailable" when it does not.
+# [Co-developed with claude code -- Adam] These two bring-ups fail on purpose (the fixture's fabric never
+# comes up) and the cells read what they WROTE, so the rollback that follows is stubbed out: what a
+# rollback puts back is section 33's subject.
 reset_fix
-OUT="$(drive 'up_p4 4')"
+OUT="$(drive 'rollback_up() { return 0; }
+up_p4 4')"
 UT="$FIX/.test_run/up.target"
 utf() { sed -n "s/^$1=//p" "$UT" 2>/dev/null | head -1; }
 check "  the p4 bring-up wrote a target record"            "present" \
@@ -878,7 +904,8 @@ has   "  the bring-up printed the model on the topology line" "topology     sett
 # The OVS site is a SEPARATE copy of the same two lines (ndt:2287). One plane fixed is not both
 # -- the same shape as M9/M10 in mutate_ndt_honesty.sh.
 reset_fix
-OUT="$(drive 'up_ovs 4')"
+OUT="$(drive 'rollback_up() { return 0; }
+up_ovs 4')"
 check "  the ovs bring-up wrote a target record"           "present" \
       "$([[ -f "$UT" ]] && echo present || echo absent)"
 check "  and the record is nine lines on this plane as well" "9" "$(wc -l < "$UT")"
@@ -3064,7 +3091,7 @@ OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" dri
 # (Its rc and that it sweeps nothing are section 2's cells, over the same reuse.)
 has   "a reuse rollback rolls back only the stack"                   "this bring-up started: stack --" "$RB"
 has   "🔴 the reused fabric's ports do not make the rollback incomplete, and the line claims only what was done" \
-      "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+      "rolled back: stack taken down; left running (up before this 'ndt up'): bmv2 fabric (4 hosts)" "$RB"
 hasnt "  🔴 and it does not say the machine is back as it was"        "the machine is back to what it was" "$RB"
 has   "  they are named as that fabric's"                            "held by the fabric this run reused, which stays up: 9091 30051" "$RB"
 hasnt "  🔴 and they are not called closed"                          "named are closed now" "$RB"
@@ -3074,9 +3101,9 @@ hasnt "  🔴 and no advice to run --deep over a fabric this run did not start" 
 # (b) reuse over a foreign package's fabric that already has its heartbeat: the bring-up recorded the
 # heartbeat before it asked the helper to start one, so the rollback stops it. The line says what was
 # stopped, newest first, that they may have been running before, and does not say the machine is as it was.
-# This cell pins today's behaviour (the rollback stops a heartbeat the previous run started); a later
-# change of who owns a heartbeat or a stack will change it, and this cell with it. The fake helper
-# answers a stop the way the real one does when it signals a daemon (HB_STOP_SAYS; pinned below).
+# The pidfile here names no live daemon, so the bring-up cannot tell it from one it started and records the
+# heartbeat stage (a pidfile that names a live daemon is section 33's). The fake helper answers a stop the
+# way the real one does when it signals a daemon (HB_STOP_SAYS; pinned below).
 HB_STOP_SAYS='eval "fx_$(declare -f sudo)"
 sudo() { fx_sudo "$@"; local r=$?; [[ " $* " == *" heartbeat stop "* ]] && printf "%s\n" "$FX_HB_SAYS"; return $r; }'
 reset_fix; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
@@ -3088,8 +3115,8 @@ rm -f "$FIX/run/heartbeat.pid"
 has   "a reuse rollback over a heartbeat the fabric already had records it"  "this bring-up started: heartbeat stack --" "$RB"
 has   "  and stops it"                                                "stopping the heartbeat" "$RB"
 has   "  and prints what the helper answered"                         "heartbeat stopped (pid 4321)" "$RB"
-has   "🔴 the line names what was stopped, newest first, that they may have been running before, and that the fabric was not stopped" \
-      "rolled back: stopped stack, heartbeat, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+has   "🔴 the line names what was taken down, newest first, and what was left running because it was up before" \
+      "rolled back: stack, heartbeat taken down; left running (up before this 'ndt up'): bmv2 fabric (4 hosts)" "$RB"
 hasnt "  🔴 and never says the machine is back as it was"             "the machine is back to what it was" "$RB"
 
 # (b) the same, but the helper found a pidfile it did not act on and answered rc 0 having signalled nothing:
@@ -3110,7 +3137,7 @@ up_p4')"; RB="$(rollback_part "$OUT")"
     has   "a pidfile the helper did not act on is still asked about ($hbkind)" "stopping the heartbeat" "$RB"
     has   "  and its answer is printed"                                "nothing signalled" "$RB"
     has   "🔴 the line does not name a heartbeat the helper signalled nothing for ($hbkind)" \
-          "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+          "rolled back: stack taken down; left running (up before this 'ndt up'): bmv2 fabric (4 hosts)" "$RB"
     hasnt "  not even among the stages stopped ($hbkind)"        "stack, heartbeat" "$RB"
 done
 
@@ -3143,7 +3170,7 @@ up_p4')"; RB="$(rollback_part "$OUT")"
     has   "a reuse rollback records the heartbeat although the helper answered rc $hbrc" "this bring-up started: heartbeat stack --" "$RB"
     hasnt "  and has no daemon to stop (helper rc $hbrc)"                "stopping the heartbeat" "$RB"
     has   "🔴 the line does not name a heartbeat that never ran (helper rc $hbrc)" \
-          "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+          "rolled back: stack taken down; left running (up before this 'ndt up'): bmv2 fabric (4 hosts)" "$RB"
     hasnt "  not even among the stages stopped (helper rc $hbrc)"         "stack, heartbeat" "$RB"
 done
 
@@ -3156,8 +3183,8 @@ reset_fix; rc_for stack_up 1; out_for stack_down "Shutting down (reverse order)
 Mininet was started manually; clean it up with:  sudo mn -c
 done"
 OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4')"; RB="$(rollback_part "$OUT")"
-has   "🔴 a reuse rollback that stopped nothing says no stage stopped anything" \
-      "rolled back: no stage stopped anything; the fabric this run reused was not stopped" "$RB"
+has   "🔴 a reuse rollback that stopped nothing says nothing was taken down" \
+      "rolled back: nothing taken down; left running (up before this 'ndt up'): bmv2 fabric (4 hosts)" "$RB"
 hasnt "  and does not name the stack as stopped"                      "stopped stack" "$RB"
 hasnt "  nor say the machine is back as it was"                       "the machine is back to what it was" "$RB"
 
@@ -3177,7 +3204,7 @@ Mininet was started manually; clean it up with:  sudo mn -c
 done"
     OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4')"; RB="$(rollback_part "$OUT")"
     has   "🔴 stack.sh's own line for $comp makes the rollback say the stack was stopped" \
-          "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+          "rolled back: stack taken down; left running (up before this 'ndt up'): bmv2 fabric (4 hosts)" "$RB"
 done
 
 # (b) reuse, and something this run's stages should have left free is still held: a stranger on
@@ -3190,7 +3217,7 @@ out_for stack_down "stopped kernel
     This script did not start it. The next 'up' would find the port open and
     measure the wrong process, so this is reported rather than ignored.
 $(sed -n '/^  -> /,$p' <<<"$STACK_DOWN_LIVE_P4")"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="8081:4242 30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="8081:4242 30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 has   "🔴 a stranger still holding a port keeps a reuse rollback INCOMPLETE" "rollback INCOMPLETE" "$RB"
 check "  naming that port, and not the fabric's" "rollback: still held after the rollback's stages ran: 8081" \
@@ -3204,16 +3231,16 @@ hasnt "  🔴 and does not say the ports are closed beside the ones held" "named
 # (b) reuse, a kept bmv2 port beside a port that did close: the closed one is named, and the whole
 # is a complete rollback whose line claims only what was done.
 reset_fix; rc_for stack_down 1; mk_manifest 4; out_for stack_down "$(down_naming 8081 30051)"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051:" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 has   "  the port that closed is named beside the fabric's"          "closed now: 8081" "$RB"
 has   "  the fabric's port is named as the fabric's"                 "held by the fabric this run reused, which stays up: 30051" "$RB"
 hasnt "  and it is not called 'named are closed now'"                "named are closed now" "$RB"
-has   "  and nothing else is left"                                   "rolled back: stopped stack, which may have been running before this 'ndt up'; the fabric this run reused was not stopped" "$RB"
+has   "  and nothing else is left"                                   "rolled back: stack taken down; left running (up before this 'ndt up'): bmv2 fabric (4 hosts)" "$RB"
 
 # (b) reuse with no switch manifest: nothing says the bmv2 ports are that fabric's, so they are left.
 reset_fix; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; rm -f "$FIX/manifest.json"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 check "🔴 without the fabric's manifest its ports are not excused" \
       "rollback: still held after the rollback's stages ran: 9091 30051" \
@@ -3222,7 +3249,7 @@ check "🔴 without the fabric's manifest its ports are not excused" \
 # (b) reuse, a 4-switch fabric (30051-30054, 9091-9094), and a holder on a bmv2-row port that no switch of
 # it uses: the table says bmv2 owns that range, the manifest says this fabric does not hold :30058.
 reset_fix; rc_for stack_down 1; mk_manifest 4; out_for stack_down "$(down_naming 30058 30051 9091)"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=4 FX_HELD="30058:4242 30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=4 FX_HELD="30058:4242 30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 has   "🔴 a holder on a bmv2-row port the fabric's manifest does not list is reported as held, INCOMPLETE" "rollback INCOMPLETE" "$RB"
 check "  naming that port and not the fabric's"  "rollback: still held after the rollback's stages ran: 30058" \
@@ -3232,7 +3259,7 @@ has   "  the ports the manifest lists are the fabric's"              "held by th
 
 # (b) the manifest's own ports are the fabric's, the last switch's included.
 reset_fix; rc_for stack_down 1; mk_manifest 4; out_for stack_down "$(down_naming 30054 9094)"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=4 FX_HELD="30054: 9094:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=4 FX_HELD="30054: 9094:" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 has   "a port the manifest lists is the reused fabric's"           "held by the fabric this run reused, which stays up: 9094 30054" "$RB"
 hasnt "  and the rollback is not INCOMPLETE"                       "rollback INCOMPLETE" "$RB"
@@ -3240,12 +3267,12 @@ hasnt "  and the rollback is not INCOMPLETE"                       "rollback INC
 # (b) a manifest that does not carry the two port fields names nothing: fail closed, every port is left.
 reset_fix; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
 printf '{"s1": {"pid": 4001, "device_id": 1}, "s2": 7, "switches": []}\n' > "$FIX/manifest.json"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 check "🔴 a manifest without the ports excuses none of them"  "rollback: still held after the rollback's stages ran: 9091 30051" \
       "$(grep -o 'rollback: still held after.*' <<<"$RB")"
 printf 'not json\n' > "$FIX/manifest.json"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="30051: 9091:" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 check "  nor does one that is not JSON"                       "rollback: still held after the rollback's stages ran: 9091 30051" \
       "$(grep -o 'rollback: still held after.*' <<<"$RB")"
@@ -3255,7 +3282,7 @@ check "  nor does one that is not JSON"                       "rollback: still h
 reset_fix; rc_for stack_down 1
 printf '{"s1": {"grpc_port": 8081, "thrift_port": 9091}}\n' > "$FIX/manifest.json"
 out_for stack_down "$(down_naming 8081)"
-OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="8081:4242" drive 'UP_P4_FABRIC=reused; UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_HELD="8081:4242" drive 'UP_P4_FABRIC=reused; UP_LEFT=("bmv2 fabric (4 hosts)"); UP_STARTED=(stack); rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"')"
 RB="$(rollback_part "$OUT")"
 check "🔴 a port the manifest lists but the table does not give to bmv2 is still held" "rollback: still held after the rollback's stages ran: 8081" \
       "$(grep -o 'rollback: still held after.*' <<<"$RB")"
@@ -3319,6 +3346,369 @@ rm -rf "$FIX/pyshadow"
 check "the bmv2 rows are the fabric's: 30051, 30060, 9091, 9100 yes; 8081, 8000, 6343, 30061 no" \
       "30051 30060 9091 9100 " \
       "$(drive 'for p in 30051 30060 9091 9100 8081 8000 6343 30061; do ndt_port_is_bmv2 "$p" && printf "%s " "$p"; done; echo' | head -1)"
+
+# ==========================================================================================
+section "33. a failed 'ndt up' puts back what it wrote, and says what it left running or could not restore"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# A rollback used to clear the app knob whatever it held before, leave the telemetry knob and the
+# claim note at what the failed run wrote, and keep its up.target record over a fabric it had only
+# reused. So a failed `ndt up` over a healthy lab changed what the next reader of those files saw.
+# Now it undoes only what it wrote: each file goes back to the bytes it had while it still holds what
+# this run left (a file somebody changed since is left, with a warning), and the note and the record
+# say what is true when the lab is not as it was.
+#
+# The bring-up is driven for real through up_p4 / up_ovs; `--app` goes through a minimal package
+# (its pre-flight and manifest readers are stubbed, the fixtures in test_ndt_app_package.sh are the
+# cells for those).
+NDT33="fx33"
+T33="$FIX/.test_run/up.target"
+K_APP="$FIX/p4_proxy/mininet/app_package_override"
+K_TEL="$FIX/p4_proxy/mininet/telemetry_override"
+K_HOST="$FIX/p4_proxy/mininet/host_count_override"
+S0="down at 2026-11-17 18:20:00; verified clean; claim kept"
+mk33_claim() { printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=yes\n' "$NDT33" "$(( $(date +%s) + 3600 ))" "$1" > "$FIX/.test_run/lab.claim"; }
+note33() { sed -n 's/^note=//p' "$FIX/.test_run/lab.claim" 2>/dev/null | head -1; }
+mk33_t0() { printf 'plane=ovs\nhosts=4\ntopology=setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json\ntopology_sha256=%064d\nmodel_hosts=4\nmodel_edges=40\nat=1700000000\nby=before\nbuilder=up_ovs\n' 0 > "$T33"; }
+# one file's content, or ABSENT: the bytes, so "back" means byte-identical
+bytes33() { if [[ -e "$1" ]]; then sha256sum < "$1" | cut -c1-16; else echo ABSENT; fi; }
+mk33_pkg() {   # mk33_pkg <dir> <hosts> -- a package the stubbed readers accept
+    mkdir -p "$1/ndtwin"; echo '{"format": 1}' > "$1/package.json"
+    mk_topo "33pkg.json" "$2" 40; mv "$FIX/setting/33pkg.json" "$1/ndtwin/topology.json"
+}
+PKG_X="$FIX/packages33/x"; PKG_Y="$FIX/packages33/y"
+mk33_pkg "$PKG_X" 4; mk33_pkg "$PKG_Y" 8
+APP33='app_preflight() { return 0; }
+app_package_mode() { echo ndtwin; }
+app_pipeline_kind() { echo ndtwin; }'
+# The state a healthy lab left: an app knob naming package X, telemetry `link`, a host knob of 4, the
+# record of an earlier bring-up and a claim whose note says the lab was torn down.
+set33() {
+    rm -f "$FIX/.test_run/host_count_override.app" "$FIX/.test_run/host_count_override.pre-up"
+    printf '# written by ndt up p4 --app at 2026-11-17T10:00:00Z\n%s\n' "$PKG_X" > "$K_APP"
+    printf '# written by ndt up p4 at 2026-11-17T10:00:00Z\nlink\n' > "$K_TEL"
+    echo 4 > "$K_HOST"; mk33_t0; mk33_claim "$S0"
+    B_APP="$(bytes33 "$K_APP")"; B_TEL="$(bytes33 "$K_TEL")"; B_HOST="$(bytes33 "$K_HOST")"; B_T="$(bytes33 "$T33")"
+}
+unset33() { rm -f "$K_APP" "$K_TEL" "$T33" "$FIX/.test_run/lab.claim" "$FIX/.test_run/host_count_override.app" "$FIX/.test_run/host_count_override.pre-up"; echo 4 > "$K_HOST"; }
+
+# 33f. a fresh `ndt up p4 --app Y --telemetry cooperative` fails at [2/3]: all five files are as they were.
+reset_fix; set33; rc_for stack_up 1
+OUT="$(NDT_OWNER=$NDT33 drive "NDT_TELEMETRY=cooperative
+$P4_FRESH
+$APP33
+NDT_APP_DIR=$(printf "%q" "$PKG_Y"); up_p4")"; RB="$(rollback_part "$OUT")"
+check "33f a failed fresh 'ndt up p4 --app' is red, and complete"           "1" "$(rc_of_out "$OUT")"
+has   "  33f the run did write 'cooperative' (the injection reached the knob)"  "telemetry    cooperative" "$OUT"
+has   "  the rollback was complete"                                         "rolled back: the machine is back to what it was before this 'ndt up'" "$RB"
+check "🔴 33f the app knob is the one it was (package X, not cleared)"     "$B_APP" "$(bytes33 "$K_APP")"
+check "🔴 33f the telemetry knob is the one it was (link, not cooperative)" "$B_TEL" "$(bytes33 "$K_TEL")"
+check "🔴 33f the host-count knob is the one it was"                       "$B_HOST" "$(bytes33 "$K_HOST")"
+check "🔴 33f up.target is the earlier record, not this run's"             "$B_T" "$(bytes33 "$T33")"
+check "🔴 33f the claim note is the one it was"                            "$S0" "$(note33)"
+has   "  the note's put-back is said"                                       "the note is back to what it was" "$RB"
+unset33
+
+# 33f2. the same with nothing there before: the knobs this run created are removed, not left.
+reset_fix; unset33; rc_for stack_up 1; mk33_claim "$S0"
+OUT="$(NDT_OWNER=$NDT33 drive "NDT_TELEMETRY=cooperative
+$P4_FRESH
+$APP33
+NDT_APP_DIR=$(printf "%q" "$PKG_Y"); up_p4")"
+has   "33f2 the run did write 'cooperative' (the injection reached the knob)"  "telemetry    cooperative" "$OUT"
+check "33f2 an app knob this run created is gone"                           "ABSENT" "$(bytes33 "$K_APP")"
+check "🔴 33f2 so is the telemetry knob it created"                         "ABSENT" "$(bytes33 "$K_TEL")"
+check "  33f2 and the record it wrote"                                      "ABSENT" "$(bytes33 "$T33")"
+check "  33f2 and the note is the one it was"                               "$S0" "$(note33)"
+unset33
+
+# 33g. an INCOMPLETE rollback keeps the record and never restores the old note.
+reset_fix; set33; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(NDT_OWNER=$NDT33 FX_HELD="30051:" drive "$P4_FRESH
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+has   "33g a port still held after the stages: INCOMPLETE"                 "rollback INCOMPLETE" "$RB"
+has   "  the record is kept on purpose"                                    "kept .test_run/up.target" "$RB"
+check "🔴 33g up.target is this run's, not the earlier one"                "no" "$([[ "$(bytes33 "$T33")" == "$B_T" ]] && echo yes || echo no)"
+hasnt "🔴 33g the note is not 'down ... verified clean' over a half-torn lab" "verified clean" "$(note33)"
+has   "  it says the rollback is INCOMPLETE and where to read"             "the rollback is INCOMPLETE -- read 'ndt status'" "$(note33)"
+has   "  and what was brought up"                                          "ndt up p4 4 at " "$(note33)"
+unset33
+
+# 33h. a file somebody changed while the run was going is left alone, and said so.
+reset_fix; set33; rc_for stack_up 1
+CHG='eval "fx_$(declare -f sudo)"
+sudo() { fx_sudo "$@"; local r=$?; [[ " $* " == *" topo-start "* ]] && { printf "# somebody else\nlink\n" > "$K_TEL_PATH"; printf "somebody changed the note\n" > /dev/null; }; return $r; }'
+OUT="$(NDT_OWNER=$NDT33 K_TEL_PATH="$K_TEL" drive "NDT_TELEMETRY=cooperative
+$P4_FRESH
+$CHG
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+check "🔴 33h a telemetry knob changed during the run is left as it is"     "yes" "$([[ "$(bytes33 "$K_TEL")" != "$B_TEL" && "$(sed -n 2p "$K_TEL")" == link ]] && echo yes || echo no)"
+has   "  and the warning says it changed after this run wrote it"           "telemetry_override left as it is: it changed after this run wrote it" "$OUT"
+check "  33h control: the app knob, untouched by anyone, is put back"       "$B_APP" "$(bytes33 "$K_APP")"
+unset33
+
+# 33h2. a note rewritten during the run is not put back over.
+reset_fix; set33; rc_for stack_up 1
+CHGN='eval "fx_$(declare -f sudo)"
+sudo() { fx_sudo "$@"; local r=$?; [[ " $* " == *" topo-start "* ]] && claim_rewrite note "somebody else is measuring"; return $r; }'
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+$CHGN
+up_p4 4")"
+check "🔴 33h2 a note somebody rewrote during the run is theirs"            "somebody else is measuring" "$(note33)"
+unset33
+
+# 33h3. the host-count knob goes back to its snapshot whatever it holds: the other knobs are left when
+# somebody changed them, this one is not (knob_restore copies the bytes it took before the write).
+reset_fix; set33; rc_for stack_up 1; mk_topo StaticNetworkTopologyP4_10Switches_8Hosts.json 8 56
+CHGH='eval "fx_$(declare -f sudo)"
+sudo() { fx_sudo "$@"; local r=$?; [[ " $* " == *" topo-start "* ]] && echo 64 > "$K_HOST_PATH"; return $r; }'
+OUT="$(NDT_OWNER=$NDT33 K_HOST_PATH="$K_HOST" drive "$P4_FRESH
+$CHGH
+up_p4 8")"
+check "33h3 the bring-up is red at [2/3]"                                    "1" "$(rc_of_out "$OUT")"
+has   "  33h3 the injection reached the file: the put-back saw 64"            "host_count_override put back to 4 (it read 64)" "$OUT"
+check "🔴 33h3 the host-count knob is back to what it was, though somebody changed it" "4" "$(cat "$K_HOST")"
+check "  33h3 byte-identical to the snapshot"                                  "$B_HOST" "$(bytes33 "$K_HOST")"
+unset33
+
+# --- the heartbeat: a daemon the previous run started is not this run's to stop --------------------
+# Real processes, in their own session, with a 120 s backstop of their own and killed by exact pid; the
+# daemon-shaped one has the argv the helper's own test accepts (`... heartbeat.py daemon`), and says it
+# is ready on a FIFO (read with a timeout, never a sleep).
+HB33_FIFO="$FIX/hb.ready"; HB33_PIDS=""; HB33_PID=""
+hb33_spawn() {   # hb33_spawn [daemon|other] -- sets HB33_PID
+    rm -f "$HB33_FIFO"; mkfifo "$HB33_FIFO"
+    if [[ "${1:-daemon}" == daemon ]]; then
+        setsid python3 -c 'import sys,time; open(sys.argv[1],"w").write("r\n"); time.sleep(120)' "$HB33_FIFO" "$FIX/run/heartbeat.py" daemon </dev/null >/dev/null 2>&1 &
+    else
+        setsid python3 -c 'import sys,time; open(sys.argv[1],"w").write("r\n"); time.sleep(120)' "$HB33_FIFO" "$FIX/run/not-a-daemon" </dev/null >/dev/null 2>&1 &
+    fi
+    HB33_PID=$!; HB33_PIDS="$HB33_PIDS $HB33_PID"
+    read -r -t 10 _ < "$HB33_FIFO" || t_bad "the fixture process did not say it was ready" "no line on $HB33_FIFO in 10 s"
+}
+hb33_kill() { local p; for p in $HB33_PIDS; do kill "$p" 2>/dev/null; wait "$p" 2>/dev/null; done; HB33_PIDS=""; }
+sudolog33() { cat "$FIX/sudo.log"; }
+# alive33 <pid> -- running and not a zombie (the test shell is the parent of the fixture processes, so a
+# killed one stays a zombie until it is waited for, and `kill -0` still answers for it)
+alive33() { local l r; read -r l < "/proc/$1/stat" 2>/dev/null || { echo no; return; }; r="${l##*) }"; [[ "${r%% *}" == Z ]] && echo no || echo yes; }
+# What the helper's `heartbeat stop` does to the daemon its pidfile names: it signals it.
+HB_WANT33='heartbeat_wanted() { return 0; }'
+HB_REUSE33="$HB_WANT33"'
+eval "fx_$(declare -f sudo)"
+sudo() { fx_sudo "$@"; local r=$?
+    [[ " $* " == *" heartbeat stop "* ]] && { kill "$(cat "$HB_PIDFILE" 2>/dev/null)" 2>/dev/null; rm -f "$HB_PIDFILE"; echo "heartbeat stopped (pid 4242)"; }
+    return $r; }'
+
+# 33a. a bring-up over a lab whose heartbeat is running fails at [2/3]: the heartbeat is not stopped.
+reset_fix; set33; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+mkdir -p "$FIX/run"; hb33_spawn daemon; echo "$HB33_PID" > "$FIX/run/heartbeat.pid"
+OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive "$HB_REUSE33
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+has   "33a over a running heartbeat the bring-up says it is not this run's" "heartbeat already running (pid $HB33_PID), started before this 'ndt up'" "$OUT"
+has   "  the rollback lists only the stack as started"                     "this bring-up started: stack --" "$RB"
+hasnt "🔴 33a the rollback did not ask the helper to stop the heartbeat"    " heartbeat stop" "$(sudolog33)"
+has   "  and says what it left running, by name"                            "up before this 'ndt up', and not touched by this rollback: bmv2 fabric (4 hosts), heartbeat (pid $HB33_PID)" "$RB"
+check "🔴 33a the daemon is still running"                                  "yes" "$(alive33 "$HB33_PID")"
+check "  the note is the one it was: the lab is as it was before"          "$S0" "$(note33)"
+has   "  33a control: the start call is still made (the helper answers 'already running')" " heartbeat start" "$(sudolog33)"
+hb33_kill; rm -f "$FIX/run/heartbeat.pid"; unset33
+
+# 33a2. a pidfile that names a live process which is not the daemon is not a heartbeat that was running.
+reset_fix; set33; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+mkdir -p "$FIX/run"; hb33_spawn other; echo "$HB33_PID" > "$FIX/run/heartbeat.pid"
+OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive "$HB_REUSE33
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+has   "33a2 a live process that is not the daemon: the stage is recorded, as before" "this bring-up started: heartbeat stack --" "$RB"
+has   "  and the helper is asked to stop it (it decides what its pidfile names)"      " heartbeat stop" "$(sudolog33)"
+hasnt "  and nothing is said to be left running that was not"                          "heartbeat (pid" "$RB"
+hb33_kill; rm -f "$FIX/run/heartbeat.pid"; unset33
+
+# 33a3. a pidfile this user cannot read: heartbeat.json names the same daemon.
+mkdir -p "$FIX/run"; : > "$FIX/run/probe"; chmod 000 "$FIX/run/probe"
+if [[ -r "$FIX/run/probe" ]]; then
+    SKIP=$((SKIP+1)); printf '  skip     33a3 (a mode-000 file is readable by this user)\n'
+else
+    reset_fix; set33; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+    mkdir -p "$FIX/run"; hb33_spawn daemon; echo "$HB33_PID" > "$FIX/run/heartbeat.pid"; chmod 000 "$FIX/run/heartbeat.pid"
+    printf '{"status": "running", "pid": %s}\n' "$HB33_PID" > "$FIX/run/heartbeat.json"
+    OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive "$HB_REUSE33
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+    has   "33a3 an unreadable pidfile: the report names the daemon, and it is left running" "heartbeat already running (pid $HB33_PID)" "$OUT"
+    hasnt "  and it is not stopped"                                           " heartbeat stop" "$(sudolog33)"
+    chmod 600 "$FIX/run/heartbeat.pid"; hb33_kill; rm -f "$FIX/run/heartbeat.pid" "$FIX/run/heartbeat.json"
+fi
+rm -f "$FIX/run/probe"
+unset33
+
+# 33b. the control: no heartbeat before, the fake helper's start writes the pidfile -- this run started it,
+# so the rollback stops it (the same as test_ndt_heartbeat.sh section 5).
+HB_START33='eval "fx_$(declare -f sudo)"
+sudo() { fx_sudo "$@"; local r=$?
+    [[ " $* " == *" heartbeat start "* ]] && echo 4242 > "$HB_PIDFILE"
+    [[ " $* " == *" heartbeat stop "* ]] && { rm -f "$HB_PIDFILE"; echo "heartbeat stopped (pid 4242)"; }
+    return $r; }'
+reset_fix; set33; rc_for stack_up 1; mkdir -p "$FIX/run"; rm -f "$FIX/run/heartbeat.pid"
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+$HB_WANT33
+$HB_START33
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+has   "33b a heartbeat this run started is in the stage list"               "this bring-up started: fabric heartbeat stack --" "$RB"
+has   "🔴 33b and the rollback stops it"                                    " heartbeat stop" "$(sudolog33)"
+hasnt "  and does not say it left a heartbeat running"                      "heartbeat (pid" "$RB"
+rm -f "$FIX/run/heartbeat.pid"; unset33
+
+# The session that was running goes with topo-stop, and a new one comes with topo-start.
+SESS33='topo_session() { local a b; a=$(grep -c " topo-start" "$FIX/sudo.log"); b=$(grep -c " topo-stop" "$FIX/sudo.log"); (( ${FX_TOPO_SESSION:+1}+0 + a > b )); }'
+# --- the stack: only the components this run started are stopped ------------------------------------
+# Fixture components are real `sleep` processes in their own sessions (120 s backstop, killed by exact pid),
+# registered the way stack.sh registers them. The fake `stack.sh up` leaves whatever stack.up.hook says in the
+# registry; the fake `stack.sh stop <name>...` signals what the named pidfiles name.
+SP33_PIDS=""; SP33_PID=""
+sp33_spawn() {   # sp33_spawn <name> -- a live component, registered; sets SP33_PID
+    SP33_PID="$(bash -c 'setsid sleep 120 </dev/null >/dev/null 2>&1 & echo $!')"
+    SP33_PIDS="$SP33_PIDS $SP33_PID"
+    printf '%s\n' "$SP33_PID" > "$FIX/.test_run/pids/$1.pid"
+}
+sp33_kill() { local p; for p in $SP33_PIDS $(cat "$FIX/spawned.pids" 2>/dev/null); do kill "$p" 2>/dev/null; done; SP33_PIDS=""; rm -f "$FIX/spawned.pids"; }
+# what a hook line does: start a component (it registers itself) / replace one / make one go
+HOOK_START='pid="$(bash -c "setsid sleep 120 </dev/null >/dev/null 2>&1 & echo \$!")"; echo "$pid" > "$FIX/.test_run/pids/%s.pid"; echo "$pid" >> "$FIX/spawned.pids"'
+hook33_start() { printf "$HOOK_START\n" "$1"; }
+stackcalls33() { grep -c "^$1" "$FIX/stack.log"; }
+last_spawned33() { tail -1 "$FIX/spawned.pids" 2>/dev/null; }
+
+# 33c. the kernel was running before; this run starts the proxy and then fails: only the proxy is stopped.
+reset_fix; set33; rc_for stack_up 1; mk_manifest 4; rm -f "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"; hook33_start p4_proxy > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+up_p4 4")"; RB="$(rollback_part "$OUT")"; P33="$(last_spawned33)"
+check "33c stack.sh was asked to stop the proxy, by name"                  "1" "$(stackcalls33 'stop p4_proxy$')"
+check "🔴 33c and not to bring the whole stack down"                      "0" "$(stackcalls33 'down')"
+check "🔴 33c the kernel that was running before is still running"       "yes" "$(alive33 "$K33")"
+check "  33c and the proxy this run started is gone"                      "no" "$(alive33 "$P33")"
+has   "  the line names the kernel as left running, with its pid"        "left running (up before this 'ndt up'): kernel (pid $K33)" "$RB"
+has   "  and what was taken down"                                         "rolled back: p4_proxy, fabric taken down;" "$RB"
+hasnt "  and does not say the machine is back as it was"                  "the machine is back to what it was" "$RB"
+has   "  the proxy's port is read again by the rollback itself"           "the port(s) of what this rollback stopped are closed now: 8081" "$RB"
+check "  33c the note is the one it was (the lab is as it was)"           "$S0" "$(note33)"
+sp33_kill; unset33
+
+# 33c2. the same, and a stranger holds :8081 after the proxy was stopped: INCOMPLETE, with its holder.
+# (preflight refuses a bring-up while :8081 is held, so the stranger takes it once stack.sh has run)
+STRANGER_P4='ndt_port_open() { local e; for e in ${FX_BLIND:-}; do [[ "$e" == "$1" ]] && return 2; done; [[ "$1" == 8081 ]] && grep -q "^up p4" "$FIX/stack.log" && return 0; return 1; }'
+reset_fix; set33; rc_for stack_up 1; mk_manifest 4; rm -f "$FIX/spawned.pids"
+sp33_spawn kernel; hook33_start p4_proxy > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 FX_HELD="8081:4242" drive "$P4_FRESH
+$STRANGER_P4
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+has   "33c2 a port of what was stopped that is still held makes the rollback INCOMPLETE" "rollback INCOMPLETE" "$RB"
+has   "  naming that port"                                                "rollback: still held after the rollback's stages ran: 8081" "$RB"
+sp33_kill; unset33
+
+# 33d. the proxy was running before and stack.sh replaced it (its command differed) and then failed: the new
+# one is this run's and is stopped; the old one cannot be put back, and the rollback says so by name.
+reset_fix; set33; rc_for stack_up 1; mk_manifest 4; rm -f "$FIX/spawned.pids"
+sp33_spawn p4_proxy; A33="$SP33_PID"
+printf 'kill "$(cat "$FIX/.test_run/pids/p4_proxy.pid")" 2>/dev/null\n%s\n' "$(hook33_start p4_proxy)" > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+up_p4 4")"; RB="$(rollback_part "$OUT")"; B33="$(last_spawned33)"
+check "33d the new proxy is stopped by name"                              "1" "$(stackcalls33 'stop p4_proxy$')"
+check "🔴 33d and nothing else is brought down"                           "0" "$(stackcalls33 'down')"
+check "  33d the old proxy is gone and the new one is too"                "no no" "$(alive33 "$A33") $(alive33 "$B33")"
+has   "🔴 33d the line says what was replaced and not restored, with the old pid" "replaced and not restored: p4_proxy (was pid $A33)" "$RB"
+hasnt "🔴 33d and never says the machine is back as it was"               "the machine is back to what it was" "$RB"
+has   "  33d the note says it too, instead of the old sentence"           "replaced and not restored: p4_proxy (was pid $A33)" "$(note33)"
+check "  33d the earlier record is back: only a replaced fabric clears it" "$B_T" "$(bytes33 "$T33")"
+sp33_kill; unset33
+
+# 33e. nothing was running before; this run starts the proxy and the kernel and fails: everything is its own,
+# so the whole stack is brought down, the way it always was.
+reset_fix; set33; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; rm -f "$FIX/spawned.pids"
+{ hook33_start p4_proxy; hook33_start kernel; } > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 FX_HELD="30051:" drive "$P4_FRESH
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+check "33e with nothing running before, stack.sh is asked to bring the stack down" "1" "$(stackcalls33 'down')"
+check "  33e and is not asked to stop by name"                            "0" "$(stackcalls33 'stop ')"
+sp33_kill; unset33
+
+# 33e2. ... and the same fixture over a clean machine, complete: the machine is back to what it was.
+reset_fix; set33; rc_for stack_up 1; rm -f "$FIX/spawned.pids"
+{ hook33_start p4_proxy; hook33_start kernel; } > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+has   "33e2 everything this run started was stopped: the machine is back to what it was" "rolled back: the machine is back to what it was before this 'ndt up'" "$RB"
+sp33_kill; unset33
+
+# 33n. the kernel was running before and is gone when stack.sh fails (its restart did not come up): nothing of
+# this run's to stop, and the loss is named.
+reset_fix; set33; rc_for stack_up 1; mk_manifest 4; rm -f "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"
+printf 'kill "$(cat "$FIX/.test_run/pids/kernel.pid")" 2>/dev/null; rm -f "$FIX/.test_run/pids/kernel.pid"\n' > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+check "33n stack.sh is not asked to stop anything"                        "0" "$(stackcalls33 'stop ')"
+has   "🔴 33n the line names the lost kernel with its old pid"            "replaced and not restored: kernel (was pid $K33, gone)" "$RB"
+hasnt "  and never says the machine is back as it was"                    "the machine is back to what it was" "$RB"
+sp33_kill; unset33
+
+# 33o. a pidfile that was already there and names nothing alive is not this run's: it is left as it was.
+reset_fix; set33; rc_for stack_up 1; mk_manifest 4; rm -f "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"
+printf '99999999\n' > "$FIX/.test_run/pids/p4_proxy.pid"; touch -d '1 hour ago' "$FIX/.test_run/pids/p4_proxy.pid"
+hook33_start ryu > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+check "33o only the component this run started is named to stop"          "1" "$(stackcalls33 'stop ryu$')"
+check "🔴 33o a stale record from before is left as it was"              "99999999" "$(cat "$FIX/.test_run/pids/p4_proxy.pid" 2>/dev/null)"
+check "  33o and the kernel from before is still running"                 "yes" "$(alive33 "$K33")"
+sp33_kill; unset33
+
+# 33j. a fresh build that had to take down a running fabric of another size, and failed: the line says the
+# fabric was replaced and not restored, and never that the machine is back as it was.
+reset_fix; set33; rc_for stack_up 1
+OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_FABRIC_HOSTS=8 drive "$P4_FRESH
+$SESS33
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+has   "33j the closing line says the fabric was replaced and not restored" "rolled back: stack, fabric taken down; replaced and not restored: bmv2 fabric (8 hosts)" "$RB"
+hasnt "🔴 33j and never that the machine is back as it was"               "the machine is back to what it was" "$RB"
+unset33
+
+# 33m. OVS: Ryu was the only thing started, the kernel was running before: only Ryu is stopped.
+reset_fix; set33; rc_for stack_up 1; echo "0 14 0" > "$FIX/mn.seq"; rm -f "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"; hook33_start ryu > "$FIX/stack.up.hook"
+OUT="$(NDT_OWNER=$NDT33 drive 'up_ovs 4')"; RB="$(rollback_part "$OUT")"; R33="$(last_spawned33)"
+check "33m on the OVS plane too: stack.sh is asked to stop Ryu, by name"  "1" "$(stackcalls33 'stop ryu$')"
+check "🔴 33m and not to bring the stack down"                            "0" "$(stackcalls33 'down')"
+check "🔴 33m the kernel from before is still running"                    "yes" "$(alive33 "$K33")"
+has   "  33m and the line names it"                                       "left running (up before this 'ndt up'): kernel (pid $K33)" "$RB"
+sp33_kill; unset33
+
+# 33i. OVS: a failed `ndt up ovs 4` puts the record and the note back (up_ovs took no snapshot before).
+reset_fix; set33; rc_for stack_up 1; echo "0 14 0" > "$FIX/mn.seq"
+OUT="$(NDT_OWNER=$NDT33 drive 'up_ovs 4')"; RB="$(rollback_part "$OUT")"
+check "33i a failed 'ndt up ovs 4' is red"                                 "1" "$(rc_of_out "$OUT")"
+check "🔴 33i the earlier record is back"                                  "$B_T" "$(bytes33 "$T33")"
+check "🔴 33i and so is the claim note"                                    "$S0" "$(note33)"
+has   "  the rollback was complete"                                        "rolled back: the machine is back to what it was before this 'ndt up'" "$RB"
+unset33
+
+# 33k. a fresh build that replaced a running fabric of another size: what the record described is not
+# up, so it is cleared; the note says what is true instead of the old sentence.
+reset_fix; set33; rc_for stack_up 1
+OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_FABRIC_HOSTS=8 drive "$P4_FRESH
+$SESS33
+up_p4 4")"; RB="$(rollback_part "$OUT")"
+check "🔴 33k the record is cleared, not put back over a fabric that is gone" "ABSENT" "$(bytes33 "$T33")"
+has   "  and says why"                                                     "cleared the 'ndt up' target record" "$RB"
+has   "🔴 33k the note names what was replaced"                            "replaced and not restored: bmv2 fabric (8 hosts)" "$(note33)"
+hasnt "  and is not the old sentence"                                      "verified clean" "$(note33)"
+unset33
+
+# 33l. over a REUSED fabric the record goes back to the earlier run's, and the note says what it left.
+reset_fix; set33; rc_for stack_up 1; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"; mk_manifest 4
+OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="30051: 9091:" drive 'up_p4 4')"; RB="$(rollback_part "$OUT")"
+check "🔴 33l the earlier run's record is back over the fabric this run reused" "$B_T" "$(bytes33 "$T33")"
+check "  33l the note is the one it was: everything this run stopped was its own" "$S0" "$(note33)"
+unset33
 
 # ==========================================================================================
 # The skip count has its own line and the summary below keeps its shape: tools/test_workflow/

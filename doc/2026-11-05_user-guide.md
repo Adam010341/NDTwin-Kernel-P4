@@ -445,6 +445,26 @@ a pass nor a failure; the usual reason is a missing `mnexec` grant, with the lin
 
 The kernel's API is on `:8000`, the P4 proxy on `:8081` and Ryu's REST on `:8080`.
 
+A bring-up that fails after it has changed the machine rolls back what it started (the `rollback` block
+of its output) and puts back what it wrote. The host-count knob (`p4_proxy/mininet/host_count_override`)
+goes back to the bytes it had before the run whatever it holds now, and the rollback says what it read
+there (`put back to 4 (it read 64)`). The app-package and telemetry knobs, `.test_run/up.target` and the
+claim note go back to the bytes they had only while each still holds what this run wrote: a file somebody
+changed during the run is left, and the rollback says so. When the rollback could not finish
+(`rollback INCOMPLETE`) the record is kept and the note says that.
+
+It stops only what this run started. A fabric the run found already up and reused, a heartbeat that was
+already running, and a stack component (kernel, proxy or Ryu) that was already running are left running,
+and the rollback names them in the line `up before this 'ndt up', and not touched by this rollback`. When
+`stack.sh` replaced a running component because its command had changed and then failed, the new one is
+stopped; the old one cannot be put back, and the rollback names it as `replaced and not restored`, with its
+old pid. The same line names a component that was running and is gone, and a fabric the run had to take
+down to build its own because it was another size: for that one the record is cleared as well, because what
+it describes is not up. The last line of the rollback tells the cases apart: `the machine is back to what it
+was before this 'ndt up'` only when nothing was left running, replaced or lost; otherwise `rolled back:
+<what was taken down> taken down; left running (up before this 'ndt up'): ...; replaced and not restored:
+...`.
+
 ### 4.4 Host count and model files
 
 Three layers decide what the lab looks like, and `ndt up` aligns them from the one number you give:
