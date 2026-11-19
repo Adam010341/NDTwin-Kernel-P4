@@ -441,11 +441,16 @@ def _path_fields(package):
     return fields
 
 
-def run(package_dir, report=None, compile_p4=True, suggest_roles=True, compare_build=True):
+def run(package_dir, report=None, compile_p4=True, suggest_roles=True, compare_build=True,
+        telemetry=None):
     """Fill a Report for this package directory. Returns the Report.
 
     `compare_build` is the one switch on the p4c row's second half (`build matches source`);
     see _check_compile.
+
+    [Co-developed with claude code -- Adam]
+    `telemetry` is the word `ndt up p4 --telemetry` was given, or None when there was no flag
+    (see _check_telemetry).
     """
     report = report or Report()
     report.suggest_roles = suggest_roles
@@ -484,7 +489,7 @@ def run(package_dir, report=None, compile_p4=True, suggest_roles=True, compare_b
     used_p4info = _check_entries(report, package_dir, package, referenced)
     _check_entries_are_for_this_pipeline(report, used_p4info, pipeline_p4info)
     _check_roles(report, package_dir, package, model, pipeline_p4info, referenced)
-    _check_telemetry(report, package_dir, package, pipeline_p4info)
+    _check_telemetry(report, package_dir, package, pipeline_p4info, requested=telemetry)
     _check_pre_entries(report, package_dir, package, model, referenced)
     _check_port_block(report, package)
     _check_compile(report, package_dir, package, compile_p4, compare_build)
@@ -761,7 +766,7 @@ def packet_in_fields(p4info):
     return set()
 
 
-def _check_telemetry(report, package_dir, package, pipeline_p4info):
+def _check_telemetry(report, package_dir, package, pipeline_p4info, requested=None):
     """`telemetry.source`, and whether the pipelines can carry what it asks for.
 
     [Co-developed with claude code -- Adam]
@@ -774,6 +779,13 @@ def _check_telemetry(report, package_dir, package, pipeline_p4info):
     Only the package is consulted, never the `telemetry_override` knob: the knob is this
     machine's state at bring-up time and pre-flight is a statement about a package directory,
     which somebody may be checking on another machine entirely.
+
+    [Co-developed with claude code -- Adam]
+    `requested` is the word of `ndt up p4 --telemetry`, which the bring-up writes into that knob
+    and which then outranks the package's own declaration -- unless it is `auto`, which is the
+    knob's "no opinion" and leaves the declaration in force. So the source resolved here is the
+    one the bring-up will resolve: the flag, else the package's `telemetry.source`, else `auto`.
+    Without a flag every row below is the one this function always gave.
     """
     telemetry = package.get("telemetry")
     if telemetry is None:
@@ -794,6 +806,18 @@ def _check_telemetry(report, package_dir, package, pipeline_p4info):
                        f"indistinguishable from a fabric with no traffic")
             return
 
+    flagged = False
+    if requested is not None:
+        if requested not in TELEMETRY_WORDS:
+            report.bad("telemetry flag",
+                       f"--telemetry {requested!r} is not one of {', '.join(TELEMETRY_WORDS)}")
+            return
+        if requested != "auto":
+            report.note("telemetry flag", f"--telemetry {requested} (outranks what the "
+                                          f"package declares: {source})")
+            source = requested
+            flagged = True
+
     if source != "cooperative":
         return
 
@@ -812,10 +836,16 @@ def _check_telemetry(report, package_dir, package, pipeline_p4info):
         if absent:
             missing.append(f"s{dpid}: no {', '.join(absent)} in its packet_in header")
     if missing:
+        if flagged:
+            way_out = ("Include p4_proxy/p4_src/ndtwin_telemetry.p4 in the program, or ask "
+                       "for --telemetry link or none")
+        else:
+            way_out = ("Include p4_proxy/p4_src/ndtwin_telemetry.p4 in the program, or "
+                       "declare telemetry.source 'link' or 'none'")
+        asked = "asked for with --telemetry cooperative: " if flagged else ""
         report.bad("telemetry cooperative is possible",
-                   f"{len(missing)} switch(es) run a program that cannot clone to the CPU port: "
-                   f"{'; '.join(missing[:3])}. Include p4_proxy/p4_src/ndtwin_telemetry.p4 in "
-                   f"the program, or declare telemetry.source 'link' or 'none'")
+                   f"{asked}{len(missing)} switch(es) run a program that cannot clone to the "
+                   f"CPU port: {'; '.join(missing[:3])}. {way_out}")
     else:
         report.ok("telemetry cooperative is possible",
                   f"every switch's p4info declares the five packet_in fields")
@@ -1819,11 +1849,19 @@ def main(argv=None):
                     help="do not compare what the compile gives with the build output the "
                          "package carries (an exercise whose Makefile passes P4C_ARGS, or a "
                          "build that is meant to differ from its source)")
+    # [Co-developed with claude code -- Adam]
+    ap.add_argument("--telemetry", choices=TELEMETRY_WORDS, default=None, metavar="WORD",
+                    help="the telemetry source the bring-up will be asked for (ndt passes its own "
+                         "--telemetry here): one of " + ", ".join(TELEMETRY_WORDS) + ". It "
+                         "outranks the package's telemetry.source unless it is `auto`, so a "
+                         "program that cannot do `cooperative` fails here and not at bring-up. "
+                         "Never reads the telemetry_override knob")
     args = ap.parse_args(argv)
 
     print(f"pre-flight: {os.path.abspath(args.package_dir)}")
     report = run(args.package_dir, compile_p4=not args.no_compile,
                  compare_build=not args.no_build_match,
+                 telemetry=args.telemetry,
                  suggest_roles=not args.no_role_suggestion)
     print(report.render())
     n_fail = len(report.failures)
