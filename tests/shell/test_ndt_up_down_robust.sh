@@ -130,6 +130,8 @@ case "$1 ${2:-}" in
         echo "converged"
         exit "$(rc_of stack_up)" ;;
     "up p4")
+        # [Co-developed with claude code -- Adam] The fabric id `ndt up p4` handed down (NDT_FABRIC_ID), for the cells of section 34.
+        printf '%s\n' "${NDT_FABRIC_ID-UNSET}" > "$FIX/stack.fabric"
         # [Co-developed with claude code -- Adam] stack.up.hook is what this `up` leaves in the registry
         # (a started component, a replaced one, one that went): sourced, so a test writes it as shell.
         echo "[1/3] data plane"; echo "started"
@@ -160,7 +162,7 @@ chmod +x "$FIX/stack.sh"
 
 # The scripted exit statuses and the reading sequences, reset between groups.
 reset_fix() {
-    rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" \
+    rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" "$FIX/identity.calls" "$FIX/stack.fabric" "$FIX/fabric_id.seq" \
           "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" "$FIX/stack.up.hook" \
           "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" \
           "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target"
@@ -247,6 +249,23 @@ bmv2_binary() { echo fixture-bmv2; }
 sample_rate() { echo 256; }
 stale_pipeline() { return 1; }
 source_ahead_of_build() { return 1; }
+# [Co-developed with claude code -- Adam] What a running fabric was built from: the three readings the reuse
+# decision asks. By default the fabric matches, so every cell that reuses one still tests what it tested;
+# FX_FABRIC_IDENTITY is `match`, `differ <a,b,..>` or `unknown <why>`, FX_WANTED=none is a run whose inputs
+# cannot be worked out, and FX_FABRIC_ID is what the record names (FX_FABRIC_ID_LATE: only on the second reading).
+fabric_identity_wanted() {
+    printf "wanted app=%s hosts=%s word=%s\n" "$1" "$2" "$3" >> "'"$FIX"'/identity.calls"
+    [[ "${FX_WANTED:-}" == none ]] && return 1
+    echo fixture-wanted
+}
+fabric_identity_running() { printf "running %s\n" "$1" >> "'"$FIX"'/identity.calls"; echo "${FX_FABRIC_IDENTITY:-match}"; }
+fabric_id() {
+    if [[ -n "${FX_FABRIC_ID_LATE:-}" ]]; then
+        [[ -f "'"$FIX"'/fabric_id.seq" ]] || { : > "'"$FIX"'/fabric_id.seq"; return 0; }
+        echo "$FX_FABRIC_ID_LATE"; return 0
+    fi
+    echo "${FX_FABRIC_ID:-}"
+}
 verify_p4() { return "${FX_VERIFY_RC:-0}"; }
 app_probe() { APP_STATE=not-running; }
 # The up-target comparison is the neighbour suite\x27s subject (test_ndt_status_check_baseline.sh),
@@ -3709,6 +3728,223 @@ OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="
 check "🔴 33l the earlier run's record is back over the fabric this run reused" "$B_T" "$(bytes33 "$T33")"
 check "  33l the note is the one it was: everything this run stopped was its own" "$S0" "$(note33)"
 unset33
+
+# ==========================================================================================
+section "34. a running P4 fabric is reused only when it was built from the inputs this run would build it from"
+# [Co-developed with claude code -- Adam]
+# 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. `ndt up p4` used to reuse a running fabric when the
+# topo session and the switch and host counts matched, whatever it was built from: a package edited in
+# place, a different package of the same size, or another telemetry source got the old fabric. The
+# three readings the decision asks (what this run would build, how the running fabric compares, which
+# id it has) are functions of their own, answered here by FX_FABRIC_IDENTITY, FX_WANTED and
+# FX_FABRIC_ID; the real ones are the subject of p4_proxy/tests (the identity, the record, the reader).
+sudo_calls() { grep -c "^[a-z-]*ndtwin-lab $1\|^installed-ndtwin-lab $1" "$FIX/sudo.log"; }
+
+# 34a. match: the fabric is kept, nothing is stopped or started, and the reading was taken once
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+check "🔴 34a a fabric that matches is reused"                           "0" "$(rc_of_out "$OUT")"
+has   "  34a and says so"                                                 "already up: 10 switches, 4 hosts, reusing" "$OUT"
+hasnt "  34a without a word about rebuilding"                             "rebuilding it" "$OUT"
+check "  34a the topology was neither stopped nor started"               "0 0" "$(sudo_calls topo-stop) $(sudo_calls topo-start)"
+check "  34a the running fabric was compared once, against this run's inputs" "1" "$(grep -c '^running ' "$FIX/identity.calls")"
+has   "  34a the inputs it asked for are this run's host count and the default word" "wanted app= hosts=4 word=auto" "$(cat "$FIX/identity.calls")"
+
+# 34b. differ: rebuilt, and the line names what differs
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ entries/s1,links' drive 'up_p4 4')"
+check "🔴 34b a fabric built from other inputs is rebuilt, not refused" "0" "$(rc_of_out "$OUT")"
+has   "  34b the line names the components that differ"                   "the running fabric was built from different inputs (entries/s1, links); rebuilding it" "$OUT"
+hasnt "🔴 34b and it was NOT reused"                                      "reusing" "$OUT"
+check "  34b the old topology was stopped and a new one started"         "1 1" "$(sudo_calls topo-stop) $(sudo_calls topo-start)"
+has   "  34b the stop is announced"                                       "stopping the existing topo session" "$OUT"
+
+# 34c. at most four names, then how many more
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ a,b,c,d,e,f,g' drive 'up_p4 4')"
+has   "  34c four names and the count of the rest"                        "(a, b, c, d and 3 more); rebuilding it" "$OUT"
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ a,b,c,d' drive 'up_p4 4')"
+has   "  34c exactly four are all named"                                  "(a, b, c, d); rebuilding it" "$OUT"
+
+# 34d. unknown: no record is rebuilt with its own sentence; any other reason is named
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='unknown there is no build record' drive 'up_p4 4')"
+has   "🔴 34d a fabric with no record of what it was built from is rebuilt" "the running fabric's build record is missing (built before this check existed, or by hand); rebuilding it" "$OUT"
+hasnt "  34d and not reused"                                              "reusing" "$OUT"
+check "  34d the old topology was stopped and a new one started"         "1 1" "$(sudo_calls topo-stop) $(sudo_calls topo-start)"
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='unknown the process that built the fabric is no longer running' drive 'up_p4 4')"
+has   "  34d a record that cannot be used says why"                       "the running fabric's build record cannot be used (the process that built the fabric is no longer running); rebuilding it" "$OUT"
+hasnt "  34d and is not reused either"                                    "reusing" "$OUT"
+
+# 34e. what this run would build cannot be worked out: that is not a match
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_WANTED=none drive 'up_p4 4')"
+has   "🔴 34e inputs that cannot be worked out are not a match"          "could not be worked out what this run would build the fabric from" "$OUT"
+hasnt "  34e so the fabric is not reused"                                 "reusing" "$OUT"
+hasnt "  34e and the running fabric was not even compared"                "running " "$(cat "$FIX/identity.calls")"
+
+# 34f. the telemetry word the comparison uses is the one this run will write
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'NDT_TELEMETRY=link; up_p4 4')"
+has   "  34f --telemetry link is the word the run is compared with"      "word=link" "$(cat "$FIX/identity.calls")"
+
+# 34g. the reading and the decision come above every write: a refusal that follows leaves five files as they were
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' drive 'ntg_up_refusal() { return 5; }
+up_p4 4')"
+check "🔴 34g a rebuild that a guard then refuses answers 5"             "5" "$(rc_of_out "$OUT")"
+has   "  34g the rebuild line was printed before the guard spoke"          "built from different inputs (model); rebuilding it" "$OUT"
+check "🔴 34g up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+check "  34g and nothing was stopped"                                      "0" "$(sudo_calls topo-stop)"
+seed_found; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_GUARD_RC=1 FX_FABRIC_IDENTITY='unknown there is no build record' drive 'up_p4 4')"
+check "  34g a rebuild over a live OVS fabric is refused by the OVS guard" "1" "$(rc_of_out "$OUT")"
+check "🔴 34g and leaves the five files byte-identical"                  "$BEFORE" "$(five_hash)"
+
+# 34h. the stale-pipeline refusal stays, and is decided BEFORE the identity
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' drive 'stale_pipeline() { return 0; }
+up_p4 4')"
+check "🔴 34h a fabric older than the compiled pipeline is still refused" "1" "$(rc_of_out "$OUT")"
+has   "  34h by the same message"                                        "predates the current build" "$OUT"
+check "  34h and the identity was not asked for"                          "absent" "$([[ -e "$FIX/identity.calls" ]] && echo present || echo absent)"
+
+# 34i. a fabric of another size is not even compared: the counts decide that, as they did
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=8 drive 'up_p4 4')"
+has   "  34i the host-count line is the one that is printed"              "the running fabric has 8 hosts, this run wants 4; rebuilding it" "$OUT"
+check "🔴 34i and the identity was not asked for"                         "absent" "$([[ -e "$FIX/identity.calls" ]] && echo present || echo absent)"
+
+# 34j. the fabric's id goes down to stack.sh, whichever branch got the fabric
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_ID=aaaa:1111 drive 'up_p4 4')"
+check "🔴 34j a reused fabric's id reaches stack.sh"                     "aaaa:1111" "$(cat "$FIX/stack.fabric")"
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' FX_FABRIC_ID=bbbb:2222 drive 'up_p4 4')"
+check "🔴 34j and so does a rebuilt one's"                               "bbbb:2222" "$(cat "$FIX/stack.fabric")"
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+check "  34j a fabric with no record hands stack.sh an empty id"         "" "$(cat "$FIX/stack.fabric")"
+# the record is written a moment after the manifest `ndt up` waits for: a fresh build asks again
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' FX_FABRIC_ID_LATE=cccc:3333 drive 'up_p4 4')"
+check "🔴 34j a record that appears just after the manifest is still read" "cccc:3333" "$(cat "$FIX/stack.fabric")"
+
+# 34k. the rebuild goes through the record the rollback already keeps: no second flag
+reset_fix; set33; rc_for stack_up 1
+# P4_FRESH's ports and process count, except that the fabric IS up until the rollback's sweep takes it
+OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' drive "$P4_FRESH
+bmv2_count() { if grep -q ' cleanup' \"\$FIX/sudo.log\"; then echo 0; else echo 10; fi; }
+$SESS33
+up_p4 4")"
+check "  34k a rebuild whose stack then fails is red"                     "1" "$(rc_of_out "$OUT")"
+has   "🔴 34k and the claim note says the old fabric was replaced and not restored" "replaced and not restored: bmv2 fabric (4 hosts)" "$(note33)"
+check "  34k through the record that was there, not a new flag"          "0" "$(grep -c 'UP_P4_REPLACED' "$NDT")"
+unset33
+
+# 34l. a fresh build whose record cannot be read: a one-off id and a line, so the proxy and the kernel
+# started over the fabric it replaced are not kept over it
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' drive 'up_p4 4')"
+check "  34l a rebuild with an unreadable record still succeeds"          "0" "$(rc_of_out "$OUT")"
+has   "🔴 34l the line says the record could not be read and what follows" "the new fabric's build record could not be read; the proxy and the kernel will be restarted over it" "$OUT"
+[[ "$(cat "$FIX/stack.fabric")" =~ ^unrecorded:[0-9]+$ ]] && t_ok "🔴 34l stack.sh is handed a one-off id, never an empty one" || t_bad "🔴 34l stack.sh is handed a one-off id, never an empty one" "got [$(cat "$FIX/stack.fabric")]"
+FIRST34L="$(cat "$FIX/stack.fabric")"
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' drive 'up_p4 4')"
+[[ "$(cat "$FIX/stack.fabric")" != "$FIRST34L" ]] && t_ok "  34l and it is not the same one-off id twice" || t_bad "  34l and it is not the same one-off id twice" "both [$FIRST34L]"
+# a record that is there is not replaced by a one-off id, and a reused fabric's unreadable id is left as it was
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_FABRIC_IDENTITY='differ model' FX_FABRIC_ID=bbbb:2222 drive 'up_p4 4')"
+hasnt "  34l a readable record prints no such line"                       "build record could not be read" "$OUT"
+reset_fix
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+hasnt "  34l a reused fabric says nothing about an unreadable id"         "build record could not be read" "$OUT"
+check "  34l and hands stack.sh the empty id it always did"               "" "$(cat "$FIX/stack.fabric")"
+
+# ==========================================================================================
+section "35. the shell side of the fabric record, run for real against a record the builder's own writer made"
+# [Co-developed with claude code -- Adam]
+# Every other section answers fabric_identity_wanted / _running / fabric_id with a stub, so their Python
+# glue ran nowhere. Here ndt is sourced with REPO at a fixture tree whose p4_proxy/mininet holds the real
+# modules, the record is written by the topology script's own writer with a live child as its builder, and
+# the three functions (and bmv2_binary, which they share a reader with) are asked for real.
+FX35="$HERE/fixtures/fabric_record_fixture.py"
+R35="$FIX/real35"; B35BIN="$FIX/bin/simple_switch_grpc"
+mkdir -p "$R35" "$FIX/bin"; : > "$B35BIN"; chmod +x "$B35BIN"
+for f35 in "$HERE"/../../p4_proxy/mininet/*.py; do
+    ln -sf "$(cd "$(dirname "$f35")" && pwd)/$(basename "$f35")" "$FIX/p4_proxy/mininet/$(basename "$f35")"
+done
+OVR35="$FIX/p4_proxy/mininet/bmv2_binary_override"
+glue35() {   # glue35 <shell code> -> its output plus RC=<n>; ndt's own functions, REPO at the fixture tree
+    FABRIC_RECORD="$R35/fabric.json" bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'; FABRIC_RECORD='$R35/fabric.json'
+$1
+echo \"RC=\$?\"" 2>&1
+}
+first35() { head -1 <<<"$1"; }
+
+# 35a. bmv2_binary reads the override the way the builder does
+printf '%s' "$B35BIN" > "$OVR35"
+OUT="$(glue35 bmv2_binary)"
+check "🔴 35a an override whose last line has no newline names its binary"   "$B35BIN" "$(first35 "$OUT")"
+printf '# the fast build\r\n\r\n  %s  \r\n' "$B35BIN" > "$OVR35"
+OUT="$(glue35 bmv2_binary)"
+check "🔴 35a CRLF line ends and a comment first do not hide it either"      "$B35BIN" "$(first35 "$OUT")"
+printf '# nothing\n' > "$OVR35"
+OUT="$(glue35 bmv2_binary)"
+check "  35a a file that names no binary says so"                            "simple_switch_grpc (stock, PATH)" "$(first35 "$OUT")"
+rm -f "$OVR35"
+OUT="$(glue35 bmv2_binary)"
+check "  35a and so does an absent one"                                       "simple_switch_grpc (stock, PATH)" "$(first35 "$OUT")"
+printf '%s' "$B35BIN" > "$OVR35"
+
+# 35b. a record written by the builder's own writer, its builder alive
+reset_fix
+PKG35="$R35/pkg"
+python3 -I "$FX35" package "$PKG35"; check "  35b the package fixture was laid down" "0" "$?"
+sp33_spawn builder35; BUILDER35="$SP33_PID"
+python3 -I "$FX35" record "$FIX" "$PKG35" "$R35/fabric.json" "$BUILDER35" none
+check "  35b the topology script's own writer wrote the record"              "0" "$?"
+running35() { glue35 "w=\$(fabric_identity_wanted '$PKG35' 4 $1); fabric_identity_running \"\$w\""; }
+OUT="$(glue35 "fabric_identity_wanted '$PKG35' 4 none")"
+check "  35b the wanted identity was worked out"                             "0" "$(rc_of_out "$OUT")"
+has   "  35b as a document with a digest"                                     '"digest"' "$OUT"
+OUT="$(running35 none)"
+check "🔴 35b the same inputs match the running fabric"                       "match" "$(first35 "$OUT")"
+OUT="$(glue35 fabric_id)"
+[[ "$(first35 "$OUT")" =~ ^[0-9a-f]{64}:[0-9a-f]{16}$ ]] && t_ok "🔴 35b the fabric's id is <digest>:<nonce>" || t_bad "🔴 35b the fabric's id is <digest>:<nonce>" "got [$(first35 "$OUT")]"
+
+# 35c. one input changed at a time is named
+cp "$PKG35/pod-topo/s1-runtime.json" "$R35/s1.saved"
+printf '\n' >> "$PKG35/pod-topo/s1-runtime.json"
+OUT="$(running35 none)"
+check "🔴 35c an entries file edited in place is named"                       "differ entries/s1" "$(first35 "$OUT")"
+cp "$R35/s1.saved" "$PKG35/pod-topo/s1-runtime.json"
+OUT="$(running35 none)"
+check "  35c and put back it matches again"                                   "match" "$(first35 "$OUT")"
+OUT="$(running35 link)"
+check "🔴 35c another telemetry word is named, switch by switch"              "differ telemetry/s1,telemetry/s2,telemetry/s3,telemetry/s4" "$(first35 "$OUT")"
+OUT="$(glue35 "fabric_identity_wanted '$R35/no-such-package' 4 none")"
+check "  35c inputs that cannot be worked out give nothing and rc 1"          "RC=1" "$OUT"
+
+# 35d. no record, an untrusted record, and a builder that has gone
+OUT="$(glue35 "FABRIC_RECORD='$R35/absent.json'; fabric_identity_running '{}'")"
+check "  35d no record is unknown"                                            "unknown there is no build record" "$(first35 "$OUT")"
+chmod 666 "$R35/fabric.json"
+OUT="$(running35 none)"
+[[ "$(first35 "$OUT")" == unknown\ * ]] && t_ok "🔴 35d a record anyone can write is not trusted" || t_bad "🔴 35d a record anyone can write is not trusted" "got [$(first35 "$OUT")]"
+chmod 644 "$R35/fabric.json"
+kill "$BUILDER35" 2>/dev/null
+for _w35 in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do [[ -e "/proc/$BUILDER35" ]] || break; command sleep 0.2; done
+OUT="$(running35 none)"
+check "🔴 35d once the builder has exited the record is unknown"              "unknown the process that built the fabric is no longer running" "$(first35 "$OUT")"
+OUT="$(glue35 fabric_id)"
+check "🔴 35d and the fabric has no id"                                       "" "$(first35 "$OUT")"
+sp33_kill
+rm -f "$OVR35"
 
 # ==========================================================================================
 # The skip count has its own line and the summary below keeps its shape: tools/test_workflow/

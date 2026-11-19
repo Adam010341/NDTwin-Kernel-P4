@@ -35,6 +35,11 @@ import link_telemetry  # noqa: E402
 MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
 
 # [Co-developed with claude code -- Adam]
+# Where the build record goes: what this fabric was built from and the process that built it, so
+# `ndt up p4` can tell a fabric it may keep from one it must rebuild. See app_package.fabric_identity.
+FABRIC_RECORD_PATH = app_package.FABRIC_RECORD_PATH
+
+# [Co-developed with claude code -- Adam]
 # The address the switches' gRPC (P4Runtime) servers listen on. 127.0.0.1 unless the operator
 # says otherwise. The switches run in the root namespace and the server has no authentication,
 # so whatever can reach this machine at the port can write the switch's tables; the old
@@ -229,8 +234,7 @@ def resolve_bmv2_launcher(override_path=None):
         # patchable and every caller (start(), both mains' pre-flights) sees one source.
         override_path = BINARY_OVERRIDE_PATH
     try:
-        with open(override_path, encoding="utf-8") as fh:
-            lines = fh.readlines()
+        directive = app_package.bmv2_override_directive(override_path)
     except FileNotFoundError:
         raise ValueError(
             f"no bmv2 binary override at {override_path}. This file is tracked and must name "
@@ -238,8 +242,6 @@ def resolve_bmv2_launcher(override_path=None):
             f"Both installs answer --version identically, so a silent fallback picks a binary "
             f"that differs by ~10x in throughput and says nothing. "
             f"Write one absolute path, e.g. {DEFAULT_BMV2_BINARY}") from None
-    directive = next((ln.strip() for ln in lines
-                      if ln.strip() and not ln.strip().startswith("#")), None)
     if directive is None:
         raise ValueError(
             f"{override_path} has no directive line (every line is blank or a #-comment). "
@@ -661,6 +663,52 @@ def write_manifest(switches, path=MANIFEST_PATH):
     return None
 
 
+def write_fabric_record(identity, path=None, builder=None, nonce=None, now=None):
+    """Record what this fabric was built from and which process built it. None, or the reason not.
+
+    [Co-developed with claude code -- Adam]
+    `identity` is `plan.identity`. The record is that document plus who built the fabric
+    (`builder`: this process's pid, argv and start time, so a reader can tell the process that
+    wrote it from whatever holds the pid later), a fresh `nonce` (64 random bits: two builds of
+    identical inputs are still two fabrics, and the proxy and kernel are restarted over a rebuilt
+    one) and the time. Written the way `write_manifest` writes: a new inode owned by this process,
+    moved into place, mode 0644 -- the trust check every reader of /tmp files applies.
+
+    Not fatal when it cannot be written: a fabric without a record is rebuilt by the next
+    `ndt up p4`, which is the safe direction. The caller says so.
+    """
+    path = path or FABRIC_RECORD_PATH
+    document = json.loads(json.dumps(identity))
+    document["recorded"]["builder"] = (link_telemetry.process_identity(os.getpid())
+                                       if builder is None else builder)
+    document["recorded"]["nonce"] = nonce or os.urandom(8).hex()
+    document["recorded"]["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(
+        time.time() if now is None else now))
+    try:
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".",
+                                   prefix=".ndtwin_p4_fabric.")
+        try:
+            with os.fdopen(fd, "w") as fh:
+                json.dump(document, fh, indent=2)
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, path)
+        except OSError:
+            os.unlink(tmp)
+            raise
+    except OSError as e:
+        return (f"could not write the fabric's build record to {path}: {e}. The fabric is up; "
+                f"the next 'ndt up p4' will rebuild it because it cannot tell what it was built from")
+    return None
+
+
+def remove_fabric_record(path=None):
+    """Remove the build record. Quiet when there is none."""
+    try:
+        os.remove(path or FABRIC_RECORD_PATH)
+    except OSError:
+        pass
+
+
 #: The executable every switch of this fabric runs, by file name. `argv[0]` is compared with
 #: this exactly; a process whose command line merely MENTIONS it is not a switch.
 #: [Co-developed with claude code -- Adam]
@@ -994,7 +1042,8 @@ def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.ex
 FabricPlan = collections.namedtuple(
     "FabricPlan",
     "package model_path model dpids json_paths binary lib_dir ports port_warning "
-    "telemetry_knob telemetry_sources bmv2_host", defaults=(DEFAULT_BMV2_HOST,))
+    "telemetry_knob telemetry_sources bmv2_host identity",
+    defaults=(DEFAULT_BMV2_HOST, None))
 
 
 class FabricPlanError(ValueError):
@@ -1105,10 +1154,18 @@ def plan_fabric(package=None, report=print):
     for line in bmv2_host_lines(bmv2_host):
         report(line)
 
+    # [Co-developed with claude code -- Adam]
+    # What this fabric is about to be built from, in the one form `ndt` can compare: computed here,
+    # from the values this function already holds, because this is the process that reads the files.
+    identity = app_package.fabric_identity(
+        package, model_path, telemetry_sources, json_paths,
+        extras={"bmv2": binary, "bmv2_host": bmv2_host}, base_dir=proxy_root, model=model)
+
     return FabricPlan(package=package, model_path=model_path, model=model, dpids=dpids,
                       json_paths=json_paths, binary=binary, lib_dir=lib_dir, ports=ports,
                       port_warning=warning, telemetry_knob=telemetry_knob,
-                      telemetry_sources=telemetry_sources, bmv2_host=bmv2_host)
+                      telemetry_sources=telemetry_sources, bmv2_host=bmv2_host,
+                      identity=identity)
 
 
 def reset_for_bring_up(ports, settle_s=0.5):
@@ -1126,6 +1183,10 @@ def reset_for_bring_up(ports, settle_s=0.5):
     was available the whole time. A port the reap could not free stops the run here, before
     Mininet is built; the reasons are in abort_if_grpc_ports_are_held.
     """
+    # [Co-developed with claude code -- Adam]
+    # The build record goes FIRST, before anything is destroyed: a bring-up that dies half way
+    # must leave no record that describes the fabric it replaced.
+    remove_fabric_record()
     # Last run's link telemetry first, and by the same reasoning the switch reap below stands
     # on: an emitter orphaned by a closed terminal is a process holding a psample group and
     # writing sFlow the kernel will attribute to a fabric that no longer exists. It is stopped
@@ -1393,7 +1454,8 @@ def _start_link_telemetry(package, model, switches, manifest_path=None, report=p
 
 
 def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
-             report=print, link_manifest_path=None, grpc_host=None):
+             report=print, link_manifest_path=None, grpc_host=None, identity=None,
+             fabric_record_path=None):
     """Build the fabric, set the hosts up, verify the switches, write the manifest, judge it.
 
     Returns (net, switches, fatal, report) -- `report` being partial_fabric_verdict's message,
@@ -1413,6 +1475,11 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
 
     [Co-developed with claude code -- Adam]
     `grpc_host` is plan.bmv2_host: the gRPC listen address the pre-flight vouched for.
+
+    [Co-developed with claude code -- Adam]
+    `identity` is plan.identity: once the switch manifest is written the fabric is recorded as
+    built from it (`write_fabric_record`). None writes no record, and a fabric without one is
+    rebuilt by the next `ndt up p4`.
     """
     if manifest_path is None:
         manifest_path = MANIFEST_PATH
@@ -1447,6 +1514,10 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
 
     failures = verify_switches(switches, timeout=verify_timeout)
     manifest_problem = write_manifest(switches, path=manifest_path)
+    if identity is not None and not manifest_problem:
+        record_problem = write_fabric_record(identity, path=fabric_record_path)
+        if record_problem:
+            report(f"WARNING: {record_problem}")
 
     fatal, verdict = partial_fabric_verdict(failures, len(switches))
     if manifest_problem:
@@ -1463,7 +1534,8 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
     return net, switches, fatal, verdict, host_setup
 
 
-def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
+def tear_down(net, manifest_path=None, report=print, link_manifest_path=None,
+              fabric_record_path=None):
     """Stop the net, reap what outlived it, then drop the manifest. Returns the names reaped.
 
     [Co-developed with claude code -- Adam]
@@ -1500,6 +1572,8 @@ def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
         os.remove(manifest_path)
     except OSError:
         pass
+    # [Co-developed with claude code -- Adam] The build record describes a fabric that is gone.
+    remove_fabric_record(fabric_record_path)
     return reaped
 
 
@@ -1607,7 +1681,8 @@ def main():
     reset_for_bring_up(plan.ports)
 
     net, switches, fatal, report, _host_setup = bring_up(plan.package, plan.model,
-                                                         grpc_host=plan.bmv2_host)
+                                                         grpc_host=plan.bmv2_host,
+                                                         identity=plan.identity)
     ports = plan.ports
 
     print("\n======================================================================")

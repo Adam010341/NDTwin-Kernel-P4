@@ -1011,11 +1011,11 @@ check_control "C2: --app=<dir> stripped by offset instead of prefix" c2
 # The operator names a source, the command accepts it, and the file three readers act on keeps
 # the last round's word. Every banner still prints what was asked for.
 cat > "$A/m48.old" <<'EOF'
-    local tel_word="${NDT_TELEMETRY:-}"
+    local tel_word="${NDT_TELEMETRY:-}" tel_word_rc=0
     if [[ -z "$tel_word" ]]; then
 EOF
 cat > "$A/m48.new" <<'EOF'
-    local tel_word=""
+    local tel_word="" tel_word_rc=0
     if [[ -z "$tel_word" ]]; then
 EOF
 check_fires "M48: --telemetry never reaches the knob" m48 \
@@ -1027,10 +1027,10 @@ check_fires "M48: --telemetry never reaches the knob" m48 \
 # 🔴 THE PLAUSIBLE ONE. `auto` reads as "no opinion" and is not: it overrules a package that
 # asked for `link`, and the round then reports that package's numbers as the package's.
 cat > "$A/m49.old" <<'EOF'
-        tel_word="$(telemetry_word_for_bring_up "$app_dir")" || {
+        tel_word="$(telemetry_word_for_bring_up "$app_dir")" || tel_word_rc=$?
 EOF
 cat > "$A/m49.new" <<'EOF'
-        tel_word="auto"; false || {
+        tel_word="auto"
 EOF
 check_fires "M49 (widening): no flag means auto, overruling the package" m49 \
             "🔴 with no flag the PACKAGE decides"

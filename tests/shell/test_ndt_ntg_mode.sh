@@ -719,7 +719,7 @@ try:
             def stop(self): events.append("tee.stop")
             def start(self): events.append("tee.start")
         class Plan:
-            ports, package, model, bmv2_host = [1], None, None, None
+            ports, package, model, bmv2_host, identity = [1], None, None, None, None
         tb = m.testbed
         tb.plan_fabric = lambda: Plan()
         tb.reset_for_bring_up = lambda ports: None

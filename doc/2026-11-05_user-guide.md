@@ -158,7 +158,7 @@ other lines of its output wrong rather than failing loudly, so `ndt status` test
 | Program | What happens without it |
 |---|---|
 | `/usr/local/sbin/ndtwin-lab` | the `ndtwin-lab status` call fails, so `ndt` cannot tell whether a topology session is running: `ndt up p4` stops before it touches the fabric (rc 5), `ndt status` shows the topo session as unknown and lists it under `--check`, and `ndt clean` and `ndt down` say they cannot tell and end non-zero (`ndt down`'s stop and sweep are refused too, and it says they did not run and keeps the `ndt up` record) |
-| `/usr/bin/ovs-vsctl` | with a topology session present and Open vSwitch running, `ndt up p4` cannot tell whether an OVS fabric is running, so it stops with `cannot tell whether an OVS fabric is running under the topo session` (rc 5, nothing built) rather than risk destroying one, unless the session is a running P4 fabric of the size asked for, which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane and its up-target block (once a record exists) shows `cannot tell (ovs-vsctl refused; see the sudo grants block)` |
+| `/usr/bin/ovs-vsctl` | with a topology session present and Open vSwitch running, `ndt up p4` cannot tell whether an OVS fabric is running, so it stops with `cannot tell whether an OVS fabric is running under the topo session` (rc 5, nothing built) rather than risk destroying one, unless the session is a running P4 fabric of the size asked for that was built from the inputs this run would build it from (4.3), which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane and its up-target block (once a record exists) shows `cannot tell (ovs-vsctl refused; see the sudo grants block)` |
 | `/usr/bin/mnexec` | the forwarding check at the end of `ndt up` cannot send its ping |
 
 The kernel itself also runs programs through `sudo`. It starts without a terminal, so sudo cannot ask
@@ -447,6 +447,36 @@ a pass nor a failure; the usual reason is a missing `mnexec` grant, with the lin
 
 The kernel's API is on `:8000`, the P4 proxy on `:8081` and Ryu's REST on `:8080`.
 
+`ndt up p4` keeps a P4 fabric that is already running (`already up: 10 switches, 4 hosts, reusing`) only when
+three things hold: it has the size asked for, it was built from the same inputs this run would build it from, and
+the process that built it is still the one running it. The inputs are the topology model, `package.json`, each
+switch's compiled program and its runtime entries file, the links the package shapes, the telemetry source each
+switch resolves to (`--telemetry`, else the package's own declaration, else the `auto` rule) and the bmv2 build.
+The files are compared by content, so a package edited in place is a different fabric, and a copy of a package, at
+another path, is the same one. The bmv2 build is compared by the real path of the binary the override names, not by
+its content: a binary rebuilt in place at the same path is not noticed, and the fabric keeps running the old one.
+The comparison is made above every write, so a refusal that follows leaves the files as they were.
+
+When something differs `ndt up p4` does not refuse. It takes the running fabric down and builds the one you asked
+for, after one line that says what differed:
+
+```text
+  the running fabric was built from different inputs (entries/s1, links); rebuilding it
+```
+
+At most four names are given, then `and N more`. A fabric with no record of what it was built from (started by hand,
+or by an `ndt` that did not write one), one whose record cannot be trusted, and one whose builder has exited are
+rebuilt too, with a line that says which: `the running fabric's build record is missing (built before this check
+existed, or by hand); rebuilding it`. The first `ndt up p4` after you update `ndt` therefore rebuilds a fabric that
+is already running, once; later ones reuse it again. The proxy and the kernel follow the fabric: a rebuilt fabric,
+or a model or package that changed, restarts them (`stack.sh`: `with a DIFFERENT command`). What a rebuild
+destroys is what the fabric held: a Mininet prompt attached in the topology pane, and table entries written to its
+switches through the API.
+
+Two limits. A file that a host command names inside its command string (a script in the package directory, say)
+is not covered: the command is compared, the file is not, so take the fabric down to pick up an edit to such a
+file. And a recompiled `ndtwin_switch.json` under a running fabric is still refused, not rebuilt (4.6).
+
 A bring-up that fails after it has changed the machine rolls back what it started (the `rollback` block
 of its output) and puts back what it wrote. The host-count knob (`p4_proxy/mininet/host_count_override`)
 goes back to the bytes it had before the run whatever it holds now, and the rollback says what it read
@@ -461,7 +491,7 @@ and the rollback names them in the line `up before this 'ndt up', and not touche
 `stack.sh` replaced a running component because its command had changed and then failed, the new one is
 stopped; the old one cannot be put back, and the rollback names it as `replaced and not restored`, with its
 old pid. The same line names a component that was running and is gone, and a fabric the run had to take
-down to build its own because it was another size: for that one the record is cleared as well, because what
+down to build its own because it was another size or was built from other inputs: for that one the record is cleared as well, because what
 it describes is not up. The last line of the rollback tells the cases apart: `the machine is back to what it
 was before this 'ndt up'` only when nothing was left running, replaced or lost; otherwise `rolled back:
 <what was taken down> taken down; left running (up before this 'ndt up'): ...; replaced and not restored:
@@ -480,6 +510,9 @@ Three layers decide what the lab looks like, and `ndt up` aligns them from the o
 Ryu's own default model is `setting/StaticNetworkTopologyMininet_10Switches.json` (the 128-host Mininet model) in the
 checkout that holds the `intelligent_router.py` Ryu loads, whatever the fabric size. Only `ndt up ovs` sets
 `NDTWIN_RYU_TOPO_FILE` to the model it gives the kernel; a Ryu you start by hand, or with bare `stack.sh`, uses that default: set `NDTWIN_RYU_TOPO_FILE` to your model when it is a different one. Do not export the variable yourself when you use `ndt`.
+
+`ndt up p4 <n>` over a running fabric of another size rebuilds it, as does any other change of what the fabric is
+built from (4.3).
 
 Only `ndt up p4 <n>` and `ndt up p4 --app <dir>` write `host_count_override` (the second sets it to
 the package's host count, and `ndt down` puts the previous value back). It is persistent state: the next bring-up inherits it,
@@ -580,6 +613,7 @@ not be read; rc 4 when double counting was printed.
 |---|---|---|
 | host count (P4) | `ndt up p4 <n>` | next bring-up |
 | bmv2 build | `p4_proxy/mininet/bmv2_binary_override` (section 2) | next bring-up |
+| package files, telemetry source (P4) | edit the package, or change `--telemetry`, and run `ndt up p4` again | that `ndt up p4` rebuilds the fabric (4.3) |
 | sampling rate (P4) | the `SAMPLE_RATE` constant in `p4_proxy/p4_src/ndtwin_switch.p4`, recompile (section 2) | after recompiling **and** restarting the fabric |
 
 There is no runtime switch for the P4 sampling rate. If you recompile while a fabric is up, `ndt

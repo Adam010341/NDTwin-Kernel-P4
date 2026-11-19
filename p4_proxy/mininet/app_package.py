@@ -29,8 +29,10 @@ What this module does NOT do, on purpose:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from typing import Optional, Tuple
@@ -482,7 +484,7 @@ def read_telemetry_knob(path=None) -> Optional[str]:
     return None
 
 
-def telemetry_source(package, dpid, knob_path=None, base_dir=None) -> str:
+def telemetry_source(package, dpid, knob_path=None, base_dir=None, word=None) -> str:
     """Which telemetry source switch `dpid` runs under: "none", "cooperative" or "link".
 
     Three layers, most recent first:
@@ -499,10 +501,22 @@ def telemetry_source(package, dpid, knob_path=None, base_dir=None) -> str:
     for `pipeline_is_ndtwin`), so that a disagreement between the two shows up instead of being
     hidden by a shared import.
 
+    [Co-developed with claude code -- Adam]
+    `word` stands in for the knob when it is given: the word a bring-up is ABOUT to write, for a
+    caller (`fabric_identity`'s) that has to say what the fabric will resolve to before the file
+    exists. It is read exactly as the knob's word would be, and it is refused when it is outside
+    the domain. Without it nothing changes: the knob file is read as before.
+
     Never answers "auto": `auto` is the rule, and a caller that received it back would have to
     implement the rule a second time.
     """
-    knob = read_telemetry_knob(knob_path)
+    if word is not None:
+        if word not in TELEMETRY_SOURCES:
+            raise AppPackageError(
+                f"telemetry source must be one of {list(TELEMETRY_SOURCES)}, got {word!r}")
+        knob = word
+    else:
+        knob = read_telemetry_knob(knob_path)
     if knob is not None and knob != TELEMETRY_AUTO:
         return knob
     declared = getattr(package, "telemetry_source", TELEMETRY_AUTO)
@@ -1131,3 +1145,180 @@ def topology_path(package, host_num, setting_dir=None, env=None):
 
 
 # [Co-developed with claude code -- Adam]
+
+
+# --- what a running fabric was built from ----------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# `ndt up p4` may keep a fabric that is already running only if it was built from the inputs the
+# new run would build it from. The topology script, which is the only process that reads those
+# inputs, records an identity next to the switch manifest; `ndt` computes the identity of what it
+# is about to build and compares the two. One function computes both, because two would be free
+# to stop agreeing and every `ndt up` would then rebuild (or none would).
+#
+# 🔴 CONTENT, NOT PATHS. A package edited in place has the same path as before and different
+# bytes; a copy of a package has another path and the same bytes, and builds the same fabric.
+# So the digest is over what the files say. It is also deliberately not over the whole package
+# tree: a run writes logs and captures into an exercise directory, and that would rebuild the
+# fabric every time. The one thing this does not see is a file a host command names inside its
+# command string (a script in the package directory): the string is compared, the file is not.
+
+#: Where the topology script writes the record. Beside the switch manifest, outside the checkout:
+#: it describes a RUNNING fabric, and a copy left in a checkout would read as one that is up.
+FABRIC_RECORD_PATH = "/tmp/ndtwin_p4_fabric.json"
+
+#: The only record format this module compares. A record of another version is "unknown" to a
+#: reader, never compared field by field.
+FABRIC_IDENTITY_VERSION = 1
+
+
+def _file_sha256(path):
+    """sha256 of a file's bytes, or the word for why there are none."""
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                digest.update(chunk)
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unreadable"
+    return digest.hexdigest()
+
+
+def _natural_key(name):
+    """Sort key that puts `s2` before `s10`."""
+    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
+
+
+def fabric_identity(package, model_path, telemetry_sources, json_paths, extras=None,
+                    base_dir=None, model=None):
+    """What a fabric built from these inputs is: {"version", "compared", "recorded", "digest"}.
+
+    `compared` is flat, one string per component, and is what the digest covers:
+
+      model            sha256 of the topology model's bytes
+      package          sha256 of package.json's bytes, or `baseline`
+      pipeline/s<d>    that switch's bmv2 JSON and p4info, hashed together
+      entries/s<d>     that switch's runtime entries file, or `none`
+      links            the links the package shapes, as canonical JSON
+      telemetry/s<d>   the telemetry source that switch resolves to
+      hosts            how many hosts the model declares
+      bmv2             the real path of the simple_switch_grpc binary (extras["bmv2"])
+
+    `recorded` is what a reader may want to print but that must not make two builds differ:
+    the address bmv2 listens on (extras["bmv2_host"]), which the topology reads from its own
+    root environment and `ndt` cannot reproduce.
+
+    `telemetry_sources` is {dpid: "none"|"cooperative"|"link"}: the RESOLVED source, not the
+    knob's word, so `auto` and an absent knob are one answer when they resolve alike. `json_paths`
+    is {dpid: bmv2 JSON path}; the p4info beside it is asked of the package the same way
+    `pipeline_for` asks it. A file that is not there is hashed as `missing`, so two fabrics that
+    lack the same file agree and a file that appears or disappears is a difference.
+    """
+    extras = extras or {}
+    base_dir = PROXY_ROOT if base_dir is None else base_dir
+    if model is None:
+        model = topo_from_json.load(model_path)
+    compared = {
+        "model": _file_sha256(model_path),
+        "package": ("baseline" if package.is_baseline
+                    else _file_sha256(os.path.join(package.dir, "package.json"))),
+        "links": json.dumps([[list(a), list(b), bw, delay]
+                             for a, b, bw, delay in shaped_links(package)],
+                            sort_keys=True, separators=(",", ":")),
+        "hosts": str(len(topo_from_json.hosts(model))),
+    }
+    binary = extras.get("bmv2")
+    compared["bmv2"] = (os.path.realpath(binary) if binary and os.path.isabs(binary)
+                        else str(binary))
+    entries = {spec.dpid: spec.entries for spec in package.switches}
+    for dpid in sorted(json_paths):
+        p4info = package.pipeline_for(dpid, base_dir)[0]
+        compared[f"pipeline/s{dpid}"] = (_file_sha256(json_paths[dpid]) + "+"
+                                         + _file_sha256(p4info))
+        compared[f"entries/s{dpid}"] = (_file_sha256(entries[dpid]) if entries.get(dpid)
+                                        else "none")
+    for dpid in sorted(telemetry_sources):
+        compared[f"telemetry/s{dpid}"] = telemetry_sources[dpid]
+    canonical = json.dumps(compared, sort_keys=True, separators=(",", ":"))
+    return {
+        "version": FABRIC_IDENTITY_VERSION,
+        "compared": compared,
+        "recorded": {"bmv2_host": extras.get("bmv2_host")},
+        "digest": hashlib.sha256(canonical.encode()).hexdigest(),
+    }
+
+
+#: What `ndt` calls the binary when the override file is absent or names none.
+BMV2_STOCK_LABEL = "simple_switch_grpc (stock, PATH)"
+
+
+def bmv2_override_directive(path):
+    """The directive of a `bmv2_binary_override` file: its first line that is not blank or a comment.
+
+    [Co-developed with claude code -- Adam]
+    The one reader of that file. The topology script resolves the binary it launches through it
+    (`resolve_bmv2_launcher`) and `ndt` reads the same file through it (`bmv2_binary_named`), so
+    the two cannot stop agreeing about what the file says: a last line with no newline, CRLF line
+    ends and blanks around the path are all the same directive. None when there is none; a missing
+    file raises FileNotFoundError, which the caller words.
+    """
+    with open(path, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    return next((ln.strip() for ln in lines
+                 if ln.strip() and not ln.strip().startswith("#")), None)
+
+
+def bmv2_binary_named(path):
+    """What `ndt` shows and compares for the bmv2 binary: the directive, or BMV2_STOCK_LABEL.
+
+    [Co-developed with claude code -- Adam]
+    The label for an absent, unreadable or directive-less file is not a path, so it differs from
+    every binary a fabric records and a fabric is rebuilt over it; the topology script then
+    refuses the same file with its own message.
+    """
+    try:
+        return bmv2_override_directive(path) or BMV2_STOCK_LABEL
+    except (OSError, UnicodeError):
+        return BMV2_STOCK_LABEL
+
+
+def wanted_fabric_identity(app_dir, host_num, word, binary=None, setting_dir=None,
+                           base_dir=None, binary_override=None):
+    """The identity a bring-up of `app_dir` (None: the baseline) would record, before it runs.
+
+    `ndt`'s side of the comparison. It resolves every input the way the topology script does --
+    `topology_path` for the model (so the model that is hashed is the one the BUILDER reads, not
+    whatever file `ndt` hands the kernel), `pipeline_for` for each switch's program,
+    `telemetry_source` for each switch's source -- with `word` as the telemetry knob's word, the
+    one this bring-up is about to write. The environment is empty on purpose: the topology
+    script runs under the lab's fixed root environment, where `NDTWIN_P4_TOPO_FILE` is not set.
+
+    The bmv2 binary is `binary` when given, else what the override file at `binary_override`
+    names (`bmv2_binary_named`, the reader the topology script resolves its launcher through).
+    """
+    base_dir = PROXY_ROOT if base_dir is None else base_dir
+    if binary is None and binary_override is not None:
+        binary = bmv2_binary_named(binary_override)
+    package = baseline() if not app_dir else load(app_dir)
+    model_path = topology_path(package, host_num, setting_dir=setting_dir, env={})
+    model = topo_from_json.load(model_path)
+    dpids = [dpid for dpid, _name in topo_from_json.switches(model)]
+    json_paths = {dpid: package.pipeline_for(dpid, base_dir)[1] for dpid in dpids}
+    sources = {dpid: telemetry_source(package, dpid, base_dir=base_dir, word=word)
+               for dpid in dpids}
+    return fabric_identity(package, model_path, sources, json_paths,
+                           extras={"bmv2": binary}, base_dir=base_dir, model=model)
+
+
+def identity_differences(wanted, recorded):
+    """The components on which two identities disagree, in a stable order. [] when none.
+
+    A component only one side has is a difference. Both arguments are `fabric_identity`'s
+    documents; only their `compared` parts are read.
+    """
+    a, b = wanted["compared"], recorded["compared"]
+    return sorted((name for name in set(a) | set(b) if a.get(name) != b.get(name)),
+                  key=_natural_key)

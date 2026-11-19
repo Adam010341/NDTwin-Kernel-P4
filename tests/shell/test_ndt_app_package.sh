@@ -1713,7 +1713,7 @@ rm -f "$TELKNOB"
 # agree with a fingerprint stack.sh no longer builds.
 stack_identity() {   # stack_identity <tree> -- START_BG_IDENTITY as stack.sh builds it
     local assign
-    assign="$(sed -n '/START_BG_IDENTITY="hosts=/,/topo=\$topo" \\$/p' "$STACK")"
+    assign="$(sed -n '/START_BG_IDENTITY="hosts=/,/topo=\$topo[^"]*" \\$/p' "$STACK")"
     assign="${assign%\\}"
     [[ -n "$assign" ]] || { echo "NO-ASSIGNMENT-IN-stack.sh"; return; }
     bash -c "KERNEL_DIR=$(q "$1"); topo=/model.json
@@ -1743,6 +1743,47 @@ has   "  an unset variable leaves the field empty, not missing" "proxy_host= app
 check "🔴 a changed value is a different fingerprint, so start_bg restarts the proxy" "differs" \
       "$([[ "$IDENT_DEFAULT" != "$IDENT_WIDE" ]] && echo differs || echo SAME)"
 check "  the value is stripped as the proxy strips it, so padding is not a restart" "$IDENT_WIDE" "$IDENT_PAD"
+
+# 🔴 AND THE FABRIC IT WAS STARTED OVER. `ndt up p4` exports NDT_FABRIC_ID, the `<digest>:<nonce>`
+# of the build record of the fabric that is running, and both fingerprints carry it: a package
+# edited in place changes the digest, and a fabric rebuilt from the same inputs changes the nonce,
+# so in both cases the proxy and the kernel are restarted over the fabric that is there now
+# instead of being kept "because the command is the same". Run by hand there is no id, and the
+# field is empty rather than missing. [Co-developed with claude code -- Adam]
+kernel_identity() {   # kernel_identity <model file> -- the kernel's START_BG_IDENTITY as stack.sh builds it
+    local assign
+    assign="$(grep -F 'START_BG_IDENTITY="topology_sha256=' "$STACK")"
+    assign="${assign%\\}"
+    [[ -n "$assign" ]] || { echo "NO-ASSIGNMENT-IN-stack.sh"; return; }
+    bash -c "topo=$(q "$1")
+$assign
+printf '%s\n' \"\$START_BG_IDENTITY\""
+}
+IDENT_A="$(export NDT_FABRIC_ID=aaaa:1111; stack_identity "$FIX")"
+IDENT_B="$(export NDT_FABRIC_ID=aaaa:2222; stack_identity "$FIX")"
+IDENT_NOID="$(unset NDT_FABRIC_ID; stack_identity "$FIX")"
+has   "🔴 the proxy's start_bg fingerprint carries the fabric id"     "fabric=aaaa:1111" "$IDENT_A"
+has   "  after the model, which it still carries"                     "topo=/model.json fabric=aaaa:1111" "$IDENT_A"
+check "  with no id (stack.sh run by hand) the field is empty, not missing" "fabric=" "${IDENT_NOID##* }"
+check "🔴 a rebuilt fabric (same digest, new nonce) is a different fingerprint, so the proxy restarts" "differs" \
+      "$([[ "$IDENT_A" != "$IDENT_B" ]] && echo differs || echo SAME)"
+MODEL_ONE="$FIX/kernel_model_one.json"; MODEL_COPY="$FIX/kernel_model_copy.json"
+printf '{"nodes": []}\n' > "$MODEL_ONE"; cp "$MODEL_ONE" "$MODEL_COPY"
+KID_ONE="$(export NDT_FABRIC_ID=aaaa:1111; kernel_identity "$MODEL_ONE")"
+KID_COPY="$(export NDT_FABRIC_ID=aaaa:1111; kernel_identity "$MODEL_COPY")"
+printf '{"nodes": [1]}\n' > "$MODEL_ONE"            # the SAME path, new bytes
+KID_EDITED="$(export NDT_FABRIC_ID=aaaa:1111; kernel_identity "$MODEL_ONE")"
+printf '{"nodes": []}\n' > "$MODEL_ONE"
+KID_REBUILT="$(export NDT_FABRIC_ID=aaaa:2222; kernel_identity "$MODEL_ONE")"
+KID_NOID="$(unset NDT_FABRIC_ID; kernel_identity "$MODEL_ONE")"
+has   "🔴 the kernel's start_bg fingerprint carries the model's content hash" "topology_sha256=$(sha256sum "$MODEL_ONE" | cut -d' ' -f1)" "$KID_ONE"
+has   "  and the fabric id"                                           "fabric=aaaa:1111" "$KID_ONE"
+check "🔴 a model edited in place (same path, new bytes) is a different fingerprint, so the kernel restarts" "differs" \
+      "$([[ "$KID_ONE" != "$KID_EDITED" ]] && echo differs || echo SAME)"
+check "  a copy of the model (new path, same bytes) is the same fingerprint" "$KID_ONE" "$KID_COPY"
+check "🔴 a rebuilt fabric is a different fingerprint, so the kernel restarts and pulls the topology again" "differs" \
+      "$([[ "$KID_ONE" != "$KID_REBUILT" ]] && echo differs || echo SAME)"
+check "  with no id the kernel's field is empty, not missing"         "fabric=" "${KID_NOID##* }"
 
 # --- the resolver ---------------------------------------------------------------------------
 # 🔴 THE KNOB WINS FOR "WHAT IS IN FORCE" AND LOSES FOR "WHAT SHOULD THIS BRING-UP WRITE", and
