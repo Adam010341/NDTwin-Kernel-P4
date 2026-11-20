@@ -1834,8 +1834,8 @@ report "M108: an app knob that cannot be cleared only restores the host knob" "$
        "🔴 and up.target and the host-count knob are back"
 
 m=$(mutant m109 "$NDT" \
-    '            refusal_unwind "the package'"'"'s telemetry source is not one this script knows"' \
-    '            knob_restore "the package'"'"'s telemetry source is not one this script knows"')
+    '        refusal_unwind "the package'"'"'s telemetry source is not one this script knows"' \
+    '        knob_restore "the package'"'"'s telemetry source is not one this script knows"')
 report "M109: an unknown telemetry word only restores the host knob" "$m" \
        "🔴 an unknown telemetry word puts back up.target, the cleared app knob and the host-count knob"
 
@@ -2701,6 +2701,371 @@ m=$(mutant w22 "$NDT" \
     '                        info "stopping the stack components this run started: ${STACK_STOPSET[*]}"')
 report_green "W22 (behaviour-preserving): the line that names what is being stopped reworded" "$m" \
        "the cells read what stack.sh was asked, not this sentence"
+
+# --- a running fabric is reused only when it was built from this run's inputs (section 34) -------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 EACH ONE PUTS BACK A WAY THE SAME COUNTS PASSED FOR THE SAME FABRIC. The identity is asked of
+# stubs here (the real readings are tested in p4_proxy/tests); what these pin is what `up_p4` does
+# with the answer, and where it asks.
+m=$(mutant m218 "$NDT" \
+    '            differ)
+                reuse=0
+' \
+    '            differ)
+                : 
+')
+report "M218: a fabric that differs is still reused" "$m" \
+       "🔴 34b and it was NOT reused"
+
+m=$(mutant m219 "$NDT" \
+    '            *)
+                reuse=0
+                if [[ "${id_state#unknown }" == "there is no build record" ]]; then' \
+    '            *)
+                if [[ "${id_state#unknown }" == "there is no build record" ]]; then')
+report "M219: a fabric whose build cannot be vouched for is reused (unknown read as match)" "$m" \
+       "  34d and not reused"
+
+m=$(mutant m220 "$NDT" \
+    '            id_state="unknown it could not be worked out what this run would build the fabric from"' \
+    '            id_state="match"')
+report "M220: inputs that cannot be worked out are read as a match" "$m" \
+       "🔴 34e inputs that cannot be worked out are not a match"
+
+m=$(mutant m221 "$NDT" \
+    '    for (( i = 0; i < ${#names[@]} && i < 4; i++ )); do' \
+    '    for (( i = 0; i < ${#names[@]} && i < 99; i++ )); do')
+report "M221: every component is named, however many" "$m" \
+       "  34c four names and the count of the rest"
+
+m=$(mutant m222 "$NDT" \
+    '    (( ${#names[@]} > 4 )) && out+=" and $(( ${#names[@]} - 4 )) more"' \
+    '    (( ${#names[@]} > 4 )) && out+=" and ${#names[@]} more"')
+report "M222: the count of components left out counts the ones named" "$m" \
+       "  34c four names and the count of the rest"
+
+m=$(mutant m223 "$NDT" \
+    '        want_id="$(fabric_identity_wanted "$app_dir" "$hosts" "$tel_word")"' \
+    '        want_id="$(fabric_identity_wanted "$app_dir" "$hosts" auto)"')
+report "M223: the run is compared as though it asked for the default telemetry word" "$m" \
+       "  34f --telemetry link is the word the run is compared with"
+
+m=$(mutant m224 "$NDT" \
+    '    if (( reuse && ! tel_word_rc )); then
+        local want_id id_state' \
+    '    if (( ! tel_word_rc )); then
+        local want_id id_state')
+report "M224: the identity is read for a fabric the counts already rejected" "$m" \
+       "🔴 34i and the identity was not asked for"
+
+m=$(mutant m225 "$NDT" \
+    '    export NDT_FABRIC_ID
+' \
+    '')
+report "M225: the fabric id stays in ndt and never reaches stack.sh" "$m" \
+       "🔴 34j a reused fabric's id reaches stack.sh"
+
+m=$(mutant m226 "$NDT" \
+    '    if [[ -z "$NDT_FABRIC_ID" && "$UP_P4_FABRIC" == fresh ]]; then' \
+    '    if false; then')
+report "M226: a fresh build reads the record once, before it can have been written" "$m" \
+       "🔴 34j a record that appears just after the manifest is still read"
+
+m=$(mutant m227 "$NDT" \
+    '                if [[ "${id_state#unknown }" == "there is no build record" ]]; then' \
+    '                if false; then')
+report "M227: a fabric with no record is told it has a record that cannot be used" "$m" \
+       "🔴 34d a fabric with no record of what it was built from is rebuilt"
+
+m=$(mutant m228 "$NDT" \
+    '$(fabric_identity_names "${id_state#differ }")' \
+    '${id_state#differ }')
+report "M228: the components are printed as the raw list, not as a sentence" "$m" \
+       "  34b the line names the components that differ"
+
+m=$(mutant m229 "$NDT" \
+    '(( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session";' \
+    '(( sess_rc == 0 )) && { info "stopping the existing topo session";')
+report "M229: a rebuild over a running fabric does not record that the fabric was replaced" "$m" \
+       "🔴 34k and the claim note says the old fabric was replaced and not restored"
+
+# --- the order of the decision: above every write, below the stale-pipeline refusal (section 34) ---------
+#
+# [Co-developed with claude code -- Adam]
+# Each ordering mistake is ONE mutation because the blocks are adjacent: the stale-pipeline refusal,
+# then the identity decision, then the OVS and NTG guards, then the first write.
+m=$(mutant m230 "$NDT" \
+    '    if (( reuse )) && stale_pipeline; then
+        # Reusing here would measure the old pipeline while every readout says the new one.
+        err "the fabric predates the current build of ndtwin_switch.json."
+        err "bmv2 loads the pipeline at exec time and never reloads, so these $n switches"
+        err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
+        err "up.target, the knobs and the claim note were not touched."
+        return 1
+    fi
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
+    # inputs this run would build it from -- the model, package.json, each switch'"'"'s program and
+    # table entries, the links the package shapes, the telemetry source each switch resolves to, the
+    # bmv2 binary -- and the process that built it is still the one running it. Otherwise it is
+    # rebuilt, and the line says what differs. This is read above every write below, so a refusal
+    # that follows still leaves the files as they were. The stale-pipeline refusal above comes first and
+    # stays: it is documented, and it is a refusal where this is a rebuild.
+    if (( reuse && ! tel_word_rc )); then
+        local want_id id_state
+        want_id="$(fabric_identity_wanted "$app_dir" "$hosts" "$tel_word")"
+        if [[ -z "$want_id" ]]; then
+            id_state="unknown it could not be worked out what this run would build the fabric from"
+        else
+            id_state="$(fabric_identity_running "$want_id")"
+        fi
+        case "${id_state%% *}" in
+            match) ;;
+            differ)
+                reuse=0
+                info "the running fabric was built from different inputs ($(fabric_identity_names "${id_state#differ }")); rebuilding it" ;;
+            *)
+                reuse=0
+                if [[ "${id_state#unknown }" == "there is no build record" ]]; then
+                    info "the running fabric'"'"'s build record is missing (built before this check existed, or by hand); rebuilding it"
+                else
+                    info "the running fabric'"'"'s build record cannot be used (${id_state#unknown }); rebuilding it"
+                fi ;;
+        esac
+    fi
+' \
+    '    # [Co-developed with claude code -- Adam]
+    # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
+    # inputs this run would build it from -- the model, package.json, each switch'"'"'s program and
+    # table entries, the links the package shapes, the telemetry source each switch resolves to, the
+    # bmv2 binary -- and the process that built it is still the one running it. Otherwise it is
+    # rebuilt, and the line says what differs. This is read above every write below, so a refusal
+    # that follows still leaves the files as they were. The stale-pipeline refusal above comes first and
+    # stays: it is documented, and it is a refusal where this is a rebuild.
+    if (( reuse && ! tel_word_rc )); then
+        local want_id id_state
+        want_id="$(fabric_identity_wanted "$app_dir" "$hosts" "$tel_word")"
+        if [[ -z "$want_id" ]]; then
+            id_state="unknown it could not be worked out what this run would build the fabric from"
+        else
+            id_state="$(fabric_identity_running "$want_id")"
+        fi
+        case "${id_state%% *}" in
+            match) ;;
+            differ)
+                reuse=0
+                info "the running fabric was built from different inputs ($(fabric_identity_names "${id_state#differ }")); rebuilding it" ;;
+            *)
+                reuse=0
+                if [[ "${id_state#unknown }" == "there is no build record" ]]; then
+                    info "the running fabric'"'"'s build record is missing (built before this check existed, or by hand); rebuilding it"
+                else
+                    info "the running fabric'"'"'s build record cannot be used (${id_state#unknown }); rebuilding it"
+                fi ;;
+        esac
+    fi
+    if (( reuse )) && stale_pipeline; then
+        # Reusing here would measure the old pipeline while every readout says the new one.
+        err "the fabric predates the current build of ndtwin_switch.json."
+        err "bmv2 loads the pipeline at exec time and never reloads, so these $n switches"
+        err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
+        err "up.target, the knobs and the claim note were not touched."
+        return 1
+    fi
+')
+report "M230: the identity is decided before the stale-pipeline refusal" "$m" \
+       "🔴 34h a fabric older than the compiled pipeline is still refused"
+
+m=$(mutant m231 "$NDT" \
+    '    # [Co-developed with claude code -- Adam]
+    # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
+    # inputs this run would build it from -- the model, package.json, each switch'"'"'s program and
+    # table entries, the links the package shapes, the telemetry source each switch resolves to, the
+    # bmv2 binary -- and the process that built it is still the one running it. Otherwise it is
+    # rebuilt, and the line says what differs. This is read above every write below, so a refusal
+    # that follows still leaves the files as they were. The stale-pipeline refusal above comes first and
+    # stays: it is documented, and it is a refusal where this is a rebuild.
+    if (( reuse && ! tel_word_rc )); then
+        local want_id id_state
+        want_id="$(fabric_identity_wanted "$app_dir" "$hosts" "$tel_word")"
+        if [[ -z "$want_id" ]]; then
+            id_state="unknown it could not be worked out what this run would build the fabric from"
+        else
+            id_state="$(fabric_identity_running "$want_id")"
+        fi
+        case "${id_state%% *}" in
+            match) ;;
+            differ)
+                reuse=0
+                info "the running fabric was built from different inputs ($(fabric_identity_names "${id_state#differ }")); rebuilding it" ;;
+            *)
+                reuse=0
+                if [[ "${id_state#unknown }" == "there is no build record" ]]; then
+                    info "the running fabric'"'"'s build record is missing (built before this check existed, or by hand); rebuilding it"
+                else
+                    info "the running fabric'"'"'s build record cannot be used (${id_state#unknown }); rebuilding it"
+                fi ;;
+        esac
+    fi
+    # Refuse a live OVS fabric instead of quietly removing it. `up_ovs` already refuses the
+    # mirror case ("starting Ryu under a live Mininet is the /stats/flow wedge trigger");
+    # this side used to be a bare `topo-stop >/dev/null 2>&1`, so `ndt up` on a running OVS
+    # fabric destroyed it with no message at all. The asymmetry was invisible because all
+    # three ndtwin-lab verbs name their tmux session `topo`, so the session'"'"'s existence
+    # cannot tell the two planes apart -- the bridges can.
+    # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
+    # can call it on its own.
+    # [Co-developed with claude code -- Adam] Its rc is carried out: 1 for an OVS fabric it found, 5 for
+    # one it could not look for.
+    (( reuse )) || guard_no_live_ovs || { local grc=$?; err "up.target, the knobs and the claim note were not touched."; return "$grc"; }
+    # [Co-developed with claude code -- Adam] A fabric this run builds is handed to NTG; a mode NTG
+    # refuses takes that fabric down seconds after [3/3] passes (see ntg_up_refusal).
+    (( reuse )) || ntg_up_refusal || return $?
+' \
+    '    # Refuse a live OVS fabric instead of quietly removing it. `up_ovs` already refuses the
+    # mirror case ("starting Ryu under a live Mininet is the /stats/flow wedge trigger");
+    # this side used to be a bare `topo-stop >/dev/null 2>&1`, so `ndt up` on a running OVS
+    # fabric destroyed it with no message at all. The asymmetry was invisible because all
+    # three ndtwin-lab verbs name their tmux session `topo`, so the session'"'"'s existence
+    # cannot tell the two planes apart -- the bridges can.
+    # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
+    # can call it on its own.
+    # [Co-developed with claude code -- Adam] Its rc is carried out: 1 for an OVS fabric it found, 5 for
+    # one it could not look for.
+    (( reuse )) || guard_no_live_ovs || { local grc=$?; err "up.target, the knobs and the claim note were not touched."; return "$grc"; }
+    # [Co-developed with claude code -- Adam] A fabric this run builds is handed to NTG; a mode NTG
+    # refuses takes that fabric down seconds after [3/3] passes (see ntg_up_refusal).
+    (( reuse )) || ntg_up_refusal || return $?
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
+    # inputs this run would build it from -- the model, package.json, each switch'"'"'s program and
+    # table entries, the links the package shapes, the telemetry source each switch resolves to, the
+    # bmv2 binary -- and the process that built it is still the one running it. Otherwise it is
+    # rebuilt, and the line says what differs. This is read above every write below, so a refusal
+    # that follows still leaves the files as they were. The stale-pipeline refusal above comes first and
+    # stays: it is documented, and it is a refusal where this is a rebuild.
+    if (( reuse && ! tel_word_rc )); then
+        local want_id id_state
+        want_id="$(fabric_identity_wanted "$app_dir" "$hosts" "$tel_word")"
+        if [[ -z "$want_id" ]]; then
+            id_state="unknown it could not be worked out what this run would build the fabric from"
+        else
+            id_state="$(fabric_identity_running "$want_id")"
+        fi
+        case "${id_state%% *}" in
+            match) ;;
+            differ)
+                reuse=0
+                info "the running fabric was built from different inputs ($(fabric_identity_names "${id_state#differ }")); rebuilding it" ;;
+            *)
+                reuse=0
+                if [[ "${id_state#unknown }" == "there is no build record" ]]; then
+                    info "the running fabric'"'"'s build record is missing (built before this check existed, or by hand); rebuilding it"
+                else
+                    info "the running fabric'"'"'s build record cannot be used (${id_state#unknown }); rebuilding it"
+                fi ;;
+        esac
+    fi
+')
+report "M231: the identity is decided after the OVS and NTG guards, so a rebuild skips them" "$m" \
+       "🔴 34g a rebuild that a guard then refuses answers 5"
+
+# --- the shell side of the fabric record, run for real (section 35), and an id that cannot be read (34l) ----
+#
+# [Co-developed with claude code -- Adam]
+# Section 35 sources ndt with REPO at a fixture tree and asks its own functions about a record the
+# topology script's writer made, so each of these puts back one way the glue between the shell and
+# the two Python modules can be wrong while every stubbed section stays green.
+m=$(mutant m232 "$NDT" \
+    '    print("differ " + ",".join(detail))' \
+    '    print("match")')
+report "M232: a record that differs is reported as a match" "$m" \
+       "🔴 35c an entries file edited in place is named"
+
+m=$(mutant m233 "$NDT" \
+    'sys.argv[2] or None, int(sys.argv[3]), sys.argv[4], binary_override=sys.argv[5],' \
+    'sys.argv[2] or None, int(sys.argv[3]), "auto", binary_override=sys.argv[5],')
+report "M233: the telemetry word the run asked for is not what it is compared with" "$m" \
+       "🔴 35b the same inputs match the running fabric"
+
+m=$(mutant m234 "$NDT" \
+    ''"'"' "$REPO" "$1" "$FABRIC_RECORD" 2>/dev/null || echo "unknown the build record could not be read"' \
+    ''"'"' "$REPO" "$1" /tmp/ndtwin_p4_fabric.json 2>/dev/null || echo "unknown the build record could not be read"')
+report "M234: the running fabric is compared with the machine's record, not the one asked for" "$m" \
+       "🔴 35b the same inputs match the running fabric"
+
+m=$(mutant m235 "$NDT" \
+    'bmv2_binary() {
+    python3 -c '"'"'
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "p4_proxy", "mininet"))
+import app_package
+print(app_package.bmv2_binary_named(os.path.join(sys.argv[1], "p4_proxy", "mininet", "bmv2_binary_override")))
+'"'"' "$REPO" 2>/dev/null || echo "simple_switch_grpc (stock, PATH)"
+}
+' \
+    'bmv2_binary() {
+    local f="$REPO/p4_proxy/mininet/bmv2_binary_override" line
+    [[ -f "$f" ]] || { echo "simple_switch_grpc (stock, PATH)"; return; }
+    while read -r line; do
+        line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        echo "$line"; return
+    done < "$f"
+    echo "simple_switch_grpc (stock, PATH)"
+}
+')
+report "M235: bmv2_binary reads the override with its own loop again (a last line with no newline is lost)" "$m" \
+       "🔴 35a an override whose last line has no newline names its binary"
+
+m=$(mutant m236 "$NDT" \
+    ''"'"' "$REPO" "$FABRIC_RECORD" 2>/dev/null' \
+    ''"'"' "$REPO" /tmp/ndtwin_p4_fabric.json 2>/dev/null')
+report "M236: the fabric's id is read from the machine's record, not the one asked for" "$m" \
+       "🔴 35b the fabric's id is <digest>:<nonce>"
+
+m=$(mutant m237 "$NDT" \
+    '            NDT_FABRIC_ID="unrecorded:$(date +%s%N)"' \
+    '            NDT_FABRIC_ID=""')
+report "M237: a fresh build whose record cannot be read hands stack.sh an empty id" "$m" \
+       "🔴 34l stack.sh is handed a one-off id, never an empty one"
+
+m=$(mutant m238 "$NDT" \
+    '            info "the new fabric'"'"'s build record could not be read; the proxy and the kernel will be restarted over it"' \
+    '            :')
+report "M238: a fresh build whose record cannot be read says nothing" "$m" \
+       "🔴 34l the line says the record could not be read and what follows"
+
+m=$(mutant m239 "$NDT" \
+    '    if [[ -z "$NDT_FABRIC_ID" && "$UP_P4_FABRIC" == fresh ]]; then' \
+    '    if [[ -z "$NDT_FABRIC_ID" ]]; then')
+report "M239: a reused fabric whose id cannot be read is restarted over as well" "$m" \
+       "  34l a reused fabric says nothing about an unreadable id"
+
+m=$(mutant m240 "$NDT" \
+    '    print("unknown " + detail)' \
+    '    print("match")')
+report "M240: a record that cannot be trusted is taken for a match" "$m" \
+       "🔴 35d"
+
+m=$(mutant m241 "$NDT" \
+    'unrecorded:$(date +%s%N)' \
+    'unrecorded:0')
+report "M241: the one-off id is the same every time" "$m" \
+       "  34l and it is not the same one-off id twice"
+
+m=$(mutant w23 "$NDT" \
+    '            match) ;;' \
+    '            match) : ;;')
+report_green "W23 (behaviour-preserving): the match arm written with a no-op" "$m" \
+       "the arm does nothing either way"
+
+m=$(mutant w24 "$NDT" \
+    '        for fid_try in 1 2 3 4 5; do' \
+    '        for fid_try in 1 2 3 4 5 6; do')
+report_green "W24 (behaviour-preserving): the fresh build asks for the record once more" "$m" \
+       "the cells read the id, not how many times it was asked for"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

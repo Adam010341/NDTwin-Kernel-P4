@@ -574,6 +574,10 @@ class FabricFixture(unittest.TestCase):
 
         self.patch(testbed, "BINARY_OVERRIDE_PATH", BINARY_OVERRIDE)
         self.patch(testbed, "MANIFEST_PATH", self.manifest)
+        # [Co-developed with claude code -- Adam] The build record is the machine's /tmp file by
+        # default; `reset_for_bring_up` and `tear_down` remove it, which no case here may do.
+        self.fabric_record = os.path.join(self.tmp, "ndtwin_p4_fabric.json")
+        self.patch(testbed, "FABRIC_RECORD_PATH", self.fabric_record)
         # A knob that does not exist is the baseline; a package fixture sets one below.
         self.patch(app_package, "KNOB_PATH", os.path.join(self.tmp, "no_such_knob"))
         self.setenv("NDTWIN_P4_HOST_NUM", self.host_num)
@@ -695,7 +699,8 @@ class FabricFixture(unittest.TestCase):
         quiet = []
         return testbed.plan_fabric(report=quiet.append), quiet
 
-    def bring_up(self, healthy=True, verify_timeout=None, outputs=None, report=None):
+    def bring_up(self, healthy=True, verify_timeout=None, outputs=None, report=None,
+                 record=False):
         # An unhealthy fabric is judged immediately: verify_switches POLLS for ten seconds
         # because a real bmv2 needs a moment to bind, and a suite that waited for that on
         # purpose would spend twenty seconds proving something it already knows.
@@ -708,6 +713,7 @@ class FabricFixture(unittest.TestCase):
                                   manifest_path=self.manifest,
                                   link_manifest_path=self.link_manifest,
                                   verify_timeout=verify_timeout,
+                                  identity=(plan.identity if record else None),
                                   report=(report if report is not None else lambda _line: None))
         return plan, net, result
 
@@ -2054,6 +2060,203 @@ class TearingLinkTelemetryDownTest(FabricFixture):
         fate, removed, document = link_telemetry.shut_down(
             os.path.join(self.tmp, "no_such_manifest.json"))
         self.assertEqual((fate, removed, document), (None, [], None))
+
+
+class TheBuildRecordTest(FabricFixture):
+    """What the bring-up writes so `ndt up p4` can tell a fabric it may keep from one to rebuild.
+
+    [Co-developed with claude code -- Adam]
+    The record is written once the switch manifest is, by the process that built the fabric, and
+    it is removed first thing by the next build and last thing by the teardown. A package whose
+    switches all carry their own program is used, so these cases need no compiled baseline.
+    """
+
+    BUILDER = {"pid": 5150, "argv": ["/usr/bin/python3", "p4_testbed_topo.py"],
+               "start_time": 31337}
+
+    def setUp(self):
+        super().setUp()
+        self.pkg = load_two_program_package_fixture()
+        self.use_package(self.pkg)
+        self.set_telemetry_knob("none")
+        self.patch(link_telemetry, "process_identity",
+                   lambda pid, proc_root="/proc": dict(self.BUILDER, pid=pid))
+
+    def read(self):
+        with open(self.fabric_record) as fh:
+            return json.load(fh)
+
+    def test_a_successful_bring_up_records_what_it_was_built_from_and_who_built_it(self):
+        plan, _net, (_n, _s, fatal, _verdict, _u) = self.bring_up(record=True)
+        self.assertFalse(fatal)
+        record = self.read()
+        self.assertEqual(record["digest"], plan.identity["digest"])
+        self.assertEqual(record["compared"], plan.identity["compared"])
+        self.assertEqual(record["recorded"]["builder"], dict(self.BUILDER, pid=os.getpid()))
+        self.assertRegex(record["recorded"]["nonce"], r"^[0-9a-f]{16}$")
+        self.assertEqual(os.stat(self.fabric_record).st_mode & 0o777, 0o644)
+
+    def test_the_record_is_written_after_the_switch_manifest_and_not_before(self):
+        events = []
+        real_manifest, real_record = testbed.write_manifest, testbed.write_fabric_record
+        self.patch(testbed, "write_manifest",
+                   lambda *a, **kw: events.append("manifest") or real_manifest(*a, **kw))
+        self.patch(testbed, "write_fabric_record",
+                   lambda *a, **kw: events.append("record") or real_record(*a, **kw))
+        self.bring_up(record=True)
+        self.assertEqual(events, ["manifest", "record"])
+
+    def test_a_bring_up_that_is_given_no_identity_writes_no_record(self):
+        self.bring_up()
+        self.assertFalse(os.path.exists(self.fabric_record))
+
+    def test_a_switch_manifest_that_could_not_be_written_leaves_no_record(self):
+        os.makedirs(self.manifest)
+        _plan, _net, (_n, _s, fatal, _verdict, _u) = self.bring_up(record=True)
+        self.assertTrue(fatal)
+        self.assertFalse(os.path.exists(self.fabric_record))
+
+    def test_a_record_that_cannot_be_written_is_said_and_does_not_fail_the_bring_up(self):
+        os.makedirs(self.fabric_record)         # a directory at the name: the rename fails
+        said = []
+        _plan, _net, (_n, _s, fatal, _verdict, _u) = self.bring_up(record=True, report=said.append)
+        self.assertFalse(fatal)
+        self.assertTrue([line for line in said if "build record" in line and "rebuild" in line],
+                        said)
+
+    def test_two_builds_from_one_input_are_two_fabrics(self):
+        plan, _said = self.plan()
+        testbed.write_fabric_record(plan.identity)
+        first = self.read()
+        testbed.write_fabric_record(plan.identity)
+        second = self.read()
+        self.assertEqual(first["digest"], second["digest"])
+        self.assertNotEqual(first["recorded"]["nonce"], second["recorded"]["nonce"])
+
+    def test_the_next_build_removes_the_record_before_it_destroys_anything(self):
+        plan, _said = self.plan()
+        testbed.write_fabric_record(plan.identity)
+        seen = []
+        self.patch(link_telemetry, "shut_down",
+                   lambda *a, **kw: seen.append(os.path.exists(self.fabric_record)))
+        self.patch(testbed.os, "system", lambda _cmd: seen.append("mn -c") or 0)
+        self.patch(testbed, "clear_switches_from_a_previous_run",
+                   lambda ports=(), **kw: seen.append("reap") or ([], []))
+        self.patch(testbed, "abort_if_grpc_ports_are_held", lambda held, **kw: None)
+        with contextlib.redirect_stdout(io.StringIO()):
+            testbed.reset_for_bring_up([30051], settle_s=0.0)
+        self.assertEqual(seen, [False, "mn -c", "reap"])
+        self.assertFalse(os.path.exists(self.fabric_record))
+
+    def test_the_teardown_removes_the_record(self):
+        plan, _said = self.plan()
+        testbed.write_fabric_record(plan.identity)
+        net = types.SimpleNamespace(stop=lambda: None)
+        testbed.tear_down(net, manifest_path=self.manifest, link_manifest_path=self.link_manifest,
+                          report=lambda _line: None)
+        self.assertFalse(os.path.exists(self.fabric_record))
+
+    def test_both_mains_hand_the_plans_identity_to_the_bring_up(self):
+        for path in (os.path.join(PROXY_DIR, "mininet", "p4_testbed_topo.py"),
+                     os.path.join(PROXY_DIR, "mininet", "ntg_bmv2_topo.py")):
+            with self.subTest(main=os.path.basename(path)):
+                with open(path) as fh:
+                    text = fh.read()
+                self.assertIn("identity=plan.identity", text,
+                              "a main brings the fabric up without recording what it was "
+                              "built from, so `ndt up p4` rebuilds it every time")
+
+
+class TheWantedIdentityAgreesWithTheBuilderTest(FabricFixture):
+    """`ndt` asks what a bring-up WOULD build; the builder records what it DID. One input, one answer.
+
+    [Co-developed with claude code -- Adam]
+    The two are computed by different callers (`app_package.wanted_fabric_identity` for `ndt`,
+    `plan_fabric` for the topology script), so a disagreement is not a failed test elsewhere: it is
+    a running fabric that is rebuilt at every `ndt up p4`, naming a component that never changed.
+    Each cell gives both sides the same inputs and asks for no difference at all.
+    """
+
+    SETTING = os.path.join(REPO, "setting")
+
+    def wanted(self, app_dir, word, override=None):
+        return app_package.wanted_fabric_identity(
+            app_dir, int(self.host_num), word, binary_override=override or BINARY_OVERRIDE,
+            setting_dir=self.SETTING, base_dir=PROXY_DIR)
+
+    def agree(self, app_dir, word, override=None):
+        plan, _said = self.plan()
+        wanted = self.wanted(app_dir, word, override)
+        self.assertEqual(app_package.identity_differences(wanted, plan.identity), [])
+        self.assertEqual(wanted["digest"], plan.identity["digest"])
+        return plan
+
+    def override_with(self, text):
+        path = os.path.join(self.tmp, "bmv2_binary_override_variant")
+        with open(path, "wb") as fh:
+            fh.write(text.encode())
+        self.patch(testbed, "BINARY_OVERRIDE_PATH", path)
+        return path
+
+    @needs_compiled_baseline
+    def test_the_baseline_at_four_hosts_agrees(self):
+        self.agree(None, "auto")
+
+    def test_a_package_with_two_programs_and_entries_agrees(self):
+        pkg = load_two_program_package_fixture()
+        self.use_package(pkg)
+        self.set_telemetry_knob("none")
+        plan = self.agree(pkg.dir, "none")
+        self.assertTrue([k for k in plan.identity["compared"] if k.startswith("entries/s")])
+
+    def test_each_telemetry_word_agrees_on_a_package(self):
+        pkg = load_two_program_package_fixture()
+        self.use_package(pkg)
+        for word in app_package.TELEMETRY_SOURCES:
+            with self.subTest(word=word):
+                self.set_telemetry_knob(word)
+                try:
+                    plan, _said = self.plan()
+                except app_package.AppPackageError:
+                    # a word this package cannot do is refused on both sides, never one side only
+                    with self.assertRaises(app_package.AppPackageError):
+                        self.wanted(pkg.dir, word)
+                    continue
+                wanted = self.wanted(pkg.dir, word)
+                self.assertEqual(app_package.identity_differences(wanted, plan.identity), [])
+
+    @needs_compiled_baseline
+    def test_each_telemetry_word_agrees_on_the_baseline(self):
+        for word in app_package.TELEMETRY_SOURCES:
+            with self.subTest(word=word):
+                self.set_telemetry_knob(word)
+                self.agree(None, word)
+
+    def test_an_override_whose_last_line_has_no_newline_agrees(self):
+        # printf '%s' <path> > bmv2_binary_override, or an editor that adds none
+        pkg = load_two_program_package_fixture()
+        self.use_package(pkg)
+        self.set_telemetry_knob("none")
+        override = self.override_with(FAKE_BINARY)
+        self.agree(pkg.dir, "none", override)
+
+    def test_an_override_with_crlf_line_ends_and_a_comment_first_agrees(self):
+        pkg = load_two_program_package_fixture()
+        self.use_package(pkg)
+        self.set_telemetry_knob("none")
+        override = self.override_with("# the fast build\r\n\r\n  " + FAKE_BINARY + "  \r\n")
+        self.agree(pkg.dir, "none", override)
+
+    def test_a_different_binary_is_still_a_difference(self):
+        pkg = load_two_program_package_fixture()
+        self.use_package(pkg)
+        self.set_telemetry_knob("none")
+        plan, _said = self.plan()
+        other = os.path.join(self.tmp, "other_override")
+        with open(other, "w") as fh:
+            fh.write("/bin/true\n")
+        self.assertEqual(app_package.identity_differences(
+            self.wanted(pkg.dir, "none", other), plan.identity), ["bmv2"])
 
 
 class _OsWithKill:

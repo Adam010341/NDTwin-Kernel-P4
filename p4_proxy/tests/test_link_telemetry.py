@@ -1274,6 +1274,152 @@ class TheEmitterCommandLineTest(unittest.TestCase):
                          "/tmp/ndtwin_link_telemetry.json")
 
 
+class TheFabricRecordIsTrustedOnlyWhileItsBuilderLivesTest(unittest.TestCase):
+    """`ndt up p4` reuses a fabric only when this answers `match`; everything else is `unknown`.
+
+    [Co-developed with claude code -- Adam]
+    The record is a file in /tmp that names a process, so it gets the checks every other such file
+    gets (no symlink, written by root or this user, writable by nobody else) and one more: the
+    process that wrote it must still be running -- same pid, argv and start time -- or the file
+    describes a fabric that is gone.
+    """
+
+    BUILDER = {"pid": 5150, "argv": ["/usr/bin/python3", "/opt/ndtwin/p4_testbed_topo.py"],
+               "start_time": 31337}
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_fabric_record_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.path = os.path.join(self.tmp, "ndtwin_p4_fabric.json")
+        self.proc = os.path.join(self.tmp, "proc")
+        self.wanted = app_package.wanted_fabric_identity(
+            None, 4, "auto", "/bin/true", setting_dir=os.path.join(REPO, "setting"))
+        self.live_process(**self.BUILDER)
+
+    def live_process(self, pid, argv, start_time):
+        d = os.path.join(self.proc, str(pid))
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "cmdline"), "wb") as fh:
+            fh.write(b"".join(os.fsencode(a) + b"\0" for a in argv))
+        rest = ["S"] + ["0"] * 18 + [str(start_time)] + ["0"] * 30
+        with open(os.path.join(d, "stat"), "w") as fh:
+            fh.write(f"{pid} (python3) " + " ".join(rest) + "\n")
+
+    def record(self, **changes):
+        doc = json.loads(json.dumps(self.wanted))
+        doc["recorded"].update({"builder": dict(self.BUILDER), "nonce": "0011223344556677",
+                                "at": "2026-11-18T00:00:00Z"})
+        doc.update(changes)
+        return doc
+
+    def write(self, doc=None, mode=0o644):
+        with open(self.path, "w") as fh:
+            json.dump(self.record() if doc is None else doc, fh)
+        os.chmod(self.path, mode)
+
+    def state(self, wanted=None):
+        return link_telemetry.fabric_identity_state(
+            self.wanted if wanted is None else wanted, path=self.path, proc_root=self.proc)
+
+    def test_a_trusted_record_of_a_live_builder_with_the_same_inputs_is_a_match(self):
+        self.write()
+        self.assertEqual(self.state(), ("match", []))
+
+    def test_a_different_input_is_a_difference_and_names_the_component(self):
+        self.write()
+        link = app_package.wanted_fabric_identity(
+            None, 4, "link", "/bin/true", setting_dir=os.path.join(REPO, "setting"))
+        verdict, names = self.state(link)
+        self.assertEqual(verdict, "differ")
+        self.assertEqual(names, [f"telemetry/s{n}" for n in range(1, 11)])
+
+    def test_no_record_is_unknown_not_a_match(self):
+        verdict, why = self.state()
+        self.assertEqual(verdict, "unknown")
+        self.assertIn("no build record", why)
+
+    def test_a_symlink_at_the_name_is_unknown_and_is_not_followed(self):
+        target = os.path.join(self.tmp, "elsewhere.json")
+        with open(target, "w") as fh:
+            json.dump(self.record(), fh)
+        os.chmod(target, 0o644)
+        os.symlink(target, self.path)
+        verdict, why = self.state()
+        self.assertEqual(verdict, "unknown")
+        self.assertIn("symbolic link", why)
+
+    def test_a_record_its_group_can_write_is_unknown(self):
+        self.write(mode=0o664)
+        verdict, why = self.state()
+        self.assertEqual(verdict, "unknown")
+        self.assertIn("writable", why)
+
+    def test_a_record_another_user_owns_is_unknown(self):
+        self.write()
+        real = link_telemetry._fstat
+
+        def fstat(fd):
+            st = real(fd)
+            return os.stat_result((st.st_mode, st.st_ino, st.st_dev, st.st_nlink,
+                                   os.geteuid() + 1, st.st_gid, st.st_size, 0, 0, 0))
+        with mock.patch.object(link_telemetry, "_fstat", fstat):
+            verdict, why = self.state()
+        self.assertEqual(verdict, "unknown")
+        self.assertIn("owned by uid", why)
+
+    def test_a_builder_that_is_gone_is_unknown_even_when_every_input_matches(self):
+        self.write()
+        shutil.rmtree(os.path.join(self.proc, str(self.BUILDER["pid"])))
+        verdict, why = self.state()
+        self.assertEqual(verdict, "unknown")
+        self.assertIn("no longer running", why)
+
+    def test_a_pid_that_another_process_took_over_is_not_the_builder(self):
+        self.write()
+        self.live_process(self.BUILDER["pid"], self.BUILDER["argv"],
+                          self.BUILDER["start_time"] + 1)
+        self.assertEqual(self.state()[0], "unknown")
+        self.live_process(self.BUILDER["pid"], ["/usr/bin/vim", "notes.txt"],
+                          self.BUILDER["start_time"])
+        self.assertEqual(self.state()[0], "unknown")
+
+    def test_a_record_that_names_no_complete_identity_for_its_builder_is_unknown(self):
+        for label, builder in (("no start time", {"pid": 5150, "argv": self.BUILDER["argv"]}),
+                               ("no argv", {"pid": 5150, "start_time": 31337}),
+                               ("init", dict(self.BUILDER, pid=1)),
+                               ("a bool pid", dict(self.BUILDER, pid=True))):
+            with self.subTest(label):
+                doc = self.record()
+                doc["recorded"]["builder"] = builder
+                self.write(doc)
+                self.assertEqual(self.state()[0], "unknown")
+
+    def test_a_record_of_another_format_version_is_unknown(self):
+        self.write(self.record(version=2))
+        verdict, why = self.state()
+        self.assertEqual(verdict, "unknown")
+        self.assertIn("another format version", why)
+
+    def test_a_record_with_no_list_of_components_is_unknown(self):
+        self.write(self.record(compared=["model"]))
+        self.assertEqual(self.state()[0], "unknown")
+
+    def test_the_fabric_id_is_the_digest_and_the_nonce_of_a_live_record_and_empty_otherwise(self):
+        self.assertEqual(link_telemetry.fabric_id(self.path, proc_root=self.proc), "")
+        self.write()
+        self.assertEqual(link_telemetry.fabric_id(self.path, proc_root=self.proc),
+                         self.wanted["digest"] + ":0011223344556677")
+        shutil.rmtree(os.path.join(self.proc, str(self.BUILDER["pid"])))
+        self.assertEqual(link_telemetry.fabric_id(self.path, proc_root=self.proc), "")
+
+    def test_process_identity_reads_what_is_asked_again_later(self):
+        identity = link_telemetry.process_identity(5150, proc_root=self.proc)
+        self.assertEqual(identity, self.BUILDER)
+        self.assertTrue(link_telemetry.is_the_recorded_process(identity, proc_root=self.proc))
+        self.assertEqual(link_telemetry.process_identity(6, proc_root=self.proc),
+                         {"pid": 6, "argv": None, "start_time": None})
+
+
 if __name__ == "__main__":
     unittest.main()
 

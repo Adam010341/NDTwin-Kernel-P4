@@ -2143,6 +2143,91 @@ else:
 ' "$dir" "$REPO" "$(telemetry_knob_path)" 2>/dev/null || printf '%s\n' "ALL unresolved (app_package could not be asked)"
 }
 
+# --- what a running fabric was built from ----------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# `ndt up p4` keeps a running fabric only when it was built from the inputs this run would build it
+# from, and its builder is still the process running it. The topology script writes a record when
+# it builds (p4_proxy/mininet/link_telemetry.py reads it, app_package.fabric_identity defines it);
+# the three functions below are the shell's side of that, and each is a function of its own so a
+# test can answer it the way it answers bmv2_count.
+#
+#: What the topology script writes beside the switch manifest. Outside the repo for the reason the
+#: link-telemetry manifest is: it describes a fabric that is up.
+FABRIC_RECORD="${FABRIC_RECORD:-/tmp/ndtwin_p4_fabric.json}"
+
+# fabric_identity_wanted <app-dir|""> <hosts> <telemetry-word> -- the identity a bring-up with these
+# inputs would record, as one line of JSON. Empty, rc 1, when it cannot be worked out.
+#
+# 🔴 THE MODEL IS THE ONE THE BUILDER READS: `app_package.topology_path`, for a package its own
+# model and for the baseline the file the host count picks -- not `$topo`, which is what the kernel
+# is handed and may be a different file of the same network (NDT_TOPO). The kernel's model is
+# compared separately, by stack.sh's fingerprint.
+fabric_identity_wanted() {
+    python3 -c '
+import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "p4_proxy", "mininet"))
+try:
+    import app_package
+    wanted = app_package.wanted_fabric_identity(
+        sys.argv[2] or None, int(sys.argv[3]), sys.argv[4], binary_override=sys.argv[5],
+        setting_dir=os.path.join(sys.argv[1], "setting"),
+        base_dir=os.path.join(sys.argv[1], "p4_proxy"))
+except Exception as e:                                       # noqa: BLE001
+    sys.stderr.write("%s: %s\n" % (type(e).__name__, e)); raise SystemExit(1)
+print(json.dumps(wanted, sort_keys=True))
+' "$REPO" "$1" "$2" "$3" "$REPO/p4_proxy/mininet/bmv2_binary_override" 2>/dev/null
+}
+
+# fabric_identity_running <wanted-json> -- how the running fabric compares with it, one line:
+#   match
+#   differ <component>,<component>,...
+#   unknown <why>        no record, one that cannot be trusted, a builder that has exited, or a
+#                        record of another format
+# Only `match` lets the fabric be reused.
+fabric_identity_running() {
+    python3 -c '
+import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "p4_proxy", "mininet"))
+try:
+    import link_telemetry
+    verdict, detail = link_telemetry.fabric_identity_state(json.loads(sys.argv[2]), path=sys.argv[3])
+except Exception as e:                                       # noqa: BLE001
+    print("unknown the build record could not be read (%s)" % (e,)); raise SystemExit(0)
+if verdict == "match":
+    print("match")
+elif verdict == "differ":
+    print("differ " + ",".join(detail))
+else:
+    print("unknown " + detail)
+' "$REPO" "$1" "$FABRIC_RECORD" 2>/dev/null || echo "unknown the build record could not be read"
+}
+
+# fabric_id -- `<digest>:<nonce>` of the running fabric's record, or nothing. What stack.sh's
+# fingerprints carry (NDT_FABRIC_ID), so the proxy and the kernel are restarted over a fabric that
+# was rebuilt, and over one whose inputs changed.
+fabric_id() {
+    python3 -c '
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "p4_proxy", "mininet"))
+try:
+    import link_telemetry
+    print(link_telemetry.fabric_id(path=sys.argv[2]))
+except Exception:                                            # noqa: BLE001
+    print("")
+' "$REPO" "$FABRIC_RECORD" 2>/dev/null
+}
+
+# fabric_identity_names <a,b,c,...> -- the components as a sentence part: at most four, then `and N
+# more`.
+fabric_identity_names() {
+    local IFS=, names=() out="" i
+    read -ra names <<<"$1"
+    for (( i = 0; i < ${#names[@]} && i < 4; i++ )); do out+="${out:+, }${names[i]}"; done
+    (( ${#names[@]} > 4 )) && out+=" and $(( ${#names[@]} - 4 )) more"
+    printf '%s' "$out"
+}
+
 #: The manifest p4_proxy/mininet/link_telemetry.py writes when it attaches tc filters and
 #: starts the psample emitter. Outside the repo on purpose: it describes a
 #: RUNNING fabric, like /tmp/ndtwin_switches.json beside it, and a stale copy in the checkout
@@ -2350,15 +2435,18 @@ if not a or not b: raise SystemExit(1)
 print(a, b)' "$1" 2>/dev/null
 }
 
+# [Co-developed with claude code -- Adam]
+# The binary the override file names, read by app_package.bmv2_binary_named -- the reader the topology
+# script resolves its launcher through, so a last line with no newline or a CRLF line end is the
+# directive here exactly as it is there. This is what the banner shows and what the fabric's recorded
+# binary is compared with (fabric_identity_wanted hands the same file to the same reader).
 bmv2_binary() {
-    local f="$REPO/p4_proxy/mininet/bmv2_binary_override" line
-    [[ -f "$f" ]] || { echo "simple_switch_grpc (stock, PATH)"; return; }
-    while read -r line; do
-        line="${line#"${line%%[![:space:]]*}"}"
-        [[ -z "$line" || "$line" == \#* ]] && continue
-        echo "$line"; return
-    done < "$f"
-    echo "simple_switch_grpc (stock, PATH)"
+    python3 -c '
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "p4_proxy", "mininet"))
+import app_package
+print(app_package.bmv2_binary_named(os.path.join(sys.argv[1], "p4_proxy", "mininet", "bmv2_binary_override")))
+' "$REPO" 2>/dev/null || echo "simple_switch_grpc (stock, PATH)"
 }
 
 # The sampling rate the *compiled* pipeline encodes, not the one the .p4 comment claims.
@@ -4530,6 +4618,21 @@ up_p4() {
     # Reuse requires BOTH counts to match. The switch count alone identifies nothing -- every P4
     # topology here has ten -- so a fabric of the wrong size passed as "already up". See
     # fabric_host_count.
+    #
+    # [Co-developed with claude code -- Adam]
+    # The telemetry word this run will write, worked out HERE because it is one of the inputs the
+    # running fabric is compared against (see below). It is pure; the knob is written further down,
+    # and a package declaring a word nobody knows is still refused there, with the put-back.
+    # 🔴 THE FLAG WINS, THEN THE PACKAGE, THEN `auto`. Not giving --telemetry is not `auto`:
+    # it means "whatever this package declares", and a command that wrote `auto` over a
+    # package's own `link` would report that package's numbers as the package's while having
+    # overruled it. The word is written EVERY time, including when it is `auto`, because the
+    # alternative -- leave the file alone when nothing was asked for -- makes this bring-up
+    # inherit the last one's choice with nothing on screen saying so.
+    local tel_word="${NDT_TELEMETRY:-}" tel_word_rc=0
+    if [[ -z "$tel_word" ]]; then
+        tel_word="$(telemetry_word_for_bring_up "$app_dir")" || tel_word_rc=$?
+    fi
     local reuse=0
     topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]] && reuse=1
     if (( reuse )) && stale_pipeline; then
@@ -4539,6 +4642,36 @@ up_p4() {
         err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
         err "up.target, the knobs and the claim note were not touched."
         return 1
+    fi
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
+    # inputs this run would build it from -- the model, package.json, each switch's program and
+    # table entries, the links the package shapes, the telemetry source each switch resolves to, the
+    # bmv2 binary -- and the process that built it is still the one running it. Otherwise it is
+    # rebuilt, and the line says what differs. This is read above every write below, so a refusal
+    # that follows still leaves the files as they were. The stale-pipeline refusal above comes first and
+    # stays: it is documented, and it is a refusal where this is a rebuild.
+    if (( reuse && ! tel_word_rc )); then
+        local want_id id_state
+        want_id="$(fabric_identity_wanted "$app_dir" "$hosts" "$tel_word")"
+        if [[ -z "$want_id" ]]; then
+            id_state="unknown it could not be worked out what this run would build the fabric from"
+        else
+            id_state="$(fabric_identity_running "$want_id")"
+        fi
+        case "${id_state%% *}" in
+            match) ;;
+            differ)
+                reuse=0
+                info "the running fabric was built from different inputs ($(fabric_identity_names "${id_state#differ }")); rebuilding it" ;;
+            *)
+                reuse=0
+                if [[ "${id_state#unknown }" == "there is no build record" ]]; then
+                    info "the running fabric's build record is missing (built before this check existed, or by hand); rebuilding it"
+                else
+                    info "the running fabric's build record cannot be used (${id_state#unknown }); rebuilding it"
+                fi ;;
+        esac
     fi
     # Refuse a live OVS fabric instead of quietly removing it. `up_ovs` already refuses the
     # mirror case ("starting Ryu under a live Mininet is the /stats/flow wedge trigger");
@@ -4610,18 +4743,11 @@ up_p4() {
     # -- and after the last refusal for the same reason: a bring-up that said no must not have
     # chosen a telemetry source on its way out.
     #
-    # 🔴 THE FLAG WINS, THEN THE PACKAGE, THEN `auto`. Not giving --telemetry is not `auto`:
-    # it means "whatever this package declares", and a command that wrote `auto` over a
-    # package's own `link` would report that package's numbers as the package's while having
-    # overruled it. The word is written EVERY time, including when it is `auto`, because the
-    # alternative -- leave the file alone when nothing was asked for -- makes this bring-up
-    # inherit the last one's choice with nothing on screen saying so.
-    local tel_word="${NDT_TELEMETRY:-}"
-    if [[ -z "$tel_word" ]]; then
-        tel_word="$(telemetry_word_for_bring_up "$app_dir")" || {
-            refusal_unwind "the package's telemetry source is not one this script knows"
-            err "nothing was started."
-            return 1; }
+    # The word itself was worked out above the reuse decision (`tel_word`).
+    if (( tel_word_rc )); then
+        refusal_unwind "the package's telemetry source is not one this script knows"
+        err "nothing was started."
+        return 1
     fi
     telemetry_knob_apply "$tel_word" || {
         refusal_mark "$(telemetry_knob_path)"       # same reason as the app knob's block above
@@ -4784,6 +4910,28 @@ up_p4() {
         fi
         ok "$n switches up after $(( SECONDS - t0 ))s, manifest written"
     fi
+    # [Co-developed with claude code -- Adam]
+    # The fabric that is up now, named for stack.sh: `<digest>:<nonce>` of its build record. Read after
+    # [1/3] in both branches -- the one that reused it and the one that built it, where the record
+    # is written a moment after the switch manifest ndt waited for -- and exported so the proxy's and
+    # the kernel's fingerprints carry it. Empty (a reused fabric with no record) leaves them as they were.
+    # A fabric this run BUILT and still has no readable record is different: a proxy and kernel that
+    # were started over the fabric it replaced may carry an empty id too, and an empty id on both
+    # sides reads as "the same fabric". So the id is a one-off value then, which no earlier
+    # fingerprint can equal, and the line says why the proxy and kernel are restarted.
+    NDT_FABRIC_ID="$(fabric_id)"
+    if [[ -z "$NDT_FABRIC_ID" && "$UP_P4_FABRIC" == fresh ]]; then
+        local fid_try
+        for fid_try in 1 2 3 4 5; do
+            sleep 1; NDT_FABRIC_ID="$(fabric_id)"
+            [[ -n "$NDT_FABRIC_ID" ]] && break
+        done
+        if [[ -z "$NDT_FABRIC_ID" ]]; then
+            NDT_FABRIC_ID="unrecorded:$(date +%s%N)"
+            info "the new fabric's build record could not be read; the proxy and the kernel will be restarted over it"
+        fi
+    fi
+    export NDT_FABRIC_ID
     # The binary that is *running*, not the one the override file names -- a stale fabric
     # started before an override edit is the difference between 40 and 500 Mbit/s.
     local running
@@ -13173,6 +13321,11 @@ usage: ndt <command>
                 note). A fabric, heartbeat or stack component that was already running
                 is left running, and the rollback names what it left, replaced or lost.
                 NDT_TOPO=<file> forces a specific kernel model.
+                A P4 fabric that is already running is reused only when it was built from
+                the inputs this run would build it from (the model, package.json, each
+                switch's program and entries, the shaped links, the telemetry source, the
+                bmv2 build); otherwise 'ndt up p4' rebuilds it and says what differs. A
+                file a host command names inside its command string is not compared.
 
                 --app <dir> brings the P4 plane up on an app package -- a directory
                   with package.json and ndtwin/topology.json, as written by

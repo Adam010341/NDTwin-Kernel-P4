@@ -713,6 +713,84 @@ m=$(mutant m_b53 "$LINKTEL" \
 report "M-B53: the teardown reads an untrusted manifest and detaches what it lists" "$m" \
        "test_an_untrusted_manifest_detaches_nothing"
 
+# --- the fabric's build record: read only while its builder is the process still running -----
+#
+# [Co-developed with claude code -- Adam]
+# `ndt up p4` keeps a running fabric only when this reader says `match`. Every other answer is
+# `unknown` or `differ`, and each way of being wrong here is a fabric kept that should have been
+# rebuilt (a planted file, a record that outlived its builder, one from another format) or one
+# that never matches.
+m=$(mutant m_b58 "$LINKTEL" \
+    '    loaded, problem = load_manifest(path)
+    if problem:
+        return None, problem
+    if loaded is None:
+        return None, "there is no build record"' \
+    '    try:  # MUTANT: the record is read like any file, symlinks and owners included
+        loaded, problem = json.load(open(path)), None
+    except FileNotFoundError:
+        return None, "there is no build record"')
+report "M-B58: the build record is trusted whoever owns it and wherever the name points" "$m" \
+       "test_a_symlink_at_the_name_is_unknown_and_is_not_followed"
+
+m=$(mutant m_b59 "$LINKTEL" \
+    '    if not isinstance(recorded, dict) or not is_the_recorded_process(
+            recorded.get("builder"), proc_root=proc_root):' \
+    '    if not isinstance(recorded, dict):  # MUTANT: a builder that is gone does not matter')
+report "M-B59: a record whose builder has exited is still a fabric" "$m" \
+       "test_a_builder_that_is_gone_is_unknown_even_when_every_input_matches"
+
+m=$(mutant m_b60 "$LINKTEL" \
+    '    return _read_cmdline(pid, proc_root) == list(argv) and process_start_time(pid, proc_root) == started' \
+    '    return _read_cmdline(pid, proc_root) == list(argv)  # MUTANT: a recycled pid is the builder')
+report "M-B60: the process that took over the builder's pid is taken for the builder" "$m" \
+       "test_a_pid_that_another_process_took_over_is_not_the_builder"
+
+m=$(mutant m_b61 "$LINKTEL" \
+    '    return _read_cmdline(pid, proc_root) == list(argv) and process_start_time(pid, proc_root) == started' \
+    '    return process_start_time(pid, proc_root) == started  # MUTANT: any command line will do')
+report "M-B61: any process with the builder's start time is taken for the builder" "$m" \
+       "test_a_pid_that_another_process_took_over_is_not_the_builder"
+
+m=$(mutant m_b62 "$LINKTEL" \
+    '    if (not _is_a_signallable_pid(pid) or not _is_an_argv(argv) or not argv
+            or not _is_an_int(started)):' \
+    '    if not _is_a_signallable_pid(pid):  # MUTANT: half an identity is enough')
+report "M-B62: a builder recorded with no argv is read as an identity" "$m" \
+       "test_a_record_that_names_no_complete_identity_for_its_builder_is_unknown"
+
+m=$(mutant m_b63 "$LINKTEL" \
+    '    if loaded.get("version") != app_package.FABRIC_IDENTITY_VERSION:' \
+    '    if False:  # MUTANT: a record of another format is compared field by field')
+report "M-B63: a build record of another format version is read as this one" "$m" \
+       "test_a_record_of_another_format_version_is_unknown"
+
+m=$(mutant m_b64 "$LINKTEL" \
+    '    if not isinstance(compared, dict) or not all(isinstance(v, str) for v in compared.values()):' \
+    '    if False:  # MUTANT: whatever the record holds is its list of components')
+report "M-B64: a build record with no list of components is compared anyway" "$m" \
+       "test_a_record_with_no_list_of_components_is_unknown"
+
+m=$(mutant m_b65 "$LINKTEL" \
+    '    return ("differ", names) if names else ("match", [])' \
+    '    return ("match", [])  # MUTANT: a different input is the same fabric')
+report "M-B65: a fabric built from other inputs is reported as a match" "$m" \
+       "test_a_different_input_is_a_difference_and_names_the_component"
+
+m=$(mutant m_b66 "$LINKTEL" \
+    '    if record is None:
+        return "unknown", why' \
+    '    if record is None:  # MUTANT: no record is a match
+        return "match", []')
+report "M-B66: a fabric with no build record is reported as a match" "$m" \
+       "test_no_record_is_unknown_not_a_match"
+
+m=$(mutant m_b67 "$LINKTEL" \
+    '    return f"{record.get('"'"'digest'"'"')}:{nonce}" if isinstance(nonce, str) and nonce else ""' \
+    '    return f"{record.get('"'"'digest'"'"')}" if isinstance(nonce, str) and nonce else ""  # MUTANT: no nonce')
+report "M-B67: the fabric id carries no nonce, so a rebuilt fabric keeps its id" "$m" \
+       "test_the_fabric_id_is_the_digest_and_the_nonce_of_a_live_record_and_empty_otherwise"
+
 # --- negative controls -----------------------------------------------------------------------
 #
 # A gate that reddens on anything is not a gate. These are edits that change no behaviour these

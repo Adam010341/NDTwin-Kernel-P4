@@ -21,6 +21,7 @@ nothing and is reported as NO TESTS RAN.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -1704,6 +1705,277 @@ class RolesShapeTest(unittest.TestCase):
         self.refused({"ipv4_route": dict(A_ROUTE_ROLE, table="")}, "table")
         self.refused({"ipv4_route": dict(A_ROUTE_ROLE, params={"dst_mac": "", "port": "port"})},
                      "params.dst_mac")
+
+
+class FabricIdentityTest(unittest.TestCase):
+    """What a running fabric was built from: the digest `ndt up` compares before it reuses one.
+
+    [Co-developed with claude code -- Adam]
+    Each cell changes ONE input and asks which components of the identity moved. The unchanged
+    cells matter as much: an identity that moved on a copy of the package, or on the clock,
+    would send every `ndt up` to a rebuild and the reuse it protects would never happen.
+    """
+
+    BINARY = "/bin/true"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_fabric_identity_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.entry_files = [f"pod-topo/s{i}-runtime.json" for i in range(1, 5)]
+
+    def package(self, manifest=None, name="pkg"):
+        manifest = CONVERTER_BASIC if manifest is None else manifest
+        return lay_out_converter_package(self.tmp, manifest, name, self.entry_files)
+
+    def identity(self, directory, word="auto", binary=None):
+        return app_package.wanted_fabric_identity(
+            directory, 4, word, binary or self.BINARY,
+            setting_dir=os.path.join(REPO, "setting"))
+
+    def differences(self, a, b):
+        return app_package.identity_differences(a, b)
+
+    # --- what moves the digest ---------------------------------------------------------
+
+    def test_one_more_entry_in_a_switchs_runtime_file_changes_the_digest_and_names_it(self):
+        directory = self.package()
+        before = self.identity(directory)
+        path = os.path.join(directory, "pod-topo", "s1-runtime.json")
+        with open(path) as fh:
+            doc = json.load(fh)
+        doc["table_entries"].append({"table": "MyIngress.ipv4_lpm"})
+        with open(path, "w") as fh:
+            json.dump(doc, fh)
+        after = self.identity(directory)
+        self.assertNotEqual(before["digest"], after["digest"])
+        self.assertEqual(self.differences(after, before), ["entries/s1"])
+
+    def test_a_shaped_link_changes_the_digest_and_names_links(self):
+        before = self.identity(self.package())
+        manifest = json.loads(json.dumps(CONVERTER_BASIC))
+        manifest["links"][0]["bandwidth_bps"] = 500000
+        after = self.identity(self.package(manifest, name="shaped"))
+        self.assertNotEqual(before["digest"], after["digest"])
+        # The model carries the bandwidth and package.json declares it, so both are named too,
+        # truly; `links` is the one a reader needs, because it is what the unshaped fabric is
+        # missing.
+        self.assertEqual(self.differences(after, before), ["links", "model", "package"])
+
+    def test_the_model_edited_in_place_changes_the_digest_and_names_it(self):
+        directory = self.package()
+        before = self.identity(directory)
+        path = os.path.join(directory, "ndtwin", "topology.json")
+        with open(path) as fh:
+            doc = json.load(fh)
+        doc["nodes"][0]["nickname"] = "renamed"
+        with open(path, "w") as fh:
+            json.dump(doc, fh)
+        after = self.identity(directory)
+        self.assertEqual(self.differences(after, before), ["model"])
+
+    def test_the_bmv2_binary_is_part_of_what_the_fabric_was_built_from(self):
+        directory = self.package()
+        self.assertEqual(
+            self.differences(self.identity(directory, binary="/bin/false"),
+                             self.identity(directory)), ["bmv2"])
+
+    def test_a_telemetry_source_that_resolves_differently_names_every_switch_it_changes(self):
+        base = os.path.join(REPO, "setting")
+        link = app_package.wanted_fabric_identity(None, 4, "link", self.BINARY, setting_dir=base)
+        auto = app_package.wanted_fabric_identity(None, 4, "auto", self.BINARY, setting_dir=base)
+        self.assertNotEqual(link["digest"], auto["digest"])
+        self.assertEqual(self.differences(link, auto),
+                         [f"telemetry/s{n}" for n in range(1, 11)])
+
+    def test_a_recompiled_pipeline_names_every_switch_that_runs_it_json_and_p4info_alike(self):
+        base = os.path.join(self.tmp, "proxy_root")
+        build = os.path.join(base, "p4_src", "build")
+        os.makedirs(build)
+        names = [f"pipeline/s{n}" for n in range(1, 11)]
+        paths = [os.path.join(build, "ndtwin_switch.json"),
+                 os.path.join(build, "ndtwin_switch.p4info.txt")]
+        for path in paths:
+            with open(path, "w") as fh:
+                fh.write("compiled once")
+
+        def ask():
+            return app_package.wanted_fabric_identity(
+                None, 4, "auto", self.BINARY, setting_dir=os.path.join(REPO, "setting"),
+                base_dir=base)
+
+        before = ask()
+        for path in paths:
+            with self.subTest(file=os.path.basename(path)):
+                with open(path, "w") as fh:
+                    fh.write("compiled again")
+                self.assertEqual(self.differences(ask(), before), names)
+                with open(path, "w") as fh:
+                    fh.write("compiled once")
+                self.assertEqual(self.differences(ask(), before), [])
+
+    def test_a_different_host_count_is_named(self):
+        base = os.path.join(REPO, "setting")
+        four = app_package.wanted_fabric_identity(None, 4, "auto", self.BINARY, setting_dir=base)
+        many = app_package.wanted_fabric_identity(None, 128, "auto", self.BINARY,
+                                                  setting_dir=base)
+        self.assertIn("hosts", self.differences(many, four))
+
+    # --- what does not ------------------------------------------------------------------
+
+    def test_two_calls_on_an_unchanged_package_give_the_same_digest(self):
+        directory = self.package()
+        first, second = self.identity(directory), self.identity(directory)
+        self.assertEqual(first["digest"], second["digest"])
+        self.assertEqual(self.differences(first, second), [])
+
+    def test_a_copy_of_the_package_is_the_same_fabric(self):
+        directory = self.package()
+        copy = os.path.join(self.tmp, "copy_of_pkg")
+        shutil.copytree(directory, copy)
+        self.assertEqual(self.identity(directory)["digest"], self.identity(copy)["digest"])
+
+    def test_the_identity_carries_no_clock_and_no_path(self):
+        # What a document that varies run to run would look like: any of these in `compared`
+        # would make the digest differ between two builds of one input.
+        directory = self.package()
+        text = json.dumps(self.identity(directory)["compared"])
+        self.assertNotIn(directory, text)
+        for forbidden in ("nonce", "at", "pid", "builder"):
+            self.assertNotIn(forbidden, self.identity(directory)["compared"])
+
+    def test_auto_and_the_word_it_resolves_to_are_one_identity(self):
+        # The digest is over the RESOLVED source per switch, not over the word asked for:
+        # `auto` on NDTwin's own pipeline IS cooperative, and a rebuild for that would be a
+        # rebuild for nothing.
+        base = os.path.join(REPO, "setting")
+        auto = app_package.wanted_fabric_identity(None, 4, "auto", self.BINARY, setting_dir=base)
+        coop = app_package.wanted_fabric_identity(
+            None, 4, "cooperative", self.BINARY, setting_dir=base)
+        self.assertEqual(auto["digest"], coop["digest"])
+
+    def test_the_word_stands_in_for_the_knob_and_an_absent_knob_is_auto(self):
+        # `word=` is the word a bring-up is about to write; the knob on disk is not read at all.
+        pkg = app_package.baseline()
+        knob = os.path.join(self.tmp, "telemetry_override")
+        with open(knob, "w") as fh:
+            fh.write("link\n")
+        absent = os.path.join(self.tmp, "no_such_knob")
+        self.assertEqual(app_package.telemetry_source(pkg, 1, knob_path=knob, word="auto"),
+                         app_package.telemetry_source(pkg, 1, knob_path=absent))
+        self.assertEqual(app_package.telemetry_source(pkg, 1, knob_path=absent, word="link"),
+                         "link")
+        with self.assertRaises(app_package.AppPackageError):
+            app_package.telemetry_source(pkg, 1, word="sideways")
+
+    def with_environment(self, name, value):
+        old = os.environ.get(name)
+
+        def restore():
+            if old is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = old
+        self.addCleanup(restore)
+        os.environ[name] = value
+
+    def test_a_model_named_in_ndts_environment_is_not_the_one_the_builder_reads(self):
+        # The builder runs under the lab's root environment, where NDTWIN_P4_TOPO_FILE is not set;
+        # `ndt` may have it set for the kernel. The identity must hash the model the builder reads.
+        setting = os.path.join(REPO, "setting")
+        model = os.path.join(setting, "StaticNetworkTopologyP4_10Switches_4Hosts.json")
+        other = os.path.join(self.tmp, "same-network-other-bytes.json")
+        with open(model, "rb") as src, open(other, "wb") as dst:
+            dst.write(src.read() + b"\n")
+        with open(model, "rb") as fh:
+            builders = hashlib.sha256(fh.read()).hexdigest()
+        self.with_environment("NDTWIN_P4_TOPO_FILE", other)
+        wanted = app_package.wanted_fabric_identity(None, 4, "auto", self.BINARY,
+                                                    setting_dir=setting)
+        self.assertEqual(wanted["compared"]["model"], builders)
+
+    def test_a_model_named_in_ndts_environment_does_not_refuse_a_package_either(self):
+        directory = self.package()
+        before = self.identity(directory)
+        self.with_environment("NDTWIN_P4_TOPO_FILE", os.path.join(self.tmp, "somewhere-else.json"))
+        self.assertEqual(self.differences(self.identity(directory), before), [])
+
+    def test_a_differing_component_only_one_side_has_is_a_difference(self):
+        a = {"compared": {"model": "x", "links": "[]"}}
+        b = {"compared": {"model": "x"}}
+        self.assertEqual(app_package.identity_differences(a, b), ["links"])
+        self.assertEqual(app_package.identity_differences(b, a), ["links"])
+        self.assertEqual(app_package.identity_differences(a, a), [])
+
+
+class Bmv2OverrideDirectiveTest(unittest.TestCase):
+    """How `bmv2_binary_override` is read: one parser, for the topology script and for `ndt`.
+
+    [Co-developed with claude code -- Adam]
+    The file is edited by hand and by `printf`, so the cells are the shapes an editor and a shell
+    leave behind: no newline after the last line, CRLF line ends, blank and comment lines first.
+    `ndt` once read it with its own loop and called a path with no final newline "no override",
+    so the fabric it had built from that very binary was rebuilt at every `ndt up p4`.
+    """
+
+    BINARY = "/bin/true"
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_bmv2_override_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def override(self, text):
+        path = os.path.join(self.tmp, "bmv2_binary_override")
+        with open(path, "wb") as fh:
+            fh.write(text.encode())
+        return path
+
+    def test_a_last_line_with_no_newline_is_the_directive(self):
+        self.assertEqual(app_package.bmv2_override_directive(self.override(self.BINARY)),
+                         self.BINARY)
+
+    def test_crlf_line_ends_do_not_stay_on_the_path(self):
+        self.assertEqual(app_package.bmv2_override_directive(
+            self.override("# fast build\r\n\r\n" + self.BINARY + "\r\n")), self.BINARY)
+        self.assertEqual(app_package.bmv2_override_directive(
+            self.override(self.BINARY + "\r")), self.BINARY)
+
+    def test_blank_lines_comments_and_surrounding_blanks_are_not_the_directive(self):
+        self.assertEqual(app_package.bmv2_override_directive(
+            self.override("\n  # a comment\n\n   " + self.BINARY + "  \t\n/bin/false\n")),
+            self.BINARY)
+
+    def test_a_file_with_no_directive_has_none(self):
+        self.assertIsNone(app_package.bmv2_override_directive(self.override("# only a note\n\n")))
+        self.assertIsNone(app_package.bmv2_override_directive(self.override("")))
+
+    def test_an_absent_file_raises_for_the_caller_to_word(self):
+        with self.assertRaises(FileNotFoundError):
+            app_package.bmv2_override_directive(os.path.join(self.tmp, "absent"))
+
+    def test_what_ndt_shows_is_the_directive_or_the_stock_label(self):
+        self.assertEqual(app_package.bmv2_binary_named(self.override(self.BINARY)), self.BINARY)
+        label = "simple_switch_grpc (stock, PATH)"
+        self.assertEqual(app_package.BMV2_STOCK_LABEL, label)
+        self.assertEqual(app_package.bmv2_binary_named(os.path.join(self.tmp, "absent")), label)
+        self.assertEqual(app_package.bmv2_binary_named(self.override("# nothing\n")), label)
+
+    def test_the_identity_asked_by_override_path_is_the_one_asked_by_binary(self):
+        setting = os.path.join(REPO, "setting")
+        by_path = app_package.wanted_fabric_identity(
+            None, 4, "auto", binary_override=self.override(self.BINARY), setting_dir=setting)
+        by_name = app_package.wanted_fabric_identity(
+            None, 4, "auto", self.BINARY, setting_dir=setting)
+        self.assertEqual(app_package.identity_differences(by_path, by_name), [])
+        self.assertEqual(by_path["digest"], by_name["digest"])
+
+    def test_an_override_that_names_no_binary_is_a_difference_not_a_guess(self):
+        setting = os.path.join(REPO, "setting")
+        named = app_package.wanted_fabric_identity(
+            None, 4, "auto", binary_override=self.override(self.BINARY), setting_dir=setting)
+        for text in ("# nothing\n", ""):
+            nothing = app_package.wanted_fabric_identity(
+                None, 4, "auto", binary_override=self.override(text), setting_dir=setting)
+            self.assertEqual(app_package.identity_differences(nothing, named), ["bmv2"])
 
 
 if __name__ == "__main__":

@@ -145,10 +145,10 @@ check_control() {   # <label> <name> -- behaviour-preserving; the suite must sta
 cat > "$A/m1.old" <<'EOF'
             "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) telemetry=$(sed -n \
             '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]].*//; p; q' \
-            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo" \
+            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo fabric=${NDT_FABRIC_ID:-}" \
 EOF
 cat > "$A/m1.new" <<'EOF'
-            "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) topo=$topo" \
+            "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) topo=$topo fabric=${NDT_FABRIC_ID:-}" \
 EOF
 check_fires "M1: the start_bg fingerprint drops the telemetry source" m1 \
             "🔴 the start_bg fingerprint carries the telemetry source"
@@ -160,11 +160,11 @@ check_fires "M1: the start_bg fingerprint drops the telemetry source" m1 \
 # failure, and the one that is invisible because restarting always "works".
 cat > "$A/m2.old" <<'EOF'
 '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]].*//; p; q' \
-            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo" \
+            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo fabric=${NDT_FABRIC_ID:-}" \
 EOF
 cat > "$A/m2.new" <<'EOF'
 'p; q' \
-            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo" \
+            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo fabric=${NDT_FABRIC_ID:-}" \
 EOF
 check_fires "M2: the fingerprint reads the knob's comment line" m2 \
             "🔴 the start_bg fingerprint carries the telemetry source"
@@ -195,6 +195,55 @@ cat > "$A/m4.new" <<'EOF'
 EOF
 check_fires "M4: the fingerprint keeps the variable's padding" m4 \
             "  the value is stripped as the proxy strips it, so padding is not a restart"
+
+# --- M5: the proxy's fingerprint drops the fabric id ---------------------------------------------
+# 🔴 WITHOUT IT A FABRIC REBUILT UNDER A RUNNING PROXY LOOKS LIKE THE SAME STACK. `ndt up p4` exports
+# NDT_FABRIC_ID (the build record's `<digest>:<nonce>`); a package edited in place, or a fabric
+# rebuilt from the same inputs, then reaches start_bg as "the same command" and the proxy keeps the
+# package it read at import.
+cat > "$A/m5.old" <<'EOF'
+            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo fabric=${NDT_FABRIC_ID:-}" \
+EOF
+cat > "$A/m5.new" <<'EOF'
+            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo" \
+EOF
+check_fires "M5: the proxy's fingerprint drops the fabric id" m5 \
+            "🔴 the proxy's start_bg fingerprint carries the fabric id" \
+            "🔴 a rebuilt fabric (same digest, new nonce) is a different fingerprint, so the proxy restarts"
+
+# --- M6: the kernel's fingerprint drops the model's content hash ----------------------------------
+cat > "$A/m6.old" <<'EOF'
+    START_BG_IDENTITY="topology_sha256=$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1) fabric=${NDT_FABRIC_ID:-}" \
+EOF
+cat > "$A/m6.new" <<'EOF'
+    START_BG_IDENTITY="topology_sha256= fabric=${NDT_FABRIC_ID:-}" \
+EOF
+check_fires "M6: the kernel's fingerprint drops the model's content hash" m6 \
+            "🔴 the kernel's start_bg fingerprint carries the model's content hash" \
+            "🔴 a model edited in place (same path, new bytes) is a different fingerprint, so the kernel restarts"
+
+# --- M7: the kernel's fingerprint hashes the model's PATH, not its content ------------------------
+# The shape of the defect it replaces: the argv already names the path, so this is no better.
+cat > "$A/m7.old" <<'EOF'
+    START_BG_IDENTITY="topology_sha256=$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1) fabric=${NDT_FABRIC_ID:-}" \
+EOF
+cat > "$A/m7.new" <<'EOF'
+    START_BG_IDENTITY="topology_sha256=$(printf '%s' "$topo" | sha256sum | cut -d' ' -f1) fabric=${NDT_FABRIC_ID:-}" \
+EOF
+check_fires "M7: the kernel's fingerprint hashes the model's path" m7 \
+            "🔴 a model edited in place (same path, new bytes) is a different fingerprint, so the kernel restarts" \
+            "  a copy of the model (new path, same bytes) is the same fingerprint"
+
+# --- M8: the kernel's fingerprint drops the fabric id ---------------------------------------------
+cat > "$A/m8.old" <<'EOF'
+    START_BG_IDENTITY="topology_sha256=$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1) fabric=${NDT_FABRIC_ID:-}" \
+EOF
+cat > "$A/m8.new" <<'EOF'
+    START_BG_IDENTITY="topology_sha256=$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1)" \
+EOF
+check_fires "M8: the kernel's fingerprint drops the fabric id" m8 \
+            "  and the fabric id" \
+            "🔴 a rebuilt fabric is a different fingerprint, so the kernel restarts and pulls the topology again"
 
 # --- the control ---------------------------------------------------------------------------------
 # 🔴 Without it the two lines above say nothing: a suite that reddened for ANY edit to stack.sh

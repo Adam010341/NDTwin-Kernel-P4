@@ -1258,12 +1258,21 @@ cmd_up() {
         # clone sessions and registering switches for sFlow and one deliberately doing neither.
         # start_bg would reuse the first, and every link-usage number afterwards would be
         # describing a proxy nobody asked for.
+        # [Co-developed with claude code -- Adam]
+        # 🔴 AND THE FABRIC IT WAS STARTED OVER. NDT_FABRIC_ID is `<digest>:<nonce>` of the build
+        # record the topology script wrote for the fabric that is running (`ndt up p4` exports
+        # it after [1/3]). The digest is what the fabric was built from, so a package edited in
+        # place changes it; the nonce is fresh per build, so a rebuilt fabric changes it even
+        # when the inputs did not. Either way the proxy is restarted and re-reads its package,
+        # instead of being kept over a fabric it was not started for. Empty when this script is
+        # run by hand, which leaves the fingerprint as it was. The first `ndt up p4` after this
+        # field was added restarts a proxy that was already running; later ones reuse it.
         START_BG_IDENTITY="hosts=$(sed -n 's/^[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
             "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) proxy_host=$(printf '%s' "${NDTWIN_PROXY_HOST:-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//') app=$(sed -n \
             '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; p; q' \
             "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) telemetry=$(sed -n \
             '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]].*//; p; q' \
-            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo" \
+            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo fabric=${NDT_FABRIC_ID:-}" \
         start_bg p4_proxy "$LOG_DIR/p4_proxy.log" \
             env PYTHONPATH="$KERNEL_DIR/p4_proxy" NDTWIN_TOPO_FILE="$topo" \
             bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"
@@ -1297,6 +1306,15 @@ cmd_up() {
     # This changes the recorded command string, so the first `up` after this change restarts a
     # kernel that is already running -- start_bg's own rule, and the reason it is worth naming
     # here rather than being discovered as a surprise.
+    #
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE KERNEL HAS A FINGERPRINT TOO. Its argv names the model by PATH, so a model edited in
+    # place and brought up again looked like "the same command" and the kernel kept the topology
+    # it had loaded from the old bytes. `topology_sha256` is the model's content; `fabric` is the
+    # build record's `<digest>:<nonce>`, so a kernel that pulled its topology once from a fabric
+    # that has since been rebuilt is restarted and pulls it again. The first `up` after this
+    # field was added restarts a kernel that was already running.
+    START_BG_IDENTITY="topology_sha256=$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1) fabric=${NDT_FABRIC_ID:-}" \
     start_bg kernel "$LOG_DIR/kernel.log" \
         bash -c "export NDT_LAB_CLAIM_FILE='$KERNEL_DIR/.test_run/lab.claim'; cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
     wait_for_port 8000 "kernel API" 40 kernel || {

@@ -730,6 +730,96 @@ def emitter_is_running(document, proc_root="/proc"):
                                   start_time=document.get("start_time"))
 
 
+# --- the fabric's build record: what a running fabric was built from, and by whom ------------
+#
+# [Co-developed with claude code -- Adam]
+# The topology script writes /tmp/ndtwin_p4_fabric.json (app_package.FABRIC_RECORD_PATH) when a
+# bring-up succeeds, and `ndt up p4` reads it to decide whether the fabric that is running is the
+# one this run would build. It lives here because this module already owns the two things such a
+# reader needs: the trust check on a file in /tmp (`load_manifest`) and the "is this still that
+# process" test (`process_start_time`, `_read_cmdline`). A reader with a copy of either would be a
+# second place for them to stop agreeing.
+
+
+def process_identity(pid, proc_root="/proc"):
+    """{"pid", "argv", "start_time"} of a live process: what `is_the_recorded_process` asks again.
+
+    argv and start_time are both None when either cannot be read, as `emitter_identity` does:
+    half an identity is never recorded.
+    """
+    if not _is_a_signallable_pid(pid):
+        return {"pid": pid, "argv": None, "start_time": None}
+    cmdline = _read_cmdline(pid, proc_root)
+    started = process_start_time(pid, proc_root)
+    if not cmdline or started is None:
+        return {"pid": pid, "argv": None, "start_time": None}
+    return {"pid": pid, "argv": cmdline, "start_time": started}
+
+
+def is_the_recorded_process(identity, proc_root="/proc"):
+    """Whether `identity` (`process_identity`'s shape) is the process that holds that pid NOW.
+
+    All three halves or nothing: a recorded pid with no argv or no start time cannot tell the
+    process that wrote it from whatever holds the number later, so it answers False.
+    """
+    if not isinstance(identity, dict):
+        return False
+    pid, argv, started = identity.get("pid"), identity.get("argv"), identity.get("start_time")
+    if (not _is_a_signallable_pid(pid) or not _is_an_argv(argv) or not argv
+            or not _is_an_int(started)):
+        return False
+    return _read_cmdline(pid, proc_root) == list(argv) and process_start_time(pid, proc_root) == started
+
+
+def read_fabric_record(path=None, proc_root="/proc"):
+    """(record, why): the build record of the fabric that is running, or None and why not.
+
+    Refused, never guessed at: no file, a file that fails the same trust check every manifest in
+    /tmp gets (no symlink, written by root or by this user, not writable by anyone else), a record
+    of another format version, one with no `compared` section, and one whose builder is gone.
+    A record outlives its builder only when the builder died without tearing down, and what it
+    describes is then not a fabric.
+    """
+    path = path or app_package.FABRIC_RECORD_PATH
+    loaded, problem = load_manifest(path)
+    if problem:
+        return None, problem
+    if loaded is None:
+        return None, "there is no build record"
+    if loaded.get("version") != app_package.FABRIC_IDENTITY_VERSION:
+        return None, "the build record is of another format version"
+    compared = loaded.get("compared")
+    if not isinstance(compared, dict) or not all(isinstance(v, str) for v in compared.values()):
+        return None, "the build record has no readable list of what the fabric was built from"
+    recorded = loaded.get("recorded")
+    if not isinstance(recorded, dict) or not is_the_recorded_process(
+            recorded.get("builder"), proc_root=proc_root):
+        return None, "the process that built the fabric is no longer running"
+    return loaded, None
+
+
+def fabric_identity_state(wanted, path=None, proc_root="/proc"):
+    """("match", []) | ("differ", [component, ...]) | ("unknown", why).
+
+    `wanted` is `app_package.wanted_fabric_identity`'s document. `match` only when a trusted
+    record of a live builder agrees on every component.
+    """
+    record, why = read_fabric_record(path, proc_root=proc_root)
+    if record is None:
+        return "unknown", why
+    names = app_package.identity_differences(wanted, record)
+    return ("differ", names) if names else ("match", [])
+
+
+def fabric_id(path=None, proc_root="/proc"):
+    """`<digest>:<nonce>` of the running fabric's record, or "" when there is none to trust."""
+    record, _why = read_fabric_record(path, proc_root=proc_root)
+    if record is None:
+        return ""
+    nonce = record["recorded"].get("nonce")
+    return f"{record.get('digest')}:{nonce}" if isinstance(nonce, str) and nonce else ""
+
+
 def stop_emitter(pid, kill=None, is_emitter=None, sleep=None, grace_s=EMITTER_STOP_GRACE_S,
                  argv=None, start_time=None):
     """SIGTERM, wait up to `grace_s`, then SIGKILL. Returns what it ended up doing.

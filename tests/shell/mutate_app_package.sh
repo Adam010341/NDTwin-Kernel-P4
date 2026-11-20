@@ -622,6 +622,269 @@ m=$(mutant m48 "$PKG" \
 report "M48 (M-B12): a package may name a telemetry source outside the domain" "$m" \
        "test_a_word_outside_the_domain_is_refused_by_name"
 
+# --- what a running fabric was built from (`ndt up p4` reuses one only when this matches) -----
+#
+# [Co-developed with claude code -- Adam]
+# Each input the identity covers has its own mutation, and each names the cell that changes ONE
+# input and asks which component moved; the two mutations that put something variable INTO the
+# digest are the ones that would make every `ndt up` rebuild.
+m=$(mutant m49 "$PKG" \
+    '        compared[f"entries/s{dpid}"] = (_file_sha256(entries[dpid]) if entries.get(dpid)
+                                        else "none")' \
+    '        compared[f"entries/s{dpid}"] = "none"  # MUTANT: the runtime entries are not part of it')
+report "M49: a package edited in place (one more table entry) has the same identity" "$m" \
+       "test_one_more_entry_in_a_switchs_runtime_file_changes_the_digest_and_names_it"
+
+m=$(mutant m50 "$PKG" \
+    '        "links": json.dumps([[list(a), list(b), bw, delay]
+                             for a, b, bw, delay in shaped_links(package)],
+                            sort_keys=True, separators=(",", ":")),' \
+    '        "links": "[]",  # MUTANT: the shaping is not part of it')
+report "M50: a package that shapes a link has the identity of one that does not" "$m" \
+       "test_a_shaped_link_changes_the_digest_and_names_links"
+
+m=$(mutant m51 "$PKG" \
+    '    for dpid in sorted(telemetry_sources):
+        compared[f"telemetry/s{dpid}"] = telemetry_sources[dpid]' \
+    '    for dpid in sorted(telemetry_sources):
+        pass  # MUTANT: the telemetry source is not part of it')
+report "M51: a fabric sampling by link has the identity of one sampling cooperatively" "$m" \
+       "test_a_telemetry_source_that_resolves_differently_names_every_switch_it_changes"
+
+m=$(mutant m52 "$PKG" \
+    '    sources = {dpid: telemetry_source(package, dpid, base_dir=base_dir, word=word)
+               for dpid in dpids}' \
+    '    sources = {dpid: word for dpid in dpids}  # MUTANT: the word asked for, not what it resolves to')
+report "M52: the identity hashes the telemetry WORD, so auto and cooperative differ" "$m" \
+       "test_auto_and_the_word_it_resolves_to_are_one_identity"
+
+m=$(mutant m53 "$PKG" \
+    '        "hosts": str(len(topo_from_json.hosts(model))),
+    }' \
+    '        "hosts": str(len(topo_from_json.hosts(model))),
+        "where": str(package.dir),  # MUTANT: the package path is part of it
+    }')
+report "M53: the identity includes the package path, so a copy is a different fabric" "$m" \
+       "test_a_copy_of_the_package_is_the_same_fabric"
+
+m=$(mutant m54 "$PKG" \
+    '        "model": _file_sha256(model_path),' \
+    '        "model": "unhashed",  # MUTANT: the model is not part of it')
+report "M54: a model edited in place has the same identity" "$m" \
+       "test_the_model_edited_in_place_changes_the_digest_and_names_it"
+
+m=$(mutant m55 "$PKG" \
+    '    compared["bmv2"] = (os.path.realpath(binary) if binary and os.path.isabs(binary)
+                        else str(binary))' \
+    '    compared["bmv2"] = "any"  # MUTANT: the binary is not part of it')
+report "M55: a different bmv2 binary has the same identity" "$m" \
+       "test_the_bmv2_binary_is_part_of_what_the_fabric_was_built_from"
+
+m=$(mutant m56 "$PKG" \
+    '        compared[f"pipeline/s{dpid}"] = (_file_sha256(json_paths[dpid]) + "+"
+                                         + _file_sha256(p4info))' \
+    '        compared[f"pipeline/s{dpid}"] = "-" + "+" + _file_sha256(p4info)  # MUTANT: the bmv2 json is not part of it')
+report "M56: a recompiled bmv2 json has the same identity" "$m" \
+       "test_a_recompiled_pipeline_names_every_switch_that_runs_it_json_and_p4info_alike"
+
+m=$(mutant m57 "$PKG" \
+    '        compared[f"pipeline/s{dpid}"] = (_file_sha256(json_paths[dpid]) + "+"
+                                         + _file_sha256(p4info))' \
+    '        compared[f"pipeline/s{dpid}"] = _file_sha256(json_paths[dpid]) + "+" + "-"  # MUTANT: the p4info is not part of it')
+report "M57: a changed p4info has the same identity" "$m" \
+       "test_a_recompiled_pipeline_names_every_switch_that_runs_it_json_and_p4info_alike"
+
+m=$(mutant m58 "$PKG" \
+    '        "hosts": str(len(topo_from_json.hosts(model))),' \
+    '        "hosts": "0",  # MUTANT: the host count is not part of it')
+report "M58: a fabric of another size has the same host count in its identity" "$m" \
+       "test_a_different_host_count_is_named"
+
+m=$(mutant m59 "$PKG" \
+    '    if word is not None:
+        if word not in TELEMETRY_SOURCES:' \
+    '    if False:  # MUTANT: the word is ignored and the knob file is read
+        if word not in TELEMETRY_SOURCES:')
+report "M59: telemetry_source ignores the word it is given and reads the knob file" "$m" \
+       "test_the_word_stands_in_for_the_knob_and_an_absent_knob_is_auto"
+
+m=$(mutant m60 "$PKG" \
+    '    return sorted((name for name in set(a) | set(b) if a.get(name) != b.get(name)),' \
+    '    return sorted((name for name in set(a) & set(b) if a.get(name) != b.get(name)),')
+report "M60: a component only one of the two identities has is not a difference" "$m" \
+       "test_a_differing_component_only_one_side_has_is_a_difference"
+
+# --- the build record the topology script writes (`ndt up p4` keeps a fabric only if it matches) ---
+#
+# [Co-developed with claude code -- Adam]
+# Written once the switch manifest is, by the process that built the fabric; removed first thing by
+# the next build (so a build that dies half way leaves no record of the fabric it replaced) and last
+# thing by the teardown. Each of those has its own mutation, and so has the hand-over from both
+# mains: a main that forgets it is a fabric that is rebuilt on every `ndt up`.
+m=$(mutant m61 "$TESTBED" \
+    '    if identity is not None and not manifest_problem:' \
+    '    if identity is not None:  # MUTANT: a fabric with no switch manifest is recorded too')
+report "M61: a bring-up whose switch manifest could not be written still records the fabric" "$m" \
+       "test_a_switch_manifest_that_could_not_be_written_leaves_no_record"
+
+m=$(mutant m62 "$TESTBED" \
+    '    if identity is not None and not manifest_problem:' \
+    '    if False:  # MUTANT: the record is never written')
+report "M62: the bring-up never writes the build record" "$m" \
+       "test_a_successful_bring_up_records_what_it_was_built_from_and_who_built_it"
+
+m=$(mutant m63 "$TESTBED" \
+    '    remove_fabric_record()
+    # Last run'"'"'s link telemetry first' \
+    '    # MUTANT: the next build leaves the old record in place
+    # Last run'"'"'s link telemetry first')
+report "M63: the next build leaves the previous fabric's record in place" "$m" \
+       "test_the_next_build_removes_the_record_before_it_destroys_anything"
+
+m=$(mutant m64 "$TESTBED" \
+    '    remove_fabric_record()
+    # Last run'"'"'s link telemetry first, and by the same reasoning the switch reap below stands
+    # on: an emitter orphaned by a closed terminal is a process holding a psample group and
+    # writing sFlow the kernel will attribute to a fabric that no longer exists. It is stopped
+    # by the pid its manifest names, after /proc says that pid is still it -- never by pattern.
+    # `mn -c` does not touch it, exactly as `mn -c` does not touch bmv2.
+    # [Co-developed with claude code -- Adam]
+    link_telemetry.shut_down(report=print)' \
+    '    link_telemetry.shut_down(report=print)
+    remove_fabric_record()  # MUTANT: removed after the emitter is stopped, not first')
+report "M64: the record is removed only after the old fabric's emitter has been stopped" "$m" \
+       "test_the_next_build_removes_the_record_before_it_destroys_anything"
+
+m=$(mutant m65 "$TESTBED" \
+    '    remove_fabric_record(fabric_record_path)' \
+    '    pass  # MUTANT: the teardown leaves the record of a fabric that is gone')
+report "M65: the teardown leaves the build record behind" "$m" \
+       "test_the_teardown_removes_the_record"
+
+m=$(mutant m66 "$TESTBED" \
+    '    document["recorded"]["builder"] = (link_telemetry.process_identity(os.getpid())
+                                       if builder is None else builder)' \
+    '    document["recorded"]["builder"] = None  # MUTANT: the record does not say who built it')
+report "M66: the record does not name the process that built the fabric" "$m" \
+       "test_a_successful_bring_up_records_what_it_was_built_from_and_who_built_it"
+
+m=$(mutant m67 "$TESTBED" \
+    '    document["recorded"]["nonce"] = nonce or os.urandom(8).hex()' \
+    '    document["recorded"]["nonce"] = nonce or "0" * 16  # MUTANT: every build has one nonce')
+report "M67: two builds from one input cannot be told apart" "$m" \
+       "test_two_builds_from_one_input_are_two_fabrics"
+
+m=$(mutant m68 "$TESTBED" \
+    '            report(f"WARNING: {record_problem}")' \
+    '            pass  # MUTANT: a record that could not be written is not said')
+report "M68: a build record that could not be written is not reported" "$m" \
+       "test_a_record_that_cannot_be_written_is_said_and_does_not_fail_the_bring_up"
+
+m=$(mutant m69 "$TESTBED" \
+    '            json.dump(document, fh, indent=2)
+            os.chmod(tmp, 0o644)' \
+    '            json.dump(document, fh, indent=2)
+            pass  # MUTANT: left at mkstemp'"'"'s 0600')
+report "M69: the build record is written with mkstemp's mode, unreadable to ndt" "$m" \
+       "test_a_successful_bring_up_records_what_it_was_built_from_and_who_built_it"
+
+m=$(mutant m70 "$TESTBED" \
+    '                      identity=identity)' \
+    '                      identity=None)  # MUTANT: the plan carries no identity')
+report "M70: plan_fabric hands back a plan with no identity" "$m" \
+       "test_a_successful_bring_up_records_what_it_was_built_from_and_who_built_it"
+
+m=$(mutant m71 "$BRIDGE" \
+    '        plan.package, plan.model, grpc_host=plan.bmv2_host, identity=plan.identity)' \
+    '        plan.package, plan.model, grpc_host=plan.bmv2_host)  # MUTANT: this main records nothing')
+report "M71: the NTG entry point brings the fabric up without recording what it was built from" "$m" \
+       "test_both_mains_hand_the_plans_identity_to_the_bring_up"
+
+m=$(mutant m72 "$TESTBED" \
+    '                                                         grpc_host=plan.bmv2_host,
+                                                         identity=plan.identity)' \
+    '                                                         grpc_host=plan.bmv2_host)  # MUTANT')
+report "M72: the topology script brings the fabric up without recording what it was built from" "$m" \
+       "test_both_mains_hand_the_plans_identity_to_the_bring_up"
+
+# --- the bmv2 override has one reader, and `ndt` asks the same one the builder does -------------
+#
+# [Co-developed with claude code -- Adam]
+# `ndt` once read the override file with a loop of its own: a last line with no newline, or one
+# ending in a carriage return, was "no override" there and the directive in the topology script, so
+# a fabric built from that very binary was rebuilt at every `ndt up p4`, naming a component that had
+# not changed. Each way of getting the reader wrong, and each way of letting a caller stop using it,
+# has its own mutation; the agreement cells give both sides one input and ask for no difference.
+m=$(mutant m73 "$PKG" \
+    '    with open(path, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    return next((ln.strip() for ln in lines' \
+    '    with open(path, encoding="utf-8") as fh:
+        lines = [ln for ln in fh.readlines() if ln.endswith("\n")]  # MUTANT: a last line with no newline is not read
+    return next((ln.strip() for ln in lines')
+report "M73: an override whose last line has no newline names no binary" "$m" \
+       "test_a_last_line_with_no_newline_is_the_directive"
+
+m=$(mutant m74 "$PKG" \
+    '    with open(path, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    return next((ln.strip() for ln in lines
+                 if ln.strip() and not ln.strip().startswith("#")), None)' \
+    '    with open(path, encoding="utf-8", newline="") as fh:  # MUTANT: line ends kept, only the newline cut
+        lines = fh.readlines()
+    return next((ln.rstrip("\n") for ln in lines
+                 if ln.strip() and not ln.strip().startswith("#")), None)')
+report "M74: a carriage return stays on the path the override names" "$m" \
+       "test_crlf_line_ends_do_not_stay_on_the_path"
+
+m=$(mutant m75 "$PKG" \
+    '        return bmv2_override_directive(path) or BMV2_STOCK_LABEL' \
+    '        return bmv2_override_directive(path)  # MUTANT: a file that names no binary shows None')
+report "M75: an override that names no binary is not told apart from a binary" "$m" \
+       "test_what_ndt_shows_is_the_directive_or_the_stock_label"
+
+m=$(mutant m76 "$PKG" \
+    '    if binary is None and binary_override is not None:
+        binary = bmv2_binary_named(binary_override)' \
+    '    if binary is None and binary_override is not None:
+        binary = BMV2_STOCK_LABEL  # MUTANT: the override file is never read')
+report "M76: the identity asked by override path ignores what the file names" "$m" \
+       "test_the_identity_asked_by_override_path_is_the_one_asked_by_binary"
+
+m=$(mutant m77 "$TESTBED" \
+    '        directive = app_package.bmv2_override_directive(override_path)' \
+    '        with open(override_path, encoding="utf-8") as fh:  # MUTANT: the builder reads the file its own way again
+            directive = next((ln.strip() for ln in fh.read().split("\n")[:-1]
+                              if ln.strip() and not ln.strip().startswith("#")), None)')
+report "M77: the topology script stops reading the override through the shared reader" "$m" \
+       "test_an_override_whose_last_line_has_no_newline_agrees"
+
+m=$(mutant m78 "$PKG" \
+    '    model_path = topology_path(package, host_num, setting_dir=setting_dir, env={})
+    model = topo_from_json.load(model_path)' \
+    '    model_path = topology_path(package, host_num, setting_dir=setting_dir, env=None)  # MUTANT: the model ndt'"'"'s own environment names
+    model = topo_from_json.load(model_path)')
+report "M78: a model named in ndt's environment is the one the identity hashes" "$m" \
+       "test_a_model_named_in_ndts_environment_is_not_the_one_the_builder_reads"
+
+m=$(mutant m79 "$PKG" \
+    '    model_path = topology_path(package, host_num, setting_dir=setting_dir, env={})
+    model = topo_from_json.load(model_path)' \
+    '    model_path = topo_from_json.model_path(host_num, setting_dir=setting_dir, env={})  # MUTANT: the model the host count picks, as the kernel is handed
+    model = topo_from_json.load(model_path)')
+report "M79: the wanted identity hashes the model the host count picks, not the builder's" "$m" \
+       "test_a_package_with_two_programs_and_entries_agrees"
+
+m=$(mutant m80 "$PKG" \
+    '    model_path = topology_path(package, host_num, setting_dir=setting_dir, env={})
+    model = topo_from_json.load(model_path)' \
+    '    model_path = topology_path(package, host_num, setting_dir=setting_dir, env={})
+    if not app_dir:  # MUTANT: the baseline is hashed from another size'"'"'s model
+        model_path = topology_path(package, 128, setting_dir=setting_dir, env={})
+    model = topo_from_json.load(model_path)')
+report "M80: the baseline's wanted identity is hashed from another size's model" "$m" \
+       "test_the_baseline_at_four_hosts_agrees"
+
 # --- negative controls -----------------------------------------------------------------------
 #
 # A gate that reddens on anything is not a gate. These are edits that change no behaviour these

@@ -148,7 +148,8 @@ Failure direction: optimistic.
 **What you see.** The rollback prints `held by the fabric this run reused, which stays up: <ports>`.
 Those ports do not make the rollback incomplete, and the line does not say which process holds them.
 
-**When.** `ndt up p4` finds a fabric already up (`already up: ... reusing`), fails after it has called
+**When.** `ndt up p4` finds a fabric already up and built from the inputs this run would build it from
+(`already up: ... reusing`; a fabric built from other inputs is rebuilt instead), fails after it has called
 `stack.sh up`, and rolls back what it started. The fabric is left running, so it still holds its switches' gRPC and Thrift
 ports when the rollback reads them again.
 
@@ -209,7 +210,7 @@ Failure direction: silent (both clients get 200).
 No historical link data is recorded.
 
 **When.** Whenever the kernel runs in MININET mode, which is how `ndt up` always starts it
-(`tools/test_workflow/stack.sh:1301`). Outside MININET mode, the same reply is given when the recorder
+(the kernel's launch line in `cmd_up` of `tools/test_workflow/stack.sh`, `--mode mininet`). Outside MININET mode, the same reply is given when the recorder
 thread is not running or when every write to the output directory fails.
 
 **Why.** The recorder is not started in MININET mode, and says so in the kernel log
@@ -429,7 +430,7 @@ flow count is unchanged, and `get_graph_data`, path queries and `ndt status --ch
 healthy.
 
 **When.** OVS only; bmv2 (P4) fabrics are not affected, because their ports are created with an
-explicit port-to-interface mapping (`p4_proxy/mininet/p4_testbed_topo.py:323`). A power off followed by
+explicit port-to-interface mapping (`BMv2Switch.start` in `p4_proxy/mininet/p4_testbed_topo.py`, the `args.extend(['-i', f'{port}@{intf.name}'])` line). A power off followed by
 on of an OVS switch whose port names sort in a different order from their port numbers, which happens
 from 10 ports upward (as on the 128-host leaves); a switch with ports `sN-eth1` to `sN-eth9` gets the same
 numbers back. In particular from energy-saving apps.
