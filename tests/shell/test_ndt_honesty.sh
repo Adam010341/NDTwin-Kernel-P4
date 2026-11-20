@@ -912,7 +912,7 @@ has   "  dated, in the clean table itself, so it can be revisited" "removed and 
 check "  the refusal the help describes is in cmd_clean" "1" \
       "$(grep -c 'teardown_in_flight_refusal "judge this lab"' "$NDT")"
 check "  🔴 and it is scoped to another process's marker" "1" \
-      "$(grep -c 'if tif="$(teardown_in_flight)" && \[\[ "${tif%% \*}" != "$\$" \]\]; then' "$NDT")"
+      "$(grep -c 'if tif="$(teardown_in_flight_peek)" && \[\[ "${tif%% \*}" != "$\$" \]\]; then' "$NDT")"
 
 section "5H. the help's --deep line quotes ports.sh's table, not three ports"
 # The help said `--deep also kills whatever still holds :8000/:8080/:8081`. deep_sweep has read

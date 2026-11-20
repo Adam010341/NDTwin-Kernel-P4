@@ -418,6 +418,17 @@ ndt up p4 --app <dir>   # bmv2 on a P4 app package or tutorials exercise (2026-1
 - The OVS plane builds only 128 or 4 hosts, because each is a different helper verb. Any other number
   is a usage error (rc 2); `ndt up ovs 16` is refused. The P4 plane takes any multiple of 4 that is at
   least 4 for which a model file exists (4.4).
+- One lab-changing verb at a time per checkout. `ndt up`, `ndt down` and a standalone `ndt clean` each
+  keep a marker in `.test_run/` (`up.inflight`, `down.inflight`, `clean.inflight`) while they run, and
+  refuse with rc 5, before they write or build anything, while another of them is running: a second
+  `ndt up` would otherwise stop the first one's topology session and report ready over a lab with no
+  switches. Over a running `ndt up` or `ndt clean` the refusal names its pid, command line, owner, start
+  time and step, and a `kill -TERM` command (it ends `ndt` and releases the marker; what it already
+  started stays up); over a running `ndt down` it names the pid and start time. `NDT_RUN_WAIT=<seconds>`
+  makes `ndt up`, `ndt down` and `ndt clean` wait that long for the other verb first; the default is to
+  refuse at once, and `ndt apps` and `ndt ntg` never wait. A marker whose process is gone is removed,
+  and `ndt` says so; for a bring-up it also says how far it got, because what it started may still be up. The markers belong to one checkout: a verb run
+  from another checkout of the repository is not seen (see `KNOWN-ISSUES.md`).
 - The two fabrics cannot be live at once (the interface names collide). `ndt up p4` over a live OVS
   fabric stops with `an OVS fabric is running (N bridges) under the topo session ... take it down
   first:  ndt down`; the OVS bring-up likewise refuses when Mininet is already running.
@@ -639,7 +650,8 @@ file NTG reads): mode <old> -> <new>`). It prints which file it reads, and it ta
 `ndt up` after an `ndt down`; a running topology keeps its mode. An unusable file is refused and left
 for you to fix by hand, with the line named. The checkout is the helper's `NTG_DIR` (3.3); if the
 file cannot be found, the error shows `NTG_DIR` and where its value came from. `ndt ntg` exits 0, 1
-(refused or not found) or 2 (usage).
+(refused or not found) or 2 (usage). Setting a mode is refused (rc 1) while an `ndt up` or `ndt down` of
+this checkout is running; showing the mode is not.
 
 `ndt up p4` will not build a fabric for NTG to take over when NTG's config names a mode NTG does not
 know or a hosts file that does not exist: NTG would fail on it, and the topology would stop and take
@@ -711,7 +723,9 @@ ndt apps orphans          # is anything of an app's still running, or still on t
 Applications are separate repositories, found next to the kernel checkout (paths in
 `tools/test_workflow/components.env`). They are deliberately not part of `ndt up`: two of them change
 the network, so which are running is part of an experiment's setup. Start the kernel first; the apps
-read its API. `ndt down` stops apps first. Their logs are `.test_run/logs/app_<name>.log`; `ndt apps`
+read its API. `ndt down` stops apps first. Starting an app is refused (rc 1) while an `ndt up` or an
+`ndt down` of this checkout is running: during a bring-up the stack is half built, and an app started under
+a teardown outlives it. Their logs are `.test_run/logs/app_<name>.log`; `ndt apps`
 prints each log's size and suggests `trim` when it is large.
 
 `ndt apps stop` exits 0 when it stopped something, 1 when an app could not be stopped, and 2 when there
@@ -820,9 +834,10 @@ qdisc tree came back unchanged.
   of a lab that is already down also exits 3 ("nothing was up to tear down"): tearing down ten
   switches and proving them gone, and there never having been a lab, are different statements.
 - 5 means it did not look. The lab is claimed by somebody else, the claim declares `measuring=`, a
-  measurement is running, another `ndt down` from this checkout is still running, or `NDT_TOPO` names
-  a model of another network. Nothing was done. `ndt clean` also answers 5 while an `ndt down` of this
-  checkout is running, because that teardown's own processes would otherwise be listed as residue. Read
+  measurement is running, an `ndt up`, `ndt down` or `ndt clean` from this checkout is still running, or
+  `NDT_TOPO` names a model of another network. Nothing was done. `ndt clean` also answers 5 while an
+  `ndt down` of this checkout is running, because that teardown's own processes would otherwise be listed
+  as residue. Read
   who refused and wait, or, when it names a missing sudo grant or NTG's config, fix what it names; 5 is
   neither clean nor dirty.
 - `ndt up` exits 5 for the same refusals, and also when `--app`'s pre-flight failed, when NTG's config

@@ -171,6 +171,29 @@ another user may show no process name unless `ss` is run with privileges.
 
 Failure direction: optimistic.
 
+### G-65 `ndt up`, `ndt down` and `ndt clean` take turns only within one checkout
+
+**What you see.** Two `ndt` verbs that change the lab, started from two checkouts of this repository on
+the same machine, are not refused. A `ndt down` from one checkout can tear down a fabric that an
+`ndt up` from the other is still building.
+
+**When.** Only across checkouts. Within one checkout a second `ndt up`, `ndt down` or standalone `ndt clean`
+is refused with rc 5 while another is running (the "One lab-changing verb at a time" paragraph of
+`ndt help`). A bring-up from a second checkout is also refused before it builds anything when the
+helper acts in another tree (`guard_lab_acts_in_this_tree`); a teardown is not.
+
+**Why.** The verbs record that they are running in `.test_run/up.inflight`, `down.inflight` and
+`clean.inflight` of the checkout they run from (`run_marker`, `run_take` and `with_run_lock` in
+`tools/test_workflow/ndt`). The lab itself, the helper's tmux session and bmv2's ports, belongs to the machine.
+A lock shared by every checkout would need a directory every user can write and none can plant a path in;
+`/run/ndtwin-lab` is owned by root and a fixed path under `/tmp` can be pre-created by someone else, so
+there is none.
+
+**What to do.** Use one checkout of the repository per machine for `ndt up` and `ndt down`, or say who is
+using the lab with `ndt claim` and read `ndt status` before you start a verb from another checkout.
+
+Failure direction: optimistic.
+
 ---
 
 ## The northbound API
