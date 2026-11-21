@@ -423,12 +423,25 @@ ndt up p4 --app <dir>   # bmv2 on a P4 app package or tutorials exercise (2026-1
   refuse with rc 5, before they write or build anything, while another of them is running: a second
   `ndt up` would otherwise stop the first one's topology session and report ready over a lab with no
   switches. Over a running `ndt up` or `ndt clean` the refusal names its pid, command line, owner, start
-  time and step, and a `kill -TERM` command (it ends `ndt` and releases the marker; what it already
-  started stays up); over a running `ndt down` it names the pid and start time. `NDT_RUN_WAIT=<seconds>`
+  time and step, and a `kill -TERM` command (over a bring-up, `ndt` rolls back what it started and
+  releases the marker; over a clean, it ends and releases it); over a running `ndt down` it names the pid
+  and start time. `NDT_RUN_WAIT=<seconds>`
   makes `ndt up`, `ndt down` and `ndt clean` wait that long for the other verb first; the default is to
   refuse at once, and `ndt apps` and `ndt ntg` never wait. A marker whose process is gone is removed,
   and `ndt` says so; for a bring-up it also says how far it got, because what it started may still be up. The markers belong to one checkout: a verb run
   from another checkout of the repository is not seen (see `KNOWN-ISSUES.md`).
+- Interrupting a bring-up. An INT (Ctrl-C), TERM or HUP to a running `ndt up` rolls back what it had
+  started, the way a failed bring-up does (the `rollback` block, below), and exits 130, 143 or 129; the
+  marker is released. At its last step (`[3/3]` on P4, `[4/4]` on OVS) nothing is rolled back: everything
+  was started and the step only reads it, so the lab is left up and the run says `up, NOT verified --
+  interrupted during [3/3]`, and the claim note says the same. A second signal while the rollback runs is
+  noted and the rollback goes on (the step it was in is reported as not done); the third abandons it and
+  says what it did not undo, and `ndt down` finishes that. A signal to the process group (Ctrl-C, or
+  `kill -TERM -- -<pgid>`) also ends the command `ndt` is running, so the rollback starts at once; a signal
+  to the pid alone is held until that command returns, which for `stack.sh up` can take minutes. An `ndt up`
+  started as a background job of a script ignores INT, and no signal handler can be set for a signal that was
+  ignored when the program started: send it TERM. An interrupted `ndt down` says where it stopped and exits
+  with the same code; it neither goes on nor rolls back, and it is safe to run again.
 - The two fabrics cannot be live at once (the interface names collide). `ndt up p4` over a live OVS
   fabric stops with `an OVS fabric is running (N bridges) under the topo session ... take it down
   first:  ndt down`; the OVS bring-up likewise refuses when Mininet is already running.
@@ -843,7 +856,7 @@ qdisc tree came back unchanged.
 - `ndt up` exits 5 for the same refusals, and also when `--app`'s pre-flight failed, when NTG's config
   names a mode NTG does not know or a hosts file that does not exist (4.7), and when `ndt up p4` cannot
   tell whether a topology session, or an OVS fabric under one, is running because a sudo call failed
-  (3.2). It never exits 3.
+  (3.2). It never exits 3. It exits 130, 143 or 129 when it was interrupted by INT, TERM or HUP (4.3).
 - `ndt down` exits 1 also when a component's recorded ending was a fatal signal (SIGKILL, SIGABRT,
   SIGSEGV) from an earlier session. That record is delivered once; the next `ndt down` is green again.
   It exits 1 too when a component it stops is still running 10 s after SIGTERM: that component is

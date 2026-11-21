@@ -123,6 +123,17 @@ case "$1 ${2:-}" in
     "up ovs")
         echo "[1/3] control plane (Ryu)"
         [[ -f "$FIX/stack_ovs_dies_early" ]] && exit 9
+        # [Co-developed with claude code -- Adam] Section 32: held before the "[2/3]" banner, the way a stack.sh that is still
+        # starting Ryu is. It says it is here on a FIFO, and if it ever gets past the read of its prompt (stdin: the FIFO's end
+        # answers it) it says so in a file.
+        if [[ -n "${FX_BLOCK_OVS:-}" ]]; then
+            echo "$$" > "$FIX/ovs32.pid"
+            echo "stack up ovs blocked" 1<>"$FX_SYNC32"
+            # the prompt, as the real one reads it: from stdin, which is the FIFO ndt holds the write end of; its end answers it
+            read -r -t 60 _
+            echo proceeded > "$FIX/ovs32.proceeded"
+            exit 9
+        fi
         echo "[2/3] data plane (Mininet, needs sudo)"
         [[ -f "$FIX/stack_ovs_no_prompt" ]] && { sleep 0.05; exit 9; }
         [[ -f "$FIX/stack.up.hook" ]] && . "$FIX/stack.up.hook"
@@ -136,6 +147,8 @@ case "$1 ${2:-}" in
         # (a started component, a replaced one, one that went): sourced, so a test writes it as shell.
         # [Co-developed with claude code -- Adam] the up marker's phase as stack.sh was reached (section 31).
         [[ -f "$FIX/.test_run/up.inflight" ]] && sed -n "s/^phase=//p" "$FIX/.test_run/up.inflight" >> "$FIX/stack.phases"
+        # [Co-developed with claude code -- Adam] Section 32: held here, where the real stack.sh waits for its components.
+        [[ -n "${FX_BLOCK_STACK_UP:-}" ]] && { echo "stack up p4 blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_BLOCK_STACK_UP"; }
         echo "[1/3] data plane"; echo "started"
         [[ -f "$FIX/stack.up.hook" ]] && . "$FIX/stack.up.hook"
         exit "$(rc_of stack_up)" ;;
@@ -150,6 +163,7 @@ case "$1 ${2:-}" in
         done
         exit "$(rc_of stack_stop)" ;;
     "down"*)
+        [[ -n "${FX_BLOCK_STACK_DOWN:-}" ]] && { echo "stack down blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_BLOCK_STACK_DOWN"; }
         # A1: what a teardown SAYS is a fixture too, not two hard-coded lines. `out.stack_down`
         # is how section 12 replays stack.sh cmd_down's real prose -- report_exit's two halves,
         # sweep_orphan_exits' registry line, the port table's consequence/remedy pair and the
@@ -166,7 +180,7 @@ chmod +x "$FIX/stack.sh"
 reset_fix() {
     rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" "$FIX/identity.calls" "$FIX/stack.fabric" "$FIX/fabric_id.seq" \
           "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" "$FIX/stack.up.hook" \
-          "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" "$FIX/topo.phases" "$FIX/stack.phases" \
+          "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" "$FIX/topo.phases" "$FIX/topo.stop.held" "$FIX/stack.phases" \
           "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target"
     echo '{"switches":[]}' > "$FIX/manifest.json"
     rm -f "$FIX/.test_run/pids/"*
@@ -229,6 +243,12 @@ sudo() {
     if [[ "$verb" == topo-start && -n "${FX_BLOCK_TOPO_START:-}" ]]; then
         echo "A at topo-start" 1<>"$FX_TOPO_SYNC"
         read -r -t 60 _ <>"$FX_BLOCK_TOPO_START"
+    fi
+    # [Co-developed with claude code -- Adam] Section 32: the first topo-stop says it is here on the sync FIFO and waits (once).
+    if [[ "$verb" == topo-stop && -n "${FX_BLOCK_TOPO_STOP:-}" && ! -e "'"$FIX"'/topo.stop.held" ]]; then
+        : > "'"$FIX"'/topo.stop.held"
+        echo "at topo-stop" 1<>"$FX_SYNC32"
+        read -r -t 60 _ <>"$FX_BLOCK_TOPO_STOP"
     fi
     [[ -f "'"$FIX"'/out.$verb" ]] && cat "'"$FIX"'/out.$verb"
     [[ -f "'"$FIX"'/rc.$verb" ]] && return "$(cat "'"$FIX"'/rc.$verb")"
@@ -3416,8 +3436,9 @@ has   "  31a since when"                                                  "since
 has   "  31a and how far it is"                                           "at [1/3]" "$OUT"
 has   "  31a with the line to stop it (TERM, a pid, not a group, here)"    "kill -TERM $$" "$OUT"
 hasnt "  31a and no group form when the pid leads no group of its own"    "kill -TERM -- -" "$OUT"
-hasnt "  31a and never INT: a lone INT does not end a verb (it carries on once its command returns)" "kill -INT" "$OUT"
-has   "  31a and what the pid form leaves running"                        "the pid form leaves that to finish on its own" "$OUT"
+hasnt "  31a and never INT: it is INT-ignored when ndt was started as a background job, and no handler can be set then" "kill -INT" "$OUT"
+has   "  31a and what the pid form does with the command ndt is running (the rollback waits for it)" "the pid form lets the command ndt is running finish first" "$OUT"
+has   "  31a and that ndt rolls back what it started" "ndt rolls back what it started and releases its marker" "$OUT"
 check "🔴 31a sudo.log has no topo-start and no topo-stop"                "0" "$(nlines31 -E 'topo-(start|stop)' "$FIX/sudo.log")"
 check "🔴 31a up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
 check "  31a the running verb's marker is untouched"                       "$$" "$(sed -n 's/^pid=//p' "$UM")"
@@ -3427,6 +3448,7 @@ mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
 OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_up up_p4 4')"
 has   "  31a the group form when the marker's pgid is its pid"            "kill -TERM -- -$$" "$OUT"
 hasnt "  31a and the pid form is not printed then"                        "kill -TERM $$" "$OUT"
+has   "  31a and that the group form starts the rollback at once"         "the group form also ends the command ndt is running, so the rollback starts at once" "$OUT"
 has   "  31a and the phase it reached"                                    "at [2/3]" "$OUT"
 OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_up up_ovs 4')"
 check "🔴 31a the OVS plane is refused by the same marker"                "5" "$(rc_of_out "$OUT")"
@@ -3497,6 +3519,8 @@ has   "  31c naming the clean"                                            "an 'n
 OUT="$(drive "$P4_FRESH
 cmd_up up_p4 4")"
 check "🔴 31c 'ndt up' beside a live 'ndt clean' is refused with 5"       "5" "$(rc_of_out "$OUT")"
+has   "  31c over a clean the kill line promises no rollback (a clean starts nothing)" "the pid form leaves that to finish on its own" "$OUT"
+hasnt "  31c and does not say it rolls anything back"                      "rolls back what it started" "$OUT"
 OUT="$(drive 'cmd_clean')"
 check "  31c and so is a second 'ndt clean'"                              "5" "$(rc_of_out "$OUT")"
 rm -f "$CM"
@@ -4171,6 +4195,362 @@ OUT="$(NDT_OWNER=$NDT33 FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 FX_HELD="
 check "🔴 33l the earlier run's record is back over the fabric this run reused" "$B_T" "$(bytes33 "$T33")"
 check "  33l the note is the one it was: everything this run stopped was its own" "$S0" "$(note33)"
 unset33
+
+# ==========================================================================================
+section "32. an INT, TERM or HUP to 'ndt up' rolls back what it started, and says what it did not roll back"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# (Placed after section 33 because it drives the fixtures that section builds: its knobs, its package, its claim.)
+# A SIGINT to the group at [2/3] ended `ndt up` where it stood: bmv2, the heartbeat, the proxy, the knobs and the
+# claim note all stayed, and the next `ndt up` reused that fabric as if somebody had vouched for it. Now a bring-up
+# holds INT, TERM and HUP traps from the moment it owns its marker, and a signal runs the rollback the failure
+# branches use, then exits 130 / 143 / 129 (the EXIT trap releases the marker).
+#
+# Real processes: each cell runs the bring-up in a shell of its own session (setsid) with INT, TERM and HUP at their
+# defaults (`env --default-signal`; a launcher that leaves INT ignored would make every cell vacuous, and each cell
+# reads /proc/<pid>/status to say it did not). The fake stack.sh and the stubs say on a FIFO that they are blocked, and
+# the cell reads that line (read -t, never a sleep) before it signals the process group. The launcher writes
+# "exit <rc>" to the same FIFO when the shell ends. A cell that never gets a line says so and goes on; every blocked
+# fake gives up on its own after 60 s, and a shell still alive at the end of a cell is killed by its exact pid.
+#
+# 🔴 THE EXIT CODE DISCRIMINATES LESS THAN IT LOOKS. A bash killed by SIGINT reports 130 to its parent too, so what is
+# red against a ndt with no handler is the rollback's lines, sudo.log, stack.log and the files.
+SYNC32="$FIX/p32.sync"; GO32="$FIX/p32.go"; PID32="$FIX/p32.pid"; OUT32="$FIX/p32.out"
+P32=""; L32=""
+# alive32 <pid> -- running and not a zombie (kill -0 answers for a zombie that has not been waited for)
+alive32() { local l r; read -r l 2>/dev/null < "/proc/$1/stat" || { echo no; return; }; r="${l##*) }"; [[ "${r%% *}" == Z ]] && echo no || echo yes; }
+# sigbit32 <pid> <SigIgn|SigCgt> <signal number> -- set or clear, from the kernel's own mask
+sigbit32() { local m; m="$(sed -n "s/^$2:[[:space:]]*//p" "/proc/$1/status" 2>/dev/null)"; (( (0x${m:-0} >> ($3 - 1)) & 1 )) && echo set || echo clear; }
+pgid32() { local l r; read -r l 2>/dev/null < "/proc/$1/stat" || return 1; r="${l##*) }"; set -- $r; echo "$3"; }
+start32() {   # start32 <shell code> -- <code> runs, with the stubs, in a shell of its own session; PIPE32=1: that shell is a member of a pipeline whose other end is a `cat` in the same group
+    local body
+    rm -f "$SYNC32" "$GO32" "$PID32" "$OUT32" "$FIX/ovs32.pid" "$FIX/ovs32.proceeded"; mkfifo "$SYNC32" "$GO32"
+    exec 7<>"$SYNC32"
+    body="echo \$\$ > '$PID32'
+source '$NDT' >/dev/null 2>&1
+$STUBS
+export FX_SYNC32='$SYNC32' FX_GO32='$GO32'
+$1
+echo \"RC=\$?\""
+    if [[ -n "${PIPE32:-}" ]]; then
+        ( setsid env --default-signal=INT,TERM,HUP bash -c 'bash -c "$1" 2>&1 | cat > "$2"' _ "$body" "$OUT32" < /dev/null > /dev/null 2>&1
+          echo "exit $?" 1<>"$SYNC32" ) &
+    else
+        ( setsid env --default-signal=INT,TERM,HUP bash -c "$body" < /dev/null > "$OUT32" 2>&1
+          echo "exit $?" 1<>"$SYNC32" ) &
+    fi
+    P32=""
+}
+read32() {   # read32 -- the next line on the sync FIFO into L32 (30 s at most)
+    L32=""
+    read -r -t 30 -u 7 L32 || { L32="<nothing within 30 s>"; return 1; }
+}
+learn32() { [[ -s "$PID32" ]] && P32="$(cat "$PID32")"; [[ -n "$P32" ]]; }
+sig32() {   # sig32 <INT|TERM|HUP> -- the signal to the whole process group of the shell under test (PG32 when it is not its own leader)
+    [[ -n "${PG32:-$P32}" ]] && kill -"$1" -- "-${PG32:-$P32}" 2>/dev/null
+}
+end32() {   # end32 -- close the sync FIFO; a shell that is still there is killed by its exact pid
+    local p="$P32" o=""; PG32=""
+    [[ -s "$FIX/ovs32.pid" ]] && o="$(cat "$FIX/ovs32.pid")"
+    [[ -n "$p" && "$(alive32 "$p")" == yes ]] && kill -KILL "$p" 2>/dev/null
+    [[ -n "$o" && "$(alive32 "$o")" == yes ]] && kill -KILL "$o" 2>/dev/null
+    exec 7>&-; rm -f "$SYNC32" "$GO32" "$PID32"
+    return 0
+}
+body32() { cat "$OUT32" 2>/dev/null; }
+# premise32 <cell> -- the shell is its own group leader and INT is not ignored in it (the cell is not vacuous)
+premise32() {
+    check "  $1 the shell under test leads its own group (the signal reaches it and its commands)" "${PG32:-$P32}" "$(pgid32 "$P32")"
+    check "🔴 $1 INT is not ignored in it (a launcher that left it ignored would make this cell pass for nothing)" "clear" "$(sigbit32 "$P32" SigIgn 2)"
+}
+five32() { printf '%s|%s|%s|%s|%s|%s\n' "$(bytes33 "$K_APP")" "$(bytes33 "$K_TEL")" "$(bytes33 "$K_HOST")" "$(bytes33 "$T33")" "$(note33)" "$([[ -e "$UM" ]] && echo marker || echo none)"; }
+SIG32_CODE='export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_UP='"'$GO32'"' NDT_TELEMETRY=cooperative
+'"$P4_FRESH"'
+'"$APP33"'
+NDT_APP_DIR='"$(printf '%q' "$PKG_Y")"'; cmd_up up_p4'
+sudoseq32() { grep -oE ' (topo-start|topo-stop|cleanup)$' "$FIX/sudo.log" | tr -d ' ' | paste -sd' '; }
+
+# 32a. INT at [2/3], while stack.sh is bringing the proxy and the kernel up: everything is rolled back and put back
+reset_fix; set33; clr31; BEFORE32="$(five32)"
+start32 "$SIG32_CODE"
+read32; check "  32a the bring-up reached stack.sh (the fabric is built, the files are written)" "stack up p4 blocked" "$L32"
+learn32; premise32 32a
+sig32 INT
+read32; check "🔴 32a the shell ends, rc 130" "exit 130" "$L32"
+OUT="$(body32)"
+has   "🔴 32a the signal and where it came"                                "interrupted (SIGINT) at [2/3]" "$OUT"
+has   "🔴 32a the rollback ran, over what was started"                      "this bring-up started: fabric stack" "$OUT"
+has   "  32a the fabric stage ran"                                         "stopping the topology session" "$OUT"
+has   "🔴 32a and the rollback finished: the machine is back to what it was" "rolled back: the machine is back to what it was before this 'ndt up'" "$OUT"
+check "🔴 32a topo-start, then topo-stop, then cleanup, in that order (sudo.log)" "topo-start topo-stop cleanup" "$(sudoseq32)"
+check "🔴 32a stack.sh was asked to bring the stack down"                    "yes" "$(grep -qx 'down' "$FIX/stack.log" && echo yes || echo no)"
+check "🔴 32a the app knob, the telemetry knob, the host knob, up.target and the note are as they were, and the marker is gone" "$BEFORE32" "$(five32)"
+has   "  32a the note's put-back is said"                                  "the note is back to what it was" "$OUT"
+hasnt "  32a the run did not go on to [3/3]"                               "[3/3] verify" "$OUT"
+end32; unset33
+
+# 32b. TERM is 143 and HUP is 129: each says which it was
+for SIG32 in TERM HUP; do
+    reset_fix; set33; clr31
+    start32 "$SIG32_CODE"
+    read32; learn32; premise32 "32b SIG$SIG32:"
+    sig32 "$SIG32"; read32
+    case "$SIG32" in TERM) WANT32=143 ;; HUP) WANT32=129 ;; esac
+    check "🔴 32b SIG$SIG32 ends the bring-up with $WANT32"                  "exit $WANT32" "$L32"
+    OUT="$(body32)"
+    has   "  32b and says it was SIG$SIG32"                                  "interrupted (SIG$SIG32) at [2/3]" "$OUT"
+    has   "🔴 32b the rollback ran for it as well"                          "rolled back: the machine is back to what it was before this 'ndt up'" "$OUT"
+    check "  32b and the marker is gone"                                    "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+    end32; unset33
+done
+
+# 32c. INT before anything was written (the app package's pre-flight): nothing to roll back, every file as it was
+reset_fix; set33; clr31; BEFORE32="$(five32)"
+start32 'export NDT_OWNER='"$NDT33"'
+'"$P4_FRESH"'
+app_package_mode() { echo ndtwin; }
+app_pipeline_kind() { echo ndtwin; }
+app_preflight() { echo "preflight blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_GO32"; return 0; }
+NDT_APP_DIR='"$(printf '%q' "$PKG_Y")"'; cmd_up up_p4'
+read32; check "  32c the bring-up is in the package's pre-flight" "preflight blocked" "$L32"
+learn32; premise32 32c
+check "  32c it holds its marker" "present" "$([[ -e "$UM" ]] && echo present || echo absent)"
+sig32 INT; read32
+check "  32c the shell ends, rc 130"                                       "exit 130" "$L32"
+OUT="$(body32)"
+has   "🔴 32c the signal and where it came: before [1/3]"                  "interrupted (SIGINT) at start" "$OUT"
+has   "🔴 32c nothing had been started, and it says so"                     "nothing to roll back" "$OUT"
+hasnt "  32c and there is no rollback block"                               "this bring-up started" "$OUT"
+check "🔴 32c the five files and the note are as they were, and the marker is gone" "$BEFORE32" "$(five32)"
+check "  32c nothing was started (sudo.log, stack.log)"                    "0|0" "$(grep -c ' topo-' "$FIX/sudo.log" || true)|$(grep -c . "$FIX/stack.log" || true)"
+end32; unset33
+
+# 32d. INT at the last step ([3/3] verify): nothing is rolled back; the run says it was not verified
+reset_fix; set33; clr31
+start32 'export NDT_OWNER='"$NDT33"'
+'"$P4_FRESH"'
+verify_p4() { echo "verify blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_GO32"; return 0; }
+cmd_up up_p4 4'
+read32; check "  32d the bring-up is at [3/3], verifying" "verify blocked" "$L32"
+learn32; premise32 32d
+sig32 INT; read32
+check "  32d the shell ends, rc 130"                                       "exit 130" "$L32"
+OUT="$(body32)"
+has   "  32d the signal and where it came"                                 "interrupted (SIGINT) at [3/3]" "$OUT"
+has   "🔴 32d it says the lab is up and was not verified"                  "up, NOT verified -- interrupted during [3/3]" "$OUT"
+hasnt "🔴 32d and it did not roll back"                                    "rollback" "$OUT"
+check "🔴 32d no topo-stop, no cleanup: the fabric was left alone"          "0" "$(grep -cE ' (topo-stop|cleanup)$' "$FIX/sudo.log" || true)"
+check "🔴 32d and stack.sh was not asked to stop anything"                  "0" "$(grep -cE '^(down|stop)' "$FIX/stack.log" || true)"
+has   "🔴 32d the claim note says what is true"                            "(interrupted during verify, not verified)" "$(note33)"
+has   "  32d and is still the sentence of this run"                        "in use: ndt up p4 4 at " "$(note33)"
+check "  32d the up.target record of what was built is kept"                "no" "$([[ "$(bytes33 "$T33")" == "$B_T" ]] && echo yes || echo no)"
+check "  32d and the marker is gone"                                        "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+end32; unset33
+
+# 32e. a second signal during the rollback: one line, and the rollback goes on (what it was in is reported as not done)
+reset_fix; set33; clr31
+start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_UP='"'$GO32'"' FX_BLOCK_STACK_DOWN='"'$GO32'"'
+'"$P4_FRESH"'
+cmd_up up_p4 4'
+read32; check "  32e the bring-up is at stack.sh" "stack up p4 blocked" "$L32"
+learn32; premise32 32e
+sig32 INT
+read32; check "  32e the rollback is in its stack stage, waiting on stack.sh down" "stack down blocked" "$L32"
+sig32 INT
+read32; check "🔴 32e the shell ends, rc 130, after the second signal" "exit 130" "$L32"
+OUT="$(body32)"
+has   "🔴 32e the second signal is said, and that the rollback goes on"      "still rolling back" "$OUT"
+has   "🔴 32e and that one more signal abandons it"                         "1 more signal abandons the rollback" "$OUT"
+hasnt "  32e and does not say the step was cut short (the signal may have come to the pid alone)" "was cut short" "$OUT"
+has   "  32e at the rollback, not at [2/3]"                                 "interrupted (SIGINT) at rollback" "$OUT"
+check "🔴 32e the fabric stage still ran: topo-stop and cleanup follow"     "topo-start topo-stop cleanup" "$(sudoseq32)"
+has   "🔴 32e the stage that was cut short is reported as not done"         "stack.sh down exited 130" "$OUT"
+has   "🔴 32e and the rollback ends INCOMPLETE"                            "rollback INCOMPLETE" "$OUT"
+hasnt "  32e never 'back to what it was'"                                   "the machine is back to what it was" "$OUT"
+hasnt "  32e and it was not abandoned (two signals are not three)"          "ABANDONED" "$OUT"
+has   "  32e the note says INCOMPLETE"                                      "the rollback is INCOMPLETE" "$(note33)"
+check "  32e the marker is gone"                                            "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+end32; unset33
+
+# 32e2. the third signal of the run abandons the rollback, and says what it did not undo
+reset_fix; set33; clr31
+start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_UP='"'$GO32'"'
+'"$P4_FRESH"'
+eval "fx_$(declare -f stack_down_lines)"
+stack_down_lines() {
+    local n=0
+    while (( n < 4 )); do
+        bash -c '"'"'echo "stack stage reached $1" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"'"'"' _ "$n"
+        n=$(( n + 1 ))
+    done
+    fx_stack_down_lines "$@"
+}
+cmd_up up_p4 4'
+read32; learn32; premise32 32e2
+sig32 INT
+read32; check "  32e2 the rollback is in its stack stage"                   "stack stage reached 0" "$L32"
+sig32 INT
+read32; check "🔴 32e2 the second signal was handled and the rollback was still in that stage" "stack stage reached 1" "$L32"
+sig32 INT
+read32; check "🔴 32e2 the third ends the shell, rc 130"                    "exit 130" "$L32"
+OUT="$(body32)"
+has   "🔴 32e2 the rollback is abandoned at the stage it was in, naming what is not undone" "rollback ABANDONED at stack; not undone: fabric" "$OUT"
+check "🔴 32e2 it never reached the fabric stage"                           "0" "$(grep -cE ' (topo-stop|cleanup)$' "$FIX/sudo.log" || true)"
+has   "🔴 32e2 the note says so, and what to run"                          "rollback abandoned at stack -- run 'ndt down'" "$(note33)"
+check "🔴 32e2 up.target is kept: the fabric it describes may still be up"   "no" "$([[ "$(bytes33 "$T33")" == "$B_T" ]] && echo yes || echo no)"
+check "  32e2 and the marker is gone"                                       "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+end32; unset33
+
+# 32f. the OVS plane: a signal to ndt's pid alone does not reach its background stack.sh; the handler stops it, so it
+# does not go on to start a kernel when the FIFO that answers its prompt ends. (A group signal would reach both: this
+# bash does not make the `( ... ) &` child ignore INT, measured, so the pid form is the one that leaves it running.)
+reset_fix; set33; clr31; echo "0 14 0" > "$FIX/mn.seq"; rm -rf "$FIX/tmp32"; mkdir -p "$FIX/tmp32"
+start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_OVS='"'$GO32'"' TMPDIR='"'$FIX/tmp32'"'
+sleep() { [[ -s "$FIX/ovs32.pid" ]] || return 0; echo "up_ovs waits for the prompt" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"; }
+cmd_up up_ovs 4'
+read32; L32A="$L32"; read32; L32B="$L32"
+check "  32f the background stack.sh is started and the bring-up waits for its prompt" "stack up ovs blocked|up_ovs waits for the prompt" "$(printf '%s\n%s\n' "$L32A" "$L32B" | sort | paste -sd'|')"
+learn32; premise32 32f
+OVSPID32="$(cat "$FIX/ovs32.pid" 2>/dev/null)"
+check "  32f the background stack.sh is running, in the same group as the shell under test (so only a pid signal leaves it out)" "yes|$P32" "$(alive32 "${OVSPID32:-0}")|$(pgid32 "${OVSPID32:-0}")"
+check "  32f and its FIFO and output file exist while it runs"              "2" "$(ls "$FIX/tmp32" | grep -cE '^ndt_ovs_(in|out)\.' || true)"
+[[ -n "$P32" ]] && kill -TERM "$P32" 2>/dev/null; read32
+check "  32f the shell ends, rc 143"                                       "exit 143" "$L32"
+OUT="$(body32)"
+has   "  32f the signal and where it came"                                 "interrupted (SIGTERM) at [1/4]" "$OUT"
+check "🔴 32f the background stack.sh is gone"                             "no" "$(alive32 "${OVSPID32:-0}")"
+check "🔴 32f and it did not go on to start a kernel when its prompt ended" "absent" "$([[ -e "$FIX/ovs32.proceeded" ]] && echo present || echo absent)"
+check "🔴 32f its FIFO and output file are removed"                         "0" "$(ls "$FIX/tmp32" | grep -cE '^ndt_ovs_(in|out)\.' || true)"
+has   "  32f the rollback ran over what was started"                       "this bring-up started: stack" "$OUT"
+check "  32f stack.sh was asked to bring the stack down"                    "yes" "$(grep -qx 'down' "$FIX/stack.log" && echo yes || echo no)"
+check "  32f and the marker is gone"                                       "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+end32; unset33; rm -rf "$FIX/tmp32"
+
+# 32g. 'ndt down' interrupted: it says where it stopped, writes that into the note, and goes neither forward nor back
+reset_fix; set33; clr31; rm -f "$DM"
+start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_DOWN='"'$GO32'"'
+cmd_down'
+read32; check "  32g the teardown is at [1/3], waiting on stack.sh down" "stack down blocked" "$L32"
+learn32; premise32 32g
+check "  32g it holds its marker"                                          "present" "$([[ -e "$DM" ]] && echo present || echo absent)"
+sig32 INT; read32
+check "  32g the shell ends, rc 130"                                       "exit 130" "$L32"
+OUT="$(body32)"
+has   "🔴 32g it says where it stopped, and that the verb can be run again" "interrupted (SIGINT) at [1/3]; 'ndt down' is idempotent: run it again" "$OUT"
+check "🔴 32g it did not go on: no topology stop, no sweep"                 "0" "$(grep -cE ' (topo-stop|cleanup)$' "$FIX/sudo.log" || true)"
+has   "🔴 32g the note says the teardown was interrupted, and where"       "interrupted at [1/3]" "$(note33)"
+hasnt "  32g and is no longer the note of the earlier run"                  "verified clean" "$(note33)"
+check "🔴 32g the teardown's marker is released"                            "absent" "$([[ -e "$DM" ]] && echo present || echo absent)"
+end32; unset33
+
+# 32j. Ctrl-C ends the `tee` or pager the output goes to as well: the handler still rolls back (a write to the dead
+# reader is a SIGPIPE, which would end it at its first line)
+reset_fix; set33; clr31; BEFORE32="$(five32)"
+PIPE32=1 start32 "$SIG32_CODE"
+read32; check "  32j the bring-up reached stack.sh, its output going through a cat of the same group" "stack up p4 blocked" "$L32"
+learn32; PG32="$(pgid32 "$P32")"; premise32 32j
+sig32 INT; read32
+# the launcher's shell ends when the group leader does; the bring-up is a member of the pipeline and may still be rolling back
+for _w32 in $(seq 1 60); do [[ -e "$UM" ]] || break; read -r -t 0.5 -u 7 _ || true; done
+check "🔴 32j the rollback ran although the reader of its output was gone: topo-start, topo-stop, cleanup" "topo-start topo-stop cleanup" "$(sudoseq32)"
+check "🔴 32j and the files, the note and the marker are as they were" "$BEFORE32" "$(five32)"
+end32; unset33
+
+# 32k. the same for 'ndt down': its handler writes the note and releases the marker with the reader of its output gone
+reset_fix; set33; clr31; rm -f "$DM"
+PIPE32=1 start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_DOWN='"'$GO32'"'
+cmd_down'
+read32; check "  32k the teardown is at [1/3], its output going through a cat of the same group" "stack down blocked" "$L32"
+learn32; PG32="$(pgid32 "$P32")"; premise32 32k
+sig32 INT; read32
+for _w32 in $(seq 1 60); do [[ -e "$DM" ]] || break; read -r -t 0.5 -u 7 _ || true; done
+has   "🔴 32k the note says the teardown was interrupted although the reader of its output was gone" "interrupted at [1/3]" "$(note33)"
+check "🔴 32k and its marker is released"                                   "absent" "$([[ -e "$DM" ]] && echo present || echo absent)"
+end32; unset33
+
+# 32l. INT while the old fabric's session is being stopped (the rebuild's replace window): the fabric stage runs and
+# finishes the teardown the run began, and the note names the fabric that was replaced. (The hook sits in topo-stop, which
+# ndt calls with its output sent to /dev/null; a stub function runs the handler inside that redirect, so what the handler
+# prints is not read here -- 32m does that, one call earlier.)
+reset_fix; set33; clr31; rm -f "$FIX/topo.stop.held"
+start32 'export NDT_OWNER='"$NDT33"' FX_TOPO_SESSION=1 FX_FABRIC_HOSTS=8 FX_BLOCK_TOPO_STOP='"'$GO32'"'
+'"$P4_FRESH"'
+'"$SESS33"'
+cmd_up up_p4 4'
+read32; check "  32l the rebuild is stopping the old session" "at topo-stop" "$L32"
+learn32; premise32 32l
+sig32 INT; read32
+check "  32l the shell ends, rc 130"                                       "exit 130" "$L32"
+check "🔴 32l the fabric stage finished the teardown: topo-stop, topo-stop, cleanup" "topo-stop topo-stop cleanup" "$(sudoseq32)"
+has   "🔴 32l the note names the fabric that was replaced"                 "replaced and not restored: bmv2 fabric (8 hosts)" "$(note33)"
+check "  32l the record of the old fabric is not left over a fabric that is gone" "ABSENT" "$(bytes33 "$T33")"
+check "  32l and the marker is gone"                                       "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+end32; unset33
+
+# 32m. the same window, one call earlier (the old fabric's heartbeat is being stopped): what the handler prints
+reset_fix; set33; clr31
+start32 'export NDT_OWNER='"$NDT33"' FX_TOPO_SESSION=1 FX_FABRIC_HOSTS=8
+'"$P4_FRESH"'
+'"$SESS33"'
+heartbeat_stop_step() { echo "at heartbeat stop" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_GO32"; HB_STEP_STOPPED=0; return 0; }
+cmd_up up_p4 4'
+read32; check "  32m the rebuild is stopping the old fabric's heartbeat" "at heartbeat stop" "$L32"
+learn32; premise32 32m
+sig32 INT; read32
+check "  32m the shell ends, rc 130"                                       "exit 130" "$L32"
+OUT="$(body32)"
+has   "  32m the signal and where it came"                                 "interrupted (SIGINT) at [1/3]" "$OUT"
+hasnt "🔴 32m it does not say nothing had changed over a fabric it had begun to replace" "had not changed the machine yet" "$OUT"
+has   "🔴 32m it names the fabric it replaced"                             "replaced and not restored: bmv2 fabric (8 hosts)" "$OUT"
+check "🔴 32m and the fabric stage ran: topo-stop, cleanup"                 "topo-stop cleanup" "$(sudoseq32)"
+end32; unset33
+
+# 32e3. a signal during a rollback that a FAILURE started takes the same path: said, and the rollback goes on
+reset_fix; set33; clr31; rc_for stack_up 1
+start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_DOWN='"'$GO32'"'
+'"$P4_FRESH"'
+cmd_up up_p4 4'
+read32; check "  32e3 stack.sh up failed and the rollback is waiting on stack.sh down" "stack down blocked" "$L32"
+learn32; premise32 32e3
+check "  32e3 the marker says the bring-up is rolling back"                 "rollback" "$(sed -n 's/^phase=//p' "$UM" 2>/dev/null)"
+sig32 INT
+read32; check "🔴 32e3 the bring-up ends by returning its own rc (1), not by a second rollback and exit 130" "exit 0" "$L32"
+OUT="$(body32)"
+has   "🔴 32e3 the signal is said, and that the rollback goes on"           "still rolling back" "$OUT"
+has   "🔴 32e3 and that two more signals abandon it (this was the first of the run)" "2 more signals abandon the rollback" "$OUT"
+check "🔴 32e3 and the rc it returned is the failure's"                      "RC=1" "$(grep -a '^RC=' <<<"$OUT" | tail -1)"
+check "  32e3 the rollback ran once: one 'this bring-up started' line"      "1" "$(grep -c 'this bring-up started' <<<"$OUT")"
+check "  32e3 and the marker is gone"                                       "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+end32; unset33
+
+# 32h. nothing is trapped when ndt is only sourced, and the traps are taken off again when the bring-up returns
+reset_fix; clr31
+OUT="$(drive "echo \"SOURCED=[\$(trap -p INT TERM HUP)]\"
+$P4_FRESH
+cmd_up up_p4 4 >/dev/null; echo \"AFTER=[\$(trap -p INT TERM HUP EXIT)]\"")"
+has   "🔴 32h sourcing ndt installs no INT, TERM or HUP trap"             "SOURCED=[]" "$OUT"
+has   "🔴 32h and a bring-up that returns leaves none behind, nor an exit trap" "AFTER=[]" "$OUT"
+OUT="$(drive "trap 'echo mine' INT; trap 'echo bye' EXIT
+$P4_FRESH
+cmd_up up_p4 4 >/dev/null; echo \"AFTER=[\$(trap -p INT EXIT | tr '\n' ' ')]\"")"
+has   "  32h a trap the caller had on INT comes back"                       "trap -- 'echo mine' SIGINT" "$OUT"
+has   "  32h and so does its exit trap"                                     "trap -- 'echo bye' EXIT" "$OUT"
+clr31
+
+# 32i. INT at the OVS plane's last step ([4/4]): the same answer as P4's [3/3]
+reset_fix; set33; clr31; echo "0 14 0" > "$FIX/mn.seq"
+start32 'export NDT_OWNER='"$NDT33"'
+curl() { echo "ovs verify blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_GO32"; return 1; }
+cmd_up up_ovs 4'
+read32; check "  32i the OVS bring-up is at its last step" "ovs verify blocked" "$L32"
+learn32; premise32 32i
+sig32 INT; read32
+check "  32i the shell ends, rc 130"                                       "exit 130" "$L32"
+OUT="$(body32)"
+has   "🔴 32i it says the lab is up and was not verified"                  "up, NOT verified -- interrupted during [4/4]" "$OUT"
+hasnt "🔴 32i and it did not roll back"                                    "rollback" "$OUT"
+check "  32i stack.sh was not asked to stop anything"                       "0" "$(grep -cE '^(down|stop)' "$FIX/stack.log" || true)"
+end32; unset33
 
 # ==========================================================================================
 section "34. a running P4 fabric is reused only when it was built from the inputs this run would build it from"

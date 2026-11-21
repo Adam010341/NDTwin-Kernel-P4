@@ -584,8 +584,8 @@ report "M57: a code-sourced rc table drifts from the lines it cites" "$m" \
        RcProvenance.test_code_sourced_tables_are_in_ndt
 
 m=$(mutant m58 "$VERBS_PY" \
-    '                    5: "5 a GUARD REFUSED and nothing was built"}},' \
-    '                    5: "5 a guard declined and did nothing"}},')
+    '                    5: "5 a GUARD REFUSED and nothing was built",' \
+    '                    5: "5 a guard declined and did nothing",')
 report "M58: a help-sourced rc phrase ndt help does not print" "$m" \
        RcProvenance.test_help_sourced_tables_are_in_ndt_help
 

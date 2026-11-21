@@ -195,6 +195,14 @@ RC_TABLE = {
                        "measurement in flight, an 'ndt up', 'ndt down' or 'ndt clean' of this checkout still running, "
                        "a model of another network, an "
                        "NTG config NTG would refuse, or a lab state it could not read)"),
+        # [Co-developed with claude code -- Adam] A signal to `ndt up`: it rolled back what it had started (or, at
+        # its last step, left the lab up and said NOT verified). Read the output.
+        129: ("signal", "ndt up was interrupted by SIGHUP; it rolled back what it had started, or left the lab "
+                        "up and unverified at its last step -- read the output"),
+        130: ("signal", "ndt up was interrupted by SIGINT; it rolled back what it had started, or left the lab "
+                        "up and unverified at its last step -- read the output"),
+        143: ("signal", "ndt up was interrupted by SIGTERM; it rolled back what it had started, or left the lab "
+                        "up and unverified at its last step -- read the output"),
     },
     "down": {
         0: ("ok", "the teardown finished and the machine verified clean"),
@@ -276,7 +284,10 @@ RC_SOURCE = {
     "up": {"help": {0: "exit 0 the fabric came up and verified",
                     1: "1 something was MEASURED and it was dirty",
                     2: "2 is a usage error",
-                    5: "5 a GUARD REFUSED and nothing was built"}},
+                    5: "5 a GUARD REFUSED and nothing was built",
+                    129: "129 interrupted by SIGHUP",
+                    130: "130 interrupted by SIGINT",
+                    143: "143 interrupted by SIGTERM"}},
     "down": {"help": {0: "exit 0 the teardown finished and the machine verified clean",
                       1: "1 any of: stack.sh's half exited non-zero",
                       2: "2 is a usage error",
