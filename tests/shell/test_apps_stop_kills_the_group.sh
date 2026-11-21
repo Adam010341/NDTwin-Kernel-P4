@@ -182,6 +182,26 @@ alive_count() {   # how many of the pids on stdin still exist
     done
     echo "$n"
 }
+# worker_of <launcher> -- the fixture's depth-0 worker: the launcher's child running $FIXWORKER 0.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 BY WHAT IT IS, NOT BY WHERE IT SITS IN A LIST. The checks below that ask "is a child with no
+# signature named" need one particular child: one that stays alive until the stop. They used to
+# take the second entry of descendants(), and that entry is whichever of the launcher's children
+# the /proc glob lists first. A glob sorts names as strings, so pid 100062 comes before 99970: once
+# the pid counter crosses a power of ten (or wraps) between the worker's birth and the walk, the
+# second entry is the launcher's own `sleep 1`, which has exited a second later -- and the checks
+# went red on a runner with nothing wrong in ndt. This asks /proc for the worker by its argv.
+worker_of() {
+    local launcher="$1" p q c
+    for p in /proc/[0-9]*; do
+        q="${p#/proc/}"
+        [[ "$(ppid_of "$q")" == "$launcher" ]] || continue
+        c="$(tr '\0' ' ' 2>/dev/null < "/proc/$q/cmdline")"
+        case "$c" in *"/$FIXWORKER 0 "*) echo "$q"; return 0 ;; esac
+    done
+    return 1
+}
 
 cleanup_fixtures() {
     # [Co-developed with claude code -- Adam] First, so a second signal cannot cut the cleaning
@@ -297,6 +317,9 @@ check "the .pgid file records that group"          "$APP" "$(cat "$(app_pgidfile
 
 mapfile -t TREE < <(descendants "$APP")
 check "the fixture really has descendants"         yes "$( (( ${#TREE[@]} >= 3 )) && echo yes || echo no)"
+# The child the "no signature" checks name. See worker_of: TREE's order is not a choice of child.
+WORKER="$(worker_of "$APP")"
+check "the worker is found, and is in the tree"     yes "$([[ -n "$WORKER" ]] && has " $WORKER " " ${TREE[*]} ")"
 KIDGROUPS=""
 for p in "${TREE[@]}"; do KIDGROUPS="$KIDGROUPS $(proc_pgid "$p" 2>/dev/null)"; done
 check "every descendant is in the app's group"     no  "$(has " $MY_PGID" "$KIDGROUPS")"
@@ -316,7 +339,7 @@ echo "the process group channel"
 
 mapfile -t GRP < <(app_group_pids "$APP")
 check "app_group_pids finds the whole group"       yes "$( (( ${#GRP[@]} >= 3 )) && echo yes || echo no)"
-check "  including a child with no signature"      yes "$(has " ${TREE[1]} " " ${GRP[*]} ")"
+check "  including a child with no signature"      yes "$(has " $WORKER " " ${GRP[*]} ")"
 check "  and not this shell"                       no  "$(has " $$ " " ${GRP[*]} ")"
 
 # 🔴 The refusal that keeps the mechanism from turning on its owner.
@@ -333,7 +356,7 @@ echo "the log-writer channel (who holds the log open, not who mentions it)"
 
 mapfile -t WRITERS < <(app_log_writers te)
 check "the log's writers are found"                yes "$( (( ${#WRITERS[@]} >= 2 )) && echo yes || echo no)"
-check "  including a child with no signature"      yes "$(has " ${TREE[1]} " " ${WRITERS[*]} ")"
+check "  including a child with no signature"      yes "$(has " $WORKER " " ${WRITERS[*]} ")"
 
 # A READER of the same file must not be reported: `tail -f` on a log is not the app, and this is
 # the difference between "holds the fd" and "holds it for writing".
@@ -371,7 +394,7 @@ echo "the verifier"
 app_verify_stopped te >/dev/null 2>&1
 check "🔴 the verifier says NO while the app is running" 1 "$?"
 VOUT="$(app_verify_stopped te 2>&1)"
-check "  and names a pid it can see"               yes "$(has "${TREE[1]}" "$VOUT")"
+check "  and names a pid it can see"               yes "$(has "pid $WORKER " "$VOUT")"
 
 # A stop whose signals do nothing must not print `ok ... stopped`. This is the 2026-09-02
 # transcript in miniature: STOP_RC=0 and "ok viz stopped", with the app still running.
@@ -438,6 +461,8 @@ echo "orphaned children (no pidfile, no signature, still running)"
 
 APP2="$(start_app)"
 mapfile -t TREE2 < <(descendants "$APP2")
+# Asked before the launcher is killed: after that the worker's parent is no longer APP2.
+WORKER2="$(worker_of "$APP2")"
 kill -TERM "$APP2" 2>/dev/null; sleep 1
 rm -f "$(app_pidfile te)"                           # the crash took the pidfile with it
 KIDS_ALIVE="$(printf '%s\n' "${TREE2[@]:1}" | alive_count)"
@@ -452,7 +477,7 @@ check "the pidfile-and-argv probe says not-running" not-running "$APP_STATE"
 OUT="$(apps_orphans 2>&1)"; RC=$?
 check "🔴 apps orphans exits 1 (it answered 0 on 09-02)" 1 "$RC"
 check "  names the app"                            yes "$(has "te: children with no pidfile" "$OUT")"
-check "  names a surviving pid"                    yes "$(has "${TREE2[1]}" "$OUT")"
+check "  names a surviving pid"                    yes "$([[ -n "$WORKER2" ]] && has "pid $WORKER2 " "$OUT")"
 check "  and names the channel that found it"      yes "$(has "writing to" "$OUT")"
 
 OUT="$(app_stop te 2>&1)"; RC=$?
