@@ -134,6 +134,8 @@ case "$1 ${2:-}" in
         printf '%s\n' "${NDT_FABRIC_ID-UNSET}" > "$FIX/stack.fabric"
         # [Co-developed with claude code -- Adam] stack.up.hook is what this `up` leaves in the registry
         # (a started component, a replaced one, one that went): sourced, so a test writes it as shell.
+        # [Co-developed with claude code -- Adam] the up marker's phase as stack.sh was reached (section 31).
+        [[ -f "$FIX/.test_run/up.inflight" ]] && sed -n "s/^phase=//p" "$FIX/.test_run/up.inflight" >> "$FIX/stack.phases"
         echo "[1/3] data plane"; echo "started"
         [[ -f "$FIX/stack.up.hook" ]] && . "$FIX/stack.up.hook"
         exit "$(rc_of stack_up)" ;;
@@ -164,7 +166,7 @@ chmod +x "$FIX/stack.sh"
 reset_fix() {
     rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" "$FIX/identity.calls" "$FIX/stack.fabric" "$FIX/fabric_id.seq" \
           "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" "$FIX/stack.up.hook" \
-          "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" \
+          "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" "$FIX/topo.phases" "$FIX/stack.phases" \
           "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target"
     echo '{"switches":[]}' > "$FIX/manifest.json"
     rm -f "$FIX/.test_run/pids/"*
@@ -220,6 +222,14 @@ sudo() {
     # loop in up_p4 requires both, so a fixture that removed it and never restored it would fail
     # every bring-up for a reason that has nothing to do with the case under test.
     [[ "$verb" == topo-start ]] && echo '{"switches":[]}' > "'"$FIX"'/manifest.json"
+    # [Co-developed with claude code -- Adam] Section 31. The phase the up marker stood at when topo-start was reached; and the
+    # hold of the two-process cell: this call tells the test through one FIFO that it is here, then waits for the test to say go
+    # on another (read -t is the backstop if the test dies).
+    [[ "$verb" == topo-start && -f "'"$FIX"'/.test_run/up.inflight" ]] && sed -n "s/^phase=//p" "'"$FIX"'/.test_run/up.inflight" >> "'"$FIX"'/topo.phases"
+    if [[ "$verb" == topo-start && -n "${FX_BLOCK_TOPO_START:-}" ]]; then
+        echo "A at topo-start" 1<>"$FX_TOPO_SYNC"
+        read -r -t 60 _ <>"$FX_BLOCK_TOPO_START"
+    fi
     [[ -f "'"$FIX"'/out.$verb" ]] && cat "'"$FIX"'/out.$verb"
     [[ -f "'"$FIX"'/rc.$verb" ]] && return "$(cat "'"$FIX"'/rc.$verb")"
     return 0
@@ -3365,6 +3375,439 @@ rm -rf "$FIX/pyshadow"
 check "the bmv2 rows are the fabric's: 30051, 30060, 9091, 9100 yes; 8081, 8000, 6343, 30061 no" \
       "30051 30060 9091 9100 " \
       "$(drive 'for p in 30051 30060 9091 9100 8081 8000 6343 30061; do ndt_port_is_bmv2 "$p" && printf "%s " "$p"; done; echo' | head -1)"
+
+# ==========================================================================================
+section "31. one lab-changing verb at a time per checkout: a second 'ndt up', 'down' or 'clean' is refused"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# Two `ndt up p4` 0.5 s apart from one checkout: the second read "no fabric yet", stopped the first one's
+# topo session at its [1/3], built its own and adopted the first one's heartbeat, proxy and kernel, while the
+# first reported `up. ready`, rc 0, over a lab with no switches. Nothing in ndt said an `ndt up` was running.
+# Now `up`, `down` and a standalone `clean` each keep a marker in .test_run/ (up.inflight, down.inflight,
+# clean.inflight) and refuse, rc 5, before writing anything, while another live verb's marker is there. The
+# marker is checked and written under one short flock (run.lock), never held for the verb: a lock fd would be
+# inherited by the kernel and the apps and held for as long as they live.
+#
+# A marker is LIVE only when its pid exists and its start time (field 22 of /proc/<pid>/stat) is the one it
+# recorded; a number that another process now has is stale. The test's own shell is the "other" live process
+# (certainly alive, and not the shell `drive` starts), the way section 14 does it.
+UM="$FIX/.test_run/up.inflight"; CM="$FIX/.test_run/clean.inflight"; RLK="$FIX/.test_run/run.lock"
+ticks31() { local r; r="$(sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null)"; set -- $r; echo "${20}"; }
+clr31() { rm -f "$UM" "$CM" "$DM" "$RLK" "$FIX/converted.log" "$FIX/apps.log" "$FIX/ntg.log" "$FIX/seen.up" "$FIX/seen.clean" "$FIX/seen.pid"; }
+mk31() {   # mk31 <verb> <file> <pid> <start> <pgid> <phase> -- a marker as a live verb of another process would have left it
+    printf 'pid=%s\nat=2026-11-17T18:36:15+0800\nby=other-owner\nstart=%s\npgid=%s\nverb=%s\nargv=ndt %s p4 --app exercises/basic\nphase=%s\n' \
+        "$3" "$4" "$5" "$1" "$1" "$6" > "$2"
+}
+OWN31="$(ticks31 $$)"
+nlines31() { grep -c "$@" 2>/dev/null || true; }
+VSTUB='verify_p4() { cp "$FIX/.test_run/up.inflight" "$FIX/seen.up"; echo $$ > "$FIX/seen.pid"; return 0; }'
+NOFLOCK='command() { if [[ "$1 $2" == "-v flock" ]]; then return 1; fi; builtin command "$@"; }'
+
+# 31a. a live up marker: the second bring-up is refused before it writes or builds anything
+seed_found; clr31; BEFORE="$(five_hash)"
+mk31 up "$UM" "$$" "$OWN31" 99999999 "[1/3]"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_up up_p4 4')"
+check "🔴 31a a live 'ndt up' marker refuses a second 'ndt up p4' with 5"   "5" "$(rc_of_out "$OUT")"
+has   "  31a and names what is running"                                   "refusing to build: an 'ndt up' from this checkout is still running" "$OUT"
+has   "  31a its pid"                                                     "pid $$ " "$OUT"
+has   "  31a its command line"                                            "'ndt up p4 --app exercises/basic'" "$OUT"
+has   "  31a its owner"                                                   "by other-owner" "$OUT"
+has   "  31a since when"                                                  "since 2026-11-17T18:36:15+0800" "$OUT"
+has   "  31a and how far it is"                                           "at [1/3]" "$OUT"
+has   "  31a with the line to stop it (TERM, a pid, not a group, here)"    "kill -TERM $$" "$OUT"
+hasnt "  31a and no group form when the pid leads no group of its own"    "kill -TERM -- -" "$OUT"
+hasnt "  31a and never INT: a lone INT does not end a verb (it carries on once its command returns)" "kill -INT" "$OUT"
+has   "  31a and what the pid form leaves running"                        "the pid form leaves that to finish on its own" "$OUT"
+check "🔴 31a sudo.log has no topo-start and no topo-stop"                "0" "$(nlines31 -E 'topo-(start|stop)' "$FIX/sudo.log")"
+check "🔴 31a up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+check "  31a the running verb's marker is untouched"                       "$$" "$(sed -n 's/^pid=//p' "$UM")"
+OUT="$(NDT_OWNER=other-owner drive 'cmd_up up_p4 4')"
+check "🔴 31a the same owner is refused too (the measured pair was one owner, twice)" "5" "$(rc_of_out "$OUT")"
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_up up_p4 4')"
+has   "  31a the group form when the marker's pgid is its pid"            "kill -TERM -- -$$" "$OUT"
+hasnt "  31a and the pid form is not printed then"                        "kill -TERM $$" "$OUT"
+has   "  31a and the phase it reached"                                    "at [2/3]" "$OUT"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_up up_ovs 4')"
+check "🔴 31a the OVS plane is refused by the same marker"                "5" "$(rc_of_out "$OUT")"
+check "  31a and built nothing"                                           "0" "$(nlines31 -E 'topo-|ovs' "$FIX/sudo.log")"
+# before the exercise conversion, which writes .test_run/packages/generated/
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'app_is_exercise() { return 0; }
+app_from_exercise() { echo CONVERTED >> "$FIX/converted.log"; return 5; }
+NDT_APP_DIR=/nonexistent/exercise cmd_up up_p4')"
+check "🔴 31a the exercise is not converted for a refused bring-up"       "absent" "$([[ -e "$FIX/converted.log" ]] && echo present || echo absent)"
+rm -f "$UM"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'app_is_exercise() { return 0; }
+app_from_exercise() { echo CONVERTED >> "$FIX/converted.log"; return 5; }
+NDT_APP_DIR=/nonexistent/exercise cmd_up up_p4')"
+check "  31a control: with no marker the conversion is reached"           "present" "$([[ -e "$FIX/converted.log" ]] && echo present || echo absent)"
+clr31
+
+# 31b. a stale marker does not refuse, and is removed out loud
+reset_fix; rm -f "$UM"
+(exit 0) & DEAD31=$!; wait "$DEAD31" 2>/dev/null
+mk31 up "$UM" "$DEAD31" 1 "$DEAD31" "[2/3]"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "🔴 31b a marker whose pid is gone does not refuse"                 "0" "$(rc_of_out "$OUT")"
+has   "  31b it says it removed a stale marker, and whose"                "removing a stale 'ndt up' marker: pid $DEAD31 is gone" "$OUT"
+has   "  31b the phase the dead one had reached"                          "it had reached [2/3]" "$OUT"
+has   "  31b and that what it started may still be up"                    "what it started may still be up" "$OUT"
+check "  31b the old marker is not left behind"                           "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+reset_fix; rm -f "$UM"
+mk31 up "$UM" "$$" "$(( OWN31 + 1 ))" "$$" "[2/3]"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "🔴 31b a LIVE pid with another start time is a recycled number: not refused" "0" "$(rc_of_out "$OUT")"
+has   "  31b and says so"                                                 "is another process now" "$OUT"
+reset_fix; rm -f "$UM"
+printf 'pid=abc\nat=x\nby=y\n' > "$UM"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  31b a marker with no usable pid is stale too"                    "0" "$(rc_of_out "$OUT")"
+has   "  31b and says what was wrong with it"                             "it names no usable pid" "$OUT"
+reset_fix; rm -f "$UM" "$CM"
+mk31 clean "$CM" "$$" "$(( OWN31 + 1 ))" "$$" "start"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  31b a stale clean marker does not refuse a bring-up"             "0" "$(rc_of_out "$OUT")"
+has   "  31b it is removed out loud as well"                              "removing a stale 'ndt clean' marker" "$OUT"
+check "🔴 31b and it is gone (a bring-up does not write a clean marker over it)" "absent" "$([[ -e "$CM" ]] && echo present || echo absent)"
+clr31
+
+# 31c. 'ndt down' and a standalone 'ndt clean' refuse beside a live up marker; clean inside down does not
+reset_fix; clr31
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(drive 'cmd_down')"
+check "🔴 31c 'ndt down' beside a live 'ndt up' is refused with 5"        "5" "$(rc_of_out "$OUT")"
+has   "  31c naming the bring-up"                                         "refusing to tear down: an 'ndt up' from this checkout is still running" "$OUT"
+check "  31c no stack.sh teardown ran"                                    "absent" "$(grep -qF down "$FIX/stack.log" && echo present || echo absent)"
+check "  31c and no sweep"                                                "absent" "$(grep -qF cleanup "$FIX/sudo.log" && echo present || echo absent)"
+check "  31c the bring-up's marker is untouched"                          "$$" "$(sed -n 's/^pid=//p' "$UM")"
+check "  31c and no teardown marker was written"                          "absent" "$([[ -e "$DM" ]] && echo present || echo absent)"
+OUT="$(drive 'cmd_clean')"
+check "🔴 31c a standalone 'ndt clean' beside a live 'ndt up' is refused with 5" "5" "$(rc_of_out "$OUT")"
+has   "  31c naming the bring-up"                                         "refusing to clean: an 'ndt up' from this checkout is still running" "$OUT"
+check "  31c and it took no marker of its own"                            "absent" "$([[ -e "$CM" ]] && echo present || echo absent)"
+rm -f "$UM"
+mk31 clean "$CM" "$$" "$OWN31" "$$" "start"
+OUT="$(drive 'cmd_down')"
+check "🔴 31c 'ndt down' beside a live 'ndt clean' is refused with 5"     "5" "$(rc_of_out "$OUT")"
+has   "  31c naming the clean"                                            "an 'ndt clean' from this checkout is still running" "$OUT"
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "🔴 31c 'ndt up' beside a live 'ndt clean' is refused with 5"       "5" "$(rc_of_out "$OUT")"
+OUT="$(drive 'cmd_clean')"
+check "  31c and so is a second 'ndt clean'"                              "5" "$(rc_of_out "$OUT")"
+rm -f "$CM"
+mk31 down "$DM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  31c 'ndt up' beside a live 'ndt down' is refused with 5 (the older marker is read the same way)" "5" "$(rc_of_out "$OUT")"
+has   "  31c in the words the teardown refusal always had"                "refusing to build: an 'ndt down' from this checkout is still running" "$OUT"
+rm -f "$DM"
+# re-entrancy: `ndt down` ends by calling cmd_clean, under its own marker, and that clean takes none of its own
+reset_fix; clr31
+OUT="$(drive 'app_knob_clear() { [[ -e "$FIX/.test_run/clean.inflight" ]] && echo CLEANMARKER >> "$FIX/seen.clean"; return 0; }
+cmd_down')"
+check "🔴 31c 'ndt down' runs its own verify clean (not refused by itself)" "absent" "$(grep -qF 'refusing to' <<<"$OUT" && echo present || echo absent)"
+check "  31c and the teardown runs to its end (0 or 3, never a refusal)"  "yes" "$([[ "$(rc_of_out "$OUT")" =~ ^[03]$ ]] && echo yes || echo no)"
+check "🔴 31c the clean inside it takes no marker of its own"             "absent" "$([[ -e "$FIX/seen.clean" ]] && echo present || echo absent)"
+OUT="$(drive 'app_knob_clear() { [[ -e "$FIX/.test_run/clean.inflight" ]] && echo CLEANMARKER >> "$FIX/seen.clean"; return 0; }
+cmd_clean')"
+check "  31c control: a standalone clean does take one while it runs"     "present" "$([[ -e "$FIX/seen.clean" ]] && echo present || echo absent)"
+check "  31c and releases it"                                             "absent" "$([[ -e "$CM" ]] && echo present || echo absent)"
+clr31
+
+# 31d. the marker is there DURING the verb and gone after every way out
+reset_fix; clr31
+AFTER31='RCX=$?; echo "MARKER_AFTER=$([[ -e "$FIX/.test_run/up.inflight" ]] && echo present || echo absent)"; (exit $RCX)'
+OUT="$(NDT_OWNER="$NOTE_OWNER" NDT_RUN_ARGV='ndt up p4 4' drive "$P4_FRESH
+$VSTUB
+cmd_up up_p4 4
+$AFTER31")"
+check "31d a bring-up that completes is rc 0"                            "0" "$(rc_of_out "$OUT")"
+check "🔴 31d the marker named this process while it ran (pid)"           "$(cat "$FIX/seen.pid" 2>/dev/null)" "$(sed -n 's/^pid=//p' "$FIX/seen.up" 2>/dev/null)"
+check "  31d the owner it was started by"                                 "$NOTE_OWNER" "$(sed -n 's/^by=//p' "$FIX/seen.up" 2>/dev/null)"
+check "🔴 31d and its start time was recorded (the pid-reuse guard)"      "yes" "$([[ "$(sed -n 's/^start=//p' "$FIX/seen.up" 2>/dev/null)" =~ ^[0-9]+$ ]] && echo yes || echo no)"
+check "  31d and the verb and the command line"                          "up|ndt up p4 4" "$(sed -n 's/^verb=//p' "$FIX/seen.up" 2>/dev/null)|$(sed -n 's/^argv=//p' "$FIX/seen.up" 2>/dev/null)"
+check "🔴 31d the phase is rewritten at each step: [1/3] at topo-start, [2/3] at stack.sh, [3/3] at verify" \
+      "[1/3]|[2/3]|[3/3]" "$(head -1 "$FIX/topo.phases" 2>/dev/null)|$(head -1 "$FIX/stack.phases" 2>/dev/null)|$(sed -n 's/^phase=//p' "$FIX/seen.up" 2>/dev/null)"
+has   "🔴 31d after rc 0 the marker is gone as soon as the verb returns"   "MARKER_AFTER=absent" "$OUT"
+check "  31d and when the shell ends"                                     "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+reset_fix; clr31; rc_for stack_up 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+cmd_up up_p4 4
+$AFTER31")"
+check "31d a bring-up that fails and rolls back is rc 1"                 "1" "$(rc_of_out "$OUT")"
+has   "🔴 31d after rc 1 (the rollback path) the marker is gone as soon as the verb returns" "MARKER_AFTER=absent" "$OUT"
+reset_fix; clr31
+OUT="$(drive "preflight() { return 5; }
+cmd_up up_p4 4
+$AFTER31")"
+check "31d a bring-up refused by its own guards is rc 5"                 "5" "$(rc_of_out "$OUT")"
+has   "🔴 31d after rc 5 (the refusal path) the marker is gone as soon as the verb returns" "MARKER_AFTER=absent" "$OUT"
+reset_fix; clr31
+OUT="$(drive "preflight() { return 5; }
+cmd_up up_ovs 4
+$AFTER31")"
+has   "  31d the OVS plane too"                                          "MARKER_AFTER=absent" "$OUT"
+# a path that leaves the shell instead of returning: the EXIT trap releases it
+reset_fix; clr31
+OUT="$(drive 'preflight() { exit 3; }
+cmd_up up_p4 4')"
+check "  31d a bring-up that exits the shell does not return an rc"       "" "$(rc_of_out "$OUT")"
+check "🔴 31d the marker is still gone: the EXIT trap released it"        "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+OUT="$(drive 'cmd_clean >/dev/null; echo "TRAP=[$(trap -p EXIT)]"')"
+has   "  31d a clean leaves no exit trap of its own behind"               "TRAP=[]" "$OUT"
+
+# 31e. the check and the write are one step under the lock: a held lock is a refusal, not an overlap
+reset_fix; clr31
+mkdir -p "$FIX/.test_run"; rm -f "$FIX/lock31.sync" "$FIX/lock31.go"; mkfifo "$FIX/lock31.sync" "$FIX/lock31.go"
+exec 7<>"$FIX/lock31.sync"
+setsid bash -c 'exec 8>>"$1"; flock -w 20 8 || exit 3; exec 7<>"$2"; echo locked >&7; exec 6<>"$3"; read -r -t 60 -u 6 _' _ "$RLK" "$FIX/lock31.sync" "$FIX/lock31.go" &
+HELD31=$!
+read -r -t 20 -u 7 SYNC31
+check "  31e the helper holds run.lock"                                  "locked" "${SYNC31:-}"
+OUT="$(NDT_OWNER="$NOTE_OWNER" NDT_RUN_LOCK_WAIT=1 drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "🔴 31e a bring-up that cannot get the lock is refused with 5"     "5" "$(rc_of_out "$OUT")"
+has   "  31e and says it gave up waiting"                                "gave up waiting 1s" "$OUT"
+check "🔴 31e it built nothing"                                          "0" "$(nlines31 -E 'topo-(start|stop)' "$FIX/sudo.log")"
+check "  31e and wrote no marker"                                        "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+OUT="$(NDT_RUN_LOCK_WAIT=1 drive 'cmd_down')"
+check "🔴 31e the teardown's check-then-write is under the same lock"     "5" "$(rc_of_out "$OUT")"
+has   "  31e it gave up waiting too"                                      "gave up waiting 1s" "$OUT"
+check "  31e and ran no teardown"                                         "absent" "$(grep -qF down "$FIX/stack.log" && echo present || echo absent)"
+# a standalone clean does not remove a stale teardown marker itself: only the lock holder does
+(exit 0) & DEAD31E=$!; wait "$DEAD31E" 2>/dev/null
+printf 'pid=%s\nat=x\n' "$DEAD31E" > "$DM"
+OUT="$(NDT_RUN_LOCK_WAIT=1 drive 'cmd_clean')"
+check "  31e a standalone clean that cannot get the lock is refused with 5" "5" "$(rc_of_out "$OUT")"
+check "🔴 31e and it left the stale teardown marker for a lock holder"      "present" "$([[ -e "$DM" ]] && echo present || echo absent)"
+rm -f "$DM"
+exec 5<>"$FIX/lock31.go"; echo go >&5; exec 5>&-
+wait "$HELD31" 2>/dev/null; exec 7>&-
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  31e control: with the lock released the same bring-up runs"     "0" "$(rc_of_out "$OUT")"
+rm -f "$FIX/lock31.sync" "$FIX/lock31.go"; clr31
+
+# 31f. two real processes, as measured: the second `ndt up` arrives while the first is at topo-start
+reset_fix; clr31
+mkfifo "$FIX/topo31.sync" "$FIX/topo31.go"
+exec 7<>"$FIX/topo31.sync"; exec 5<>"$FIX/topo31.go"
+setsid bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+$P4_FRESH
+FX_BLOCK_TOPO_START='$FIX/topo31.go' FX_TOPO_SYNC='$FIX/topo31.sync' NDT_OWNER=first-owner cmd_up up_p4 4
+echo \"RC=\$?\"" > "$FIX/A31.out" 2>&1 &
+A31=$!
+read -r -t 20 -u 7 SYNC31
+check "  31f the first bring-up is at topo-start"                        "A at topo-start" "${SYNC31:-}"
+check "  31f and holds its marker, under its own pid"                    "$A31" "$(sed -n 's/^pid=//p' "$UM" 2>/dev/null)"
+OUT="$(NDT_OWNER=second-owner drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "🔴 31f the second bring-up is refused with 5"                      "5" "$(rc_of_out "$OUT")"
+has   "🔴 31f naming the first one's pid"                                "pid $A31 " "$OUT"
+has   "  31f and its owner"                                              "by first-owner" "$OUT"
+check "🔴 31f sudo.log holds exactly one topo-start"                     "1" "$(nlines31 ' topo-start' "$FIX/sudo.log")"
+check "🔴 31f and no topo-stop (the first one's session was not stopped)" "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+echo go >&5
+wait "$A31" 2>/dev/null; exec 7>&- 5>&-
+check "🔴 31f the first bring-up then finishes with rc 0"                 "RC=0" "$(grep -a '^RC=' "$FIX/A31.out" | tail -1)"
+check "  31f and its marker is gone"                                     "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+rm -f "$FIX/topo31.sync" "$FIX/topo31.go" "$FIX/A31.out"; clr31
+
+# 31g. NDT_RUN_WAIT: opt-in, bounded; the default is to refuse at once
+reset_fix; clr31
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(NDT_RUN_WAIT=2 drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  31g with NDT_RUN_WAIT a marker that stays is still a refusal"    "5" "$(rc_of_out "$OUT")"
+has   "  31g after one line saying it is waiting, and for how long"       "waiting up to 2s" "$OUT"
+check "  31g the refusal itself is printed once, at the end"              "1" "$(grep -c 'is still running' <<<"$OUT")"
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+hasnt "  31g by default there is no waiting"                              "waiting up to" "$OUT"
+# the marker is released while the second caller waits: the wait ends in success
+rm -f "$UM"
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(NDT_RUN_WAIT=3 drive "$P4_FRESH
+sleep() { rm -f \"\$FIX/.test_run/up.inflight\"; }
+cmd_up up_p4 4")"
+check "  31g a marker that goes away during the wait lets the bring-up run" "0" "$(rc_of_out "$OUT")"
+# the teardown waits too: the same helper
+reset_fix; clr31
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(NDT_RUN_WAIT=2 drive 'cmd_down')"
+check "🔴 31g 'ndt down' beside a live up marker is still refused with 5 after the wait" "5" "$(rc_of_out "$OUT")"
+has   "🔴 31g and it waited: the one line says for how long"               "waiting up to 2s" "$OUT"
+check "  31g the refusal is printed once, at the end"                     "1" "$(grep -c 'is still running' <<<"$OUT")"
+check "  31g and no teardown ran"                                          "absent" "$(grep -qF down "$FIX/stack.log" && echo present || echo absent)"
+OUT="$(drive 'cmd_down')"
+hasnt "  31g by default 'ndt down' does not wait"                         "waiting up to" "$OUT"
+rm -f "$UM"; mk31 down "$DM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(NDT_RUN_WAIT=2 drive 'cmd_down')"
+check "  31g a second 'ndt down' waits for the first as well"             "5" "$(rc_of_out "$OUT")"
+has   "  31g with the same one line"                                      "waiting up to 2s" "$OUT"
+check "  31g and one refusal"                                             "1" "$(grep -c 'is still running' <<<"$OUT")"
+rm -f "$DM"; mk31 down "$DM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(NDT_RUN_WAIT=3 drive 'sleep() { rm -f "$FIX/.test_run/down.inflight"; }
+cmd_down')"
+check "  31g a teardown marker that goes away during the wait lets 'ndt down' run" "yes" "$([[ "$(rc_of_out "$OUT")" =~ ^[03]$ ]] && echo yes || echo no)"
+# a standalone clean beside a running teardown waits as well (its own older check used to answer at once)
+rm -f "$DM"; mk31 down "$DM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(NDT_RUN_WAIT=2 drive 'cmd_clean')"
+check "🔴 31g a standalone 'ndt clean' beside a live teardown is still refused with 5 after the wait" "5" "$(rc_of_out "$OUT")"
+has   "🔴 31g and it waited, as the help says"                            "waiting up to 2s" "$OUT"
+check "  31g a clean waiting for a teardown prints one refusal"                                             "1" "$(grep -c 'is still running' <<<"$OUT")"
+OUT="$(drive 'cmd_clean')"
+hasnt "  31g by default it does not wait"                                 "waiting up to" "$OUT"
+check "  31g and is refused at once"                                      "5" "$(rc_of_out "$OUT")"
+# the teardown's own verify-clean is not a verb to wait for: on a free lab a down with a wait does not stall
+rm -f "$DM"
+OUT="$(NDT_RUN_WAIT=2 drive 'cmd_down')"
+hasnt "🔴 31g 'ndt down' with NDT_RUN_WAIT does not wait for its own verify clean" "waiting up to" "$OUT"
+check "  31g and it runs to its end"                                       "yes" "$([[ "$(rc_of_out "$OUT")" =~ ^[03]$ ]] && echo yes || echo no)"
+rm -f "$DM"; mk31 down "$DM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(NDT_RUN_WAIT=3 drive 'sleep() { rm -f "$FIX/.test_run/down.inflight"; }
+cmd_clean')"
+check "  31g a teardown that ends during the wait lets the clean run"      "yes" "$([[ "$(rc_of_out "$OUT")" =~ ^[03]$ ]] && echo yes || echo no)"
+# a value with a leading zero is a number of seconds, not an octal error that removes the bound
+drive_to() { local t="$1"; shift; timeout "$t" bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+$1
+echo \"RC=\$?\"" 2>&1; }
+rm -f "$DM"; mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(NDT_RUN_WAIT=08 drive_to 15 'cmd_down')"
+check "🔴 31g NDT_RUN_WAIT=08 beside a live bring-up ends: refused with 5"  "5" "$(rc_of_out "$OUT")"
+check "  31g after one refusal"                                           "1" "$(grep -c 'is still running' <<<"$OUT")"
+hasnt "  31g and no bash error text"                                      "too great" "$OUT"
+has   "  31g the wait is eight seconds"                                   "waiting up to 8s" "$OUT"
+rm -f "$UM"; mk31 down "$DM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(NDT_RUN_WAIT=08 drive_to 15 'cmd_clean')"
+check "🔴 31g and beside a live teardown (clean)"                          "5" "$(rc_of_out "$OUT")"
+hasnt "  31g with no bash error text either"                              "too great" "$OUT"
+clr31
+
+# 31h. without flock the verb still runs, and says its marker is unprotected
+reset_fix; clr31
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+$NOFLOCK
+cmd_up up_p4 4")"
+check "  31h a missing flock does not stop the bring-up"                  "0" "$(rc_of_out "$OUT")"
+has   "🔴 31h but it is said, loudly"                                    "flock is not on PATH" "$OUT"
+has   "  31h and what that costs"                                        "WITHOUT a lock" "$OUT"
+
+# 31i. what only looks: an app start and the NTG edit are refused under a live up or down marker, rc 1
+reset_fix; clr31
+APPSTUB='app_start() { echo "START $1" >> "$FIX/apps.log"; }'
+NTGSTUB='ntg_config() { echo "ntg_config $*" >> "$FIX/ntg.log"; NTG_ST=ok; NTG_MODE=cli; NTG_CONF=x; NTG_HOST=y; return 0; }
+lab_ntg_dir() { echo "$FIX/ntg"; LAB_NTG_DIR_SOURCE=fixture; }'
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(drive "$APPSTUB
+cmd_apps energy")"
+check "🔴 31i 'ndt apps <name>' under a live bring-up is refused with 1"  "1" "$(rc_of_out "$OUT")"
+has   "  31i it says why"                                                "refusing to start an app: an 'ndt up' from this checkout is still running" "$OUT"
+check "🔴 31i and started nothing"                                       "absent" "$([[ -e "$FIX/apps.log" ]] && echo present || echo absent)"
+check "  31i and wrote no marker of its own"                             "up" "$(ls "$FIX/.test_run" | sed -n 's/\.inflight$//p' | tr '\n' ' ' | sed 's/ $//')"
+OUT="$(drive "$NTGSTUB
+cmd_ntg cli")"
+check "🔴 31i 'ndt ntg cli' under a live bring-up is refused with 1"     "1" "$(rc_of_out "$OUT")"
+check "🔴 31i and read nothing, let alone edited it"                     "absent" "$([[ -e "$FIX/ntg.log" ]] && echo present || echo absent)"
+OUT="$(drive "$NTGSTUB
+cmd_ntg")"
+check "  31i showing NTG's mode is not held back"                        "present" "$([[ -e "$FIX/ntg.log" ]] && echo present || echo absent)"
+rm -f "$UM" "$FIX/apps.log" "$FIX/ntg.log"
+mk31 down "$DM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(drive "$APPSTUB
+cmd_apps energy")"
+check "🔴 31i 'ndt apps <name>' under a live teardown is refused with 1" "1" "$(rc_of_out "$OUT")"
+has   "  31i in the teardown's own words first"                          "refusing to start an app: an 'ndt down' from this checkout is still running" "$OUT"
+rm -f "$DM"
+OUT="$(drive "$APPSTUB
+cmd_apps energy")"
+check "  31i control: with no marker the app is started"                 "START energy" "$(cat "$FIX/apps.log" 2>/dev/null)"
+rm -f "$FIX/ntg.log"
+OUT="$(drive "$NTGSTUB
+cmd_ntg cli")"
+check "  31i and with none the NTG edit is reached"                      "present" "$([[ -e "$FIX/ntg.log" ]] && echo present || echo absent)"
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(drive 'apps_status() { echo STATUS; }
+cmd_apps status')"
+has   "  31i listing apps is not held back either"                       "STATUS" "$OUT"
+# the verbs that only look do not wait, and do not say they would
+rm -f "$FIX/apps.log" "$FIX/ntg.log"
+OUT="$(NDT_RUN_WAIT=2 drive "$APPSTUB
+cmd_apps energy")"
+check "  31i 'ndt apps <name>' is refused with 1 whatever NDT_RUN_WAIT says" "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 31i the apps refusal does not offer NDT_RUN_WAIT"                 "NDT_RUN_WAIT" "$OUT"
+hasnt "  31i nor does it wait"                                            "waiting up to" "$OUT"
+OUT="$(NDT_RUN_WAIT=2 drive "$NTGSTUB
+cmd_ntg cli")"
+check "  31i 'ndt ntg cli' is refused with 1 whatever NDT_RUN_WAIT says"  "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 31i the ntg refusal does not offer NDT_RUN_WAIT"                 "NDT_RUN_WAIT" "$OUT"
+OUT="$(drive 'cmd_down')"
+has   "  31i control: 'ndt down' under the same marker does offer it"      "NDT_RUN_WAIT" "$OUT"
+rm -f "$UM"
+# a check-only verb reads a stale teardown marker and leaves it: only a lock holder removes one
+(exit 0) & D31=$!; wait "$D31" 2>/dev/null
+printf 'pid=%s\nat=x\n' "$D31" > "$DM"
+OUT="$(drive "$APPSTUB
+cmd_apps energy")"
+check "🔴 31i 'ndt apps <name>' leaves a stale teardown marker where it was"  "present" "$([[ -e "$DM" ]] && echo present || echo absent)"
+hasnt "  31i without saying it removed one"                              "removing a stale teardown marker" "$OUT"
+check "  31i and the stale marker does not refuse the start"             "START energy" "$(cat "$FIX/apps.log" 2>/dev/null)"
+rm -f "$FIX/ntg.log"
+OUT="$(drive "$NTGSTUB
+cmd_ntg cli")"
+check "🔴 31i 'ndt ntg cli' leaves it too"                               "present" "$([[ -e "$DM" ]] && echo present || echo absent)"
+check "  31i and is not refused by it"                                    "present" "$([[ -e "$FIX/ntg.log" ]] && echo present || echo absent)"
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+has   "  31i control: a verb that holds the lock does remove it, out loud" "removing a stale teardown marker" "$OUT"
+check "  31i and builds"                                                   "0" "$(rc_of_out "$OUT")"
+# the two switches are the verbs' own, per call: a value exported by the caller changes nothing
+rm -f "$DM" "$FIX/apps.log"; printf 'pid=%s\nat=x\n' "$D31" > "$DM"
+OUT="$(RUN_REMOVE_STALE=1 drive "$APPSTUB
+cmd_apps energy")"
+check "🔴 31i an exported RUN_REMOVE_STALE does not let 'ndt apps' remove a stale teardown marker" "present" "$([[ -e "$DM" ]] && echo present || echo absent)"
+rm -f "$DM"; mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(RUN_QUIET=1 drive "$APPSTUB
+cmd_apps energy")"
+has   "🔴 31i an exported RUN_QUIET does not silence the refusal"          "refusing to start an app" "$OUT"
+rm -f "$UM"
+# a down.inflight that is not a regular file is nobody's marker, and reading it must not block
+rm -f "$DM" "$FIX/apps.log"; mkfifo "$DM"
+OUT="$(drive_to 10 "$APPSTUB
+cmd_apps energy")"
+check "🔴 31i a FIFO at down.inflight does not hang 'ndt apps'"            "RC=0" "$(grep -a '^RC=' <<<"$OUT")"
+check "  31i and the app is started"                                      "START energy" "$(cat "$FIX/apps.log" 2>/dev/null)"
+rm -f "$DM"
+clr31
+
+# 31j. the teardown's marker carries the same fields, and its phase moves
+reset_fix; clr31
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'mark_teardown_start >/dev/null; run_phase down "[2/3]"; cat "$(down_marker)"; mark_teardown_end')"
+has   "  31j the teardown marker names its pid"                          "pid=" "$OUT"
+has   "  31j its verb"                                                   "verb=down" "$OUT"
+has   "  31j its owner"                                                  "by=$NOTE_OWNER" "$OUT"
+has   "  31j a start time"                                               "start=" "$OUT"
+has   "🔴 31j and the phase moved"                                        "phase=[2/3]" "$OUT"
+check "  31j gone at the end"                                            "absent" "$([[ -e "$DM" ]] && echo present || echo absent)"
+OUT="$(drive 'run_release up; run_release clean; echo OK')"
+has   "  31j releasing a marker that is not there is a no-op"            "OK" "$OUT"
+mk31 up "$UM" "$$" "$OWN31" "$$" "[1/3]"
+OUT="$(drive 'run_release up; run_phase up "[3/3]"; echo OK')"
+check "🔴 31j a process that does not own a marker neither removes it nor moves its phase" "$$|[1/3]" "$(sed -n 's/^pid=//p' "$UM")|$(sed -n 's/^phase=//p' "$UM")"
+clr31
+# a subshell of the owner shares $$ and must not take its parent's marker with it
+reset_fix; clr31
+OUT="$(drive 'run_take up "ndt up x" && ( run_release up ) ; [[ -e "$FIX/.test_run/up.inflight" ]] && echo STILL; run_release up; [[ -e "$FIX/.test_run/up.inflight" ]] || echo GONE')"
+has   "🔴 31j a subshell copy of the owner does not remove the owner's marker"  "STILL" "$OUT"
+has   "  31j the owner does"                                              "GONE" "$OUT"
+clr31
 
 # ==========================================================================================
 section "33. a failed 'ndt up' puts back what it wrote, and says what it left running or could not restore"

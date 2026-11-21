@@ -673,10 +673,14 @@ report "M33: a stale marker refuses forever" "$m" \
 # clear a dead marker" cell and none of the refusal cells.
 m=$(mutant m34 "$NDT" \
     '    [[ -f "$f" ]] || return 1
-    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"' \
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"
+    at="$(sed -n '"'"'s/^at=//p'"'"' "$f" | head -1)"
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then' \
     '    [[ -f "$f" ]] || return 1
     return 1
-    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"')
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"
+    at="$(sed -n '"'"'s/^at=//p'"'"' "$f" | head -1)"
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then')
 report "M34 (widening): no teardown is ever in flight" "$m" \
        "  🔴 P4 preflight refuses while a teardown runs"
 
@@ -1153,7 +1157,7 @@ report_green "W15 (behaviour-preserving): the rollback's deferral note reworded"
 # own processes. The named case is the refusal's TEXT, not its rc -- cmd_clean is already rc 1
 # about a dirty machine, so the rc alone cannot see this mutation at all.
 m=$(mutant m48 "$NDT" \
-    '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then' \
+    '    if tif="$(teardown_in_flight_peek)" && [[ "${tif%% *}" != "$$" ]]; then' \
     '    if false; then')
 report "M48: 'ndt clean' has no guard against a live teardown again" "$m" \
        "  naming what it is refusing on"
@@ -1161,8 +1165,8 @@ report "M48: 'ndt clean' has no guard against a live teardown again" "$m" \
 # M49 (widening): the guard reads the FILE instead of its owner, so it also refuses `ndt down`'s
 # own `verify clean` -- the last step of every round -- while passing every refusal cell above.
 m=$(mutant m49 "$NDT" \
-    '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then' \
-    '    if tif="$(teardown_in_flight)"; then')
+    '    if tif="$(teardown_in_flight_peek)" && [[ "${tif%% *}" != "$$" ]]; then' \
+    '    if tif="$(teardown_in_flight_peek)"; then')
 report "M49 (widening): the clean guard refuses its own teardown too" "$m" \
        "🔴 'ndt down' is not refused by its own marker at verify clean"
 
@@ -3066,6 +3070,344 @@ m=$(mutant w24 "$NDT" \
     '        for fid_try in 1 2 3 4 5 6; do')
 report_green "W24 (behaviour-preserving): the fresh build asks for the record once more" "$m" \
        "the cells read the id, not how many times it was asked for"
+
+# --- one lab-changing verb at a time per checkout (section 31) ----------------------------------
+
+# A bring-up that takes no marker: the second one runs over the first, which is the measured collision.
+m=$(mutant m242 "$NDT" \
+    '    run_take up "${NDT_RUN_ARGV:-ndt up}" || return $?' \
+    '    :')
+report "M242: a bring-up takes no marker, so a second one is not refused" "$m" \
+       "🔴 31a a live 'ndt up' marker refuses"
+
+# Staleness by kill -0 alone: a live pid that is another process now (the number was handed on) is
+# read as the bring-up that wrote the marker.
+m=$(mutant m243 "$NDT" \
+    '        if [[ "$ticks" != "$RM_START" ]]; then' \
+    '        if false; then')
+report "M243: a marker is stale only when its pid is gone" "$m" \
+       "🔴 31b a LIVE pid with another start time"
+
+# The marker is released only when the bring-up succeeded: a failed one keeps the next caller out.
+m=$(mutant m244 "$NDT" \
+    '    run_leave up "$prev"' \
+    '    (( rc == 0 )) && run_leave up "$prev"')
+report "M244: the marker is released only on success" "$m" \
+       "🔴 31d after rc 1 (the rollback path) the marker is gone as soon as the verb returns"
+
+# The check and the write without the lock: two verbs started in the same instant both pass.
+m=$(mutant m245 "$NDT" \
+    '    lk="$(run_lock_file)"
+    mkdir -p "$(dirname "$lk")" 2>/dev/null' \
+    '    lk="$(run_lock_file)"
+    mkdir -p "$(dirname "$lk")" 2>/dev/null
+    "$@"; return $?')
+report "M245: no flock around the check-then-write" "$m" \
+       "🔴 31e a bring-up that cannot get the lock is refused with 5"
+
+# The teardown marker's check-then-write was unlocked before this change; put it back.
+m=$(mutant m246 "$NDT" \
+    'mark_teardown_start() { run_with_wait with_run_lock mark_teardown_start_locked; }' \
+    'mark_teardown_start() { run_with_wait mark_teardown_start_locked; }')
+report "M246: the teardown's check-then-write is outside the lock" "$m" \
+       "🔴 31e the teardown's check-then-write is under the same lock"
+
+# The take checks and refuses but never writes: nobody can see the running bring-up.
+m=$(mutant m247 "$NDT" \
+    '    run_marker_write "$verb" "$argv"' \
+    '    :')
+report "M247: the marker is checked for and never written" "$m" \
+       "🔴 31d the marker named this process while it ran (pid)"
+
+# The owner never moves the phase: every refusal says "start".
+m=$(mutant m248 "$NDT" \
+    '    if sed "s|^phase=.*|phase=$2|" "$f" > "$tmp" 2>/dev/null; then mv -f "$tmp" "$f" 2>/dev/null; fi' \
+    '    :')
+report "M248: the marker's phase is never rewritten" "$m" \
+       "🔴 31d the phase is rewritten at each step"
+
+# `ndt clean` inside `ndt down` takes a marker of its own: the re-entrancy test is gone.
+m=$(mutant m249 "$NDT" \
+    '    if [[ -z "$tif" || "${tif%% *}" != "$$" ]]; then' \
+    '    if true; then')
+report "M249: the clean inside a teardown takes its own marker" "$m" \
+       "🔴 31c the clean inside it takes no marker of its own"
+
+# `ndt down` over a running bring-up: the old marker could not see one.
+m=$(mutant m250 "$NDT" \
+    '    RUN_REMOVE_STALE=1 run_check_conflicts "tear down" up clean || return 1' \
+    '    :')
+report "M250: a teardown does not look for a running bring-up or clean" "$m" \
+       "🔴 31c 'ndt down' beside a live 'ndt up' is refused with 5"
+
+# A bring-up and a standalone clean no longer see each other's marker.
+m=$(mutant m251 "$NDT" \
+    '    RUN_REMOVE_STALE=1 run_check_conflicts "$action" down up clean || return 5' \
+    '    RUN_REMOVE_STALE=1 run_check_conflicts "$action" down up || return 5')
+report "M251: a running clean does not hold a bring-up off" "$m" \
+       "🔴 31c 'ndt up' beside a live 'ndt clean' is refused with 5"
+
+# The refusal is a dirty reading (1), not a guard's (5): nothing was built, and a script reads the difference.
+m=$(mutant m252 "$NDT" \
+    '    RUN_REMOVE_STALE=1 run_check_conflicts "$action" down up clean || return 5' \
+    '    RUN_REMOVE_STALE=1 run_check_conflicts "$action" down up clean || return 1')
+report "M252: the second caller's refusal is rc 1" "$m" \
+       "🔴 31a a live 'ndt up' marker refuses"
+
+# The kill line always names a group, though the running verb leads none: it would signal an unrelated one.
+m=$(mutant m253 "$NDT" \
+    '    if [[ "$RM_PGID" == "$RM_PID" ]]; then stop="kill -TERM -- -$RM_PID"; else stop="kill -TERM $RM_PID"; fi' \
+    '    stop="kill -TERM -- -$RM_PID"')
+report "M253: the kill line always names a process group" "$m" \
+       "  31a and no group form when the pid leads no group of its own"
+
+m=$(mutant m254 "$NDT" \
+    '    if [[ "$RM_PGID" == "$RM_PID" ]]; then stop="kill -TERM -- -$RM_PID"; else stop="kill -TERM $RM_PID"; fi' \
+    '    stop="kill -TERM $RM_PID"')
+report "M254: the kill line never names a process group" "$m" \
+       "  31a the group form when the marker's pgid is its pid"
+
+# A stale marker of another verb is reported and left in place.
+m=$(mutant m255 "$NDT" \
+    '        warn "  that '"'"'ndt clean'"'"' ended without finishing."
+    fi
+    rm -f "$f"' \
+    '        warn "  that '"'"'ndt clean'"'"' ended without finishing."
+    fi')
+report "M255: a stale marker is named and left in place" "$m" \
+       "🔴 31b and it is gone"
+
+# `ndt apps <name>` and `ndt ntg <mode>` stop looking at the markers.
+m=$(mutant m256 "$NDT" \
+    '            run_check_only "start an app" up down || return 1
+            local a; for a in "$@"; do app_start "$a"; done' \
+    '            local a; for a in "$@"; do app_start "$a"; done')
+report "M256: an app is started under a running bring-up" "$m" \
+       "🔴 31i 'ndt apps <name>' under a live bring-up is refused with 1"
+
+m=$(mutant m257 "$NDT" \
+    '    if [[ -n "$want" ]]; then run_check_only "edit NTG'"'"'s mode" up down || return 1; fi' \
+    '    :')
+report "M257: NTG's mode is edited under a running bring-up" "$m" \
+       "🔴 31i 'ndt ntg cli' under a live bring-up is refused with 1"
+
+# A subshell shares the owner's $$ and would take the marker with it.
+m=$(mutant m258 "$NDT" \
+    '    [[ "${BASHPID:-$$}" == "$$" && -f "$f" ]] || return 0
+    [[ "$(run_marker_field "$f" pid)" == "$$" ]] && rm -f "$f"' \
+    '    [[ -f "$f" ]] || return 0
+    [[ "$(run_marker_field "$f" pid)" == "$$" ]] && rm -f "$f"')
+report "M258: a subshell of the owner removes the owner's marker" "$m" \
+       "🔴 31j a subshell copy of the owner"
+
+# Release by anyone: the marker of a verb that is still running goes away.
+m=$(mutant m259 "$NDT" \
+    '    [[ "${BASHPID:-$$}" == "$$" && -f "$f" ]] || return 0
+    [[ "$(run_marker_field "$f" pid)" == "$$" ]] && rm -f "$f"' \
+    '    [[ "${BASHPID:-$$}" == "$$" && -f "$f" ]] || return 0
+    rm -f "$f"')
+report "M259: a process removes a marker that is not its own" "$m" \
+       "🔴 31j a process that does not own a marker"
+
+# NDT_RUN_WAIT is read and never waited for.
+m=$(mutant m260 "$NDT" \
+    '        (( waited >= w )) && return "$rc"' \
+    '        return "$rc"')
+report "M260: NDT_RUN_WAIT refuses at once whatever it says" "$m" \
+       "  31g after one line saying it is waiting, and for how long"
+
+# Without flock the marker is written unlocked and nothing says so.
+m=$(mutant m261 "$NDT" \
+    '        warn "flock is not on PATH -- this verb'"'"'s marker is checked and written WITHOUT a lock, so two"' \
+    '        :')
+report "M261: a missing flock is not said" "$m" \
+       "🔴 31h but it is said, loudly"
+
+# The lock timeout is a plain failure, not a refusal.
+m=$(mutant m262 "$NDT" \
+    '            exit 5
+        fi
+        "$@"
+    ) 9>>"$lk"' \
+    '            exit 1
+        fi
+        "$@"
+    ) 9>>"$lk"')
+report "M262: giving up on the lock is rc 1" "$m" \
+       "🔴 31e a bring-up that cannot get the lock is refused with 5"
+
+# No EXIT trap: a bring-up that leaves the shell without returning keeps its marker.
+m=$(mutant m263 "$NDT" \
+    "    trap 'run_release up' EXIT" \
+    '    :')
+report "M263: a bring-up that exits the shell leaves its marker" "$m" \
+       "🔴 31d the marker is still gone: the EXIT trap released it"
+
+# --- the wait for a teardown, the kill line, the verbs that only look ------------------------------------
+
+# `ndt down` takes the lock but never waits: the help says it does.
+m=$(mutant m264 "$NDT" \
+    'mark_teardown_start() { run_with_wait with_run_lock mark_teardown_start_locked; }' \
+    'mark_teardown_start() { with_run_lock mark_teardown_start_locked; }')
+report "M264: 'ndt down' does not wait for NDT_RUN_WAIT" "$m" \
+       "🔴 31g and it waited: the one line says for how long"
+
+# The verbs that only look offer a wait they do not have.
+m=$(mutant m265 "$NDT" \
+    '        "start an app"|"edit NTG'"'"'s mode") err "  wait for it to finish, then run this again." ;;' \
+    '        "nothing") err "  wait for it to finish, then run this again." ;;')
+report "M265: an app start's refusal offers NDT_RUN_WAIT" "$m" \
+       "🔴 31i the apps refusal does not offer NDT_RUN_WAIT"
+
+# A check-only verb deletes a stale teardown marker without holding the lock.
+m=$(mutant m266 "$NDT" \
+    '            else tif="$(teardown_in_flight_peek)" || continue; fi' \
+    '            else tif="$(teardown_in_flight)" || continue; fi')
+report "M266: a verb that only looks removes a stale teardown marker" "$m" \
+       "🔴 31i 'ndt apps <name>' leaves a stale teardown marker where it was"
+
+# A waiting teardown prints its refusal on every poll.
+m=$(mutant m267 "$NDT" \
+    '            [[ -n "${RUN_QUIET:-}" ]] && return 1   # a wait in progress: only the last attempt says it' \
+    '            :')
+report "M267: a waiting teardown prints the refusal on every poll" "$m" \
+       "  31g and one refusal"
+
+# The kill line offers INT, which alone does not end a verb.
+m=$(mutant m268 "$NDT" \
+    '    if [[ "$RM_PGID" == "$RM_PID" ]]; then stop="kill -TERM -- -$RM_PID"; else stop="kill -TERM $RM_PID"; fi' \
+    '    if [[ "$RM_PGID" == "$RM_PID" ]]; then stop="kill -INT -- -$RM_PID"; else stop="kill -INT $RM_PID"; fi')
+report "M268: the kill line offers INT" "$m" \
+       "  31a and never INT"
+
+# --- a clean that waits, a bounded wait, per-call switches, a peek that only reads --------------------------
+
+# A standalone clean answers a running teardown at once: the help says it waits.
+m=$(mutant m269 "$NDT" \
+    '    run_with_wait clean_wait_teardown' \
+    '    :')
+report "M269: a standalone clean does not wait for a running teardown" "$m" \
+       "🔴 31g and it waited, as the help says"
+
+# "08" is read as an invalid octal number: every test of the bound errors out and the wait never ends.
+m=$(mutant m270 "$NDT" \
+    '    if [[ "$w" =~ ^[0-9]+$ ]]; then w=$((10#$w)); else w=0; fi   # 10#: "08" is eight seconds, not an octal error' \
+    '    if [[ "$w" =~ ^[0-9]+$ ]]; then :; else w=0; fi')
+report "M270: a wait with a leading zero has no bound" "$m" \
+       "🔴 31g NDT_RUN_WAIT=08 beside a live bring-up ends: refused with 5"
+
+# The two per-call switches are taken from the caller's environment.
+m=$(mutant m271 "$NDT" \
+    'RUN_REMOVE_STALE=""; RUN_QUIET=""' \
+    ':')
+report "M271: RUN_REMOVE_STALE and RUN_QUIET are read from the environment" "$m" \
+       "🔴 31i an exported RUN_REMOVE_STALE does not let 'ndt apps' remove a stale teardown marker"
+
+# The peek tests existence, not that it is a regular file: a FIFO at the marker's path blocks the reader.
+m=$(mutant m272 "$NDT" \
+    '    [[ -f "$f" ]] || return 1
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"
+    at="$(sed -n '"'"'s/^at=//p'"'"' "$f" | head -1)"
+    [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || return 1' \
+    '    [[ -e "$f" ]] || return 1
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"
+    at="$(sed -n '"'"'s/^at=//p'"'"' "$f" | head -1)"
+    [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || return 1')
+report "M272: the peek reads whatever is at the marker's path" "$m" \
+       "🔴 31i a FIFO at down.inflight does not hang 'ndt apps'"
+
+# --- the clean's own pre-check and the wait's own-marker test ---------------------------------------------
+
+# The clean's pre-check removes a stale teardown marker itself, without holding the lock.
+m=$(mutant m273 "$NDT" \
+    '    if tif="$(teardown_in_flight_peek)" && [[ "${tif%% *}" != "$$" ]]; then' \
+    '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then')
+report "M273: a standalone clean removes a stale teardown marker without the lock" "$m" \
+       "🔴 31e and it left the stale teardown marker for a lock holder"
+
+# The wait takes a teardown's own marker for somebody else's: the teardown waits for its own verify clean.
+m=$(mutant m274 "$NDT" \
+    '    [[ "${t%% *}" == "$$" ]] && return 0' \
+    '    :')
+report "M274: a teardown's own verify clean waits for the teardown's own marker" "$m" \
+       "🔴 31g 'ndt down' with NDT_RUN_WAIT does not wait for its own verify clean"
+
+# --- widenings: the guard stops discriminating -------------------------------------------------------
+
+# The lock never opens: every verb is refused.
+m=$(mutant n137 "$NDT" \
+    '        if ! flock -w "$w" 9; then' \
+    '        if ! false; then')
+report "N137: the run lock never opens" "$m" \
+       "31d a bring-up that completes is rc 0"
+
+# A marker whose pid is gone refuses for ever: a crashed bring-up would make every later one impossible.
+m=$(mutant n138 "$NDT" \
+    '    if ! kill -0 "$RM_PID" 2>/dev/null; then RM_WHY="pid $RM_PID is gone"; return 2; fi' \
+    '    :')
+report "N138: a marker whose process is gone still refuses" "$m" \
+       "🔴 31b a marker whose pid is gone does not refuse"
+
+# What only looks refuses on every call.
+m=$(mutant n139 "$NDT" \
+    '    run_check_conflicts "$action" "$@" || return 1
+}' \
+    '    run_check_conflicts "$action" "$@"; return 1
+}')
+report "N139: an app start is refused whatever is running" "$m" \
+       "  31i control: with no marker the app is started"
+
+# The same owner is let through: the measured pair was one owner, twice.
+m=$(mutant n140 "$NDT" \
+    '            0) run_refusal "$action" "$b"; return 5 ;;' \
+    '            0) [[ -n "${NDT_OWNER:-}" && "$RM_BY" == "$NDT_OWNER" ]] || { run_refusal "$action" "$b"; return 5; } ;;')
+report "N140: a marker of the same owner does not refuse" "$m" \
+       "🔴 31a the same owner is refused too"
+
+# A missing marker file reads as a live one.
+m=$(mutant n141 "$NDT" \
+    '    [[ -f "$f" ]] || return 1
+    RM_PID="$(run_marker_field "$f" pid)"' \
+    '    [[ -f "$f" ]] || return 0
+    RM_PID="$(run_marker_field "$f" pid)"')
+report "N141: no marker at all reads as a running verb" "$m" \
+       "31d a bring-up that completes is rc 0"
+
+# The peek's own liveness test: a dead pid read as live refuses an app start for ever.
+m=$(mutant n142 "$NDT" \
+    '    [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || return 1' \
+    '    [[ "$pid" =~ ^[0-9]+$ ]] || return 1')
+report "N142: a dead teardown's marker still refuses a verb that only looks" "$m" \
+       "  31i and the stale marker does not refuse the start"
+
+# ...and a live teardown the peek never sees.
+m=$(mutant n143 "$NDT" \
+    '    [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || return 1' \
+    '    return 1')
+report "N143: a verb that only looks never sees a live teardown" "$m" \
+       "🔴 31i 'ndt apps <name>' under a live teardown is refused with 1"
+
+# --- rewordings and reorderings that must stay green ----------------------------------------------------
+
+m=$(mutant w25 "$NDT" \
+    '        *) err "  wait for it to finish; NDT_RUN_WAIT=<seconds> waits for it here instead of refusing." ;;' \
+    '        *) err "  let it finish; or set NDT_RUN_WAIT=<seconds> to wait for it here." ;;')
+report_green "W25 (behaviour-preserving): the wait advice reworded" "$m" \
+       "the cells read who is running, not the advice"
+
+m=$(mutant w26 "$NDT" \
+    'printf '"'"'pid=%s\nat=%s\nby=%s\nstart=%s\npgid=%s\nverb=%s\nargv=%s\nphase=start\n'"'"' \
+               "$$" "$(date '"'"'+%Y-%m-%dT%H:%M:%S%z'"'"')" "${NDT_OWNER:-unset}" "$ticks" "$pg" "$verb" "${argv//$'"'"'\n'"'"'/ }" > "$tmp" &&' \
+    'printf '"'"'phase=start\nverb=%s\nargv=%s\npgid=%s\nstart=%s\nby=%s\nat=%s\npid=%s\n'"'"' \
+               "$verb" "${argv//$'"'"'\n'"'"'/ }" "$pg" "$ticks" "${NDT_OWNER:-unset}" "$(date '"'"'+%Y-%m-%dT%H:%M:%S%z'"'"')" "$$" > "$tmp" &&')
+report_green "W26 (behaviour-preserving): the marker's fields written in another order" "$m" \
+       "every reader asks for a field by name"
+
+m=$(mutant w28 "$NDT" \
+    '    RUN_REMOVE_STALE=1 run_check_conflicts "$action" down up clean || return 5' \
+    '    RUN_REMOVE_STALE=1 run_check_conflicts "$action" clean up down || return 5')
+report_green "W28 (behaviour-preserving): the conflicting verbs asked in another order" "$m" \
+       "any live one refuses"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

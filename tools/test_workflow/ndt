@@ -100,7 +100,7 @@ if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
 else
     R=''; G=''; Y=''; B=''; D=''; N=''
 fi
-say()  { echo "${B}$*${N}"; }
+say()  { echo "${B}$*${N}"; [[ "${1:-}" =~ ^\[[0-9]+/[0-9]+\] ]] && run_phase_self "${BASH_REMATCH[0]}"; return 0; }
 info() { echo "${D}  $*${N}"; }
 ok()   { echo "${G}  ok${N}  $*"; }
 warn() { echo "${Y}  !!${N}  $*"; }
@@ -6123,6 +6123,18 @@ teardown_in_flight() {
     return 0
 }
 
+# teardown_in_flight_peek -- the same answer as teardown_in_flight, and nothing removed: a stale marker is not
+# this reader's to delete unless it holds run.lock (a taker may have just rewritten it).
+teardown_in_flight_peek() {
+    local f pid at
+    f="$(down_marker)"
+    [[ -f "$f" ]] || return 1
+    pid="$(sed -n 's/^pid=//p' "$f" | head -1)"
+    at="$(sed -n 's/^at=//p' "$f" | head -1)"
+    [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || return 1
+    printf '%s %s\n' "$pid" "${at:-?}"
+}
+
 # teardown_in_flight_refusal <action> <"pid at"> -- the two lines every refusal about a teardown
 # that is already running opens with. One function, because three commands now refuse on this
 # one fact -- a bring-up would reuse the fabric being destroyed, a second teardown would steal
@@ -6149,10 +6161,17 @@ teardown_in_flight_refusal() {
 # The in-flight guard, switched off by an overlap -- which is the only situation it exists for. Two
 # rules, one missing word: a marker held by a LIVE process is not yours to overwrite, and a
 # marker that does not name your pid is not yours to remove.
-mark_teardown_start() {
+# [Co-developed with claude code -- Adam]
+# 🔴 The check and the write are one step under with_run_lock. They were two, and the check was
+# the only guard: two `ndt down`s in the same instant could both read "no marker" and both write one.
+# Behind the same lock it now also refuses on a live bring-up or clean (the table above
+# run_lock_file), which the old marker could not see.
+mark_teardown_start() { run_with_wait with_run_lock mark_teardown_start_locked; }
+mark_teardown_start_locked() {
     local f pid at tif
     f="$(down_marker)"
     pid=""; at=""
+    RUN_REMOVE_STALE=1 run_check_conflicts "tear down" up clean || return 1
     if [[ -f "$f" ]]; then
         pid="$(sed -n 's/^pid=//p' "$f" | head -1)"
         at="$(sed -n 's/^at=//p' "$f" | head -1)"
@@ -6162,13 +6181,14 @@ mark_teardown_start() {
     # rule, and the dead-marker case keeps behaving exactly as the bring-up guard does.
     if tif="$(teardown_in_flight)"; then
         if [[ "${tif%% *}" != "$$" ]]; then
+            [[ -n "${RUN_QUIET:-}" ]] && return 1   # a wait in progress: only the last attempt says it
             teardown_in_flight_refusal "tear down" "$tif"
             err "  two teardowns of one lab do not take turns. The second would overwrite this"
             err "  marker with its own pid, and whichever finished first would remove the"
             err "  other's -- measured 09-12 02:07:32: the marker went away while the teardown"
             err "  that owned it was still running, and the next 'ndt up p4 4' was not refused"
             err "  and built on the fabric being destroyed. That is the guard removed."
-            err "  wait for it to finish, then run 'ndt down'."
+            err "  wait for it to finish, then run 'ndt down'; NDT_RUN_WAIT=<seconds> waits for it here."
             return 1
         fi
         # Our own marker. `cmd_down` re-entered, or wrote it earlier in this same process;
@@ -6177,8 +6197,7 @@ mark_teardown_start() {
         info "taking over the teardown marker left by pid $pid (recorded ${at:-?}): that"
         info "  process is gone, so nothing is being torn down under it."
     fi
-    mkdir -p "$(dirname "$f")" 2>/dev/null || return 0
-    printf 'pid=%s\nat=%s\nby=%s\n' "$$" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${NDT_OWNER:-unset}" > "$f"
+    run_marker_write down "${NDT_RUN_ARGV:-ndt down}"
 }
 
 # 🔴 Only ours. The unconditional `rm -f` this replaces is the half of the defect that actually
@@ -6208,6 +6227,324 @@ guard_no_teardown_in_flight() {
     err "  mn_count (a Mininet is already running); bmv2 is root-owned and its ports look the"
     err "  same coming up and going down, so on P4 nothing could see it. (H3)"
     return 1
+}
+
+# --- one lab-changing verb at a time, per checkout ----------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# Measured 2026-11-15, two `ndt up p4` from one checkout 0.5 s apart. Nothing made the second wait
+# for the first: it read "no fabric yet", and by its [1/3] the first one's topo session existed, so it
+# stopped it, built its own, and adopted the first one's heartbeat, proxy and kernel as "already
+# running". The first one reported `up. ready`, rc 0, over a lab with no switches. A bring-up
+# and a teardown, or a clean that clears the app knob under a bring-up, are the same collision.
+#
+# So `up`, `down` and a standalone `clean` each leave a marker in .test_run/ while they run
+# (up.inflight, clean.inflight, and the older down.inflight), and each refuses while another live
+# verb's marker is there. The marker has the shape the teardown marker always had: the pid, when it
+# started, who owns it, verified alive by whoever reads it, removed only by the process that wrote it.
+#
+# 🔴 THE MARKER, NOT AN fd HELD FOR THE WHOLE VERB. A bash fd is inherited by every child, and the
+# kernel, the proxy and every app are children of a verb that outlive it: a lock held on an fd would be
+# held by the first kernel for as long as it lives, and every later verb would wait on a process that is
+# not running a verb. The lock below is held only while the check and the write happen, a few milliseconds, and the
+# marker is the state.
+#
+# 🔴 THE LOCK IS NEVER THE STATE, and it is a file of its own, for the reason with_claim_lock gives:
+# flock has to open what it locks.
+#
+# 🔴 A PID IS NOT AN IDENTITY. The marker also records field 22 of /proc/<pid>/stat, and a live pid whose
+# start time is not the recorded one is another process that was handed the number: STALE. A marker
+# with no `start=` (the teardown marker, as older versions wrote it) is read by the pid alone.
+#
+# The scope is one checkout: the markers live in this tree's .test_run/, while the lab (root's tmux
+# session, bmv2's ports) is the machine's. guard_lab_acts_in_this_tree keeps two checkouts apart for
+# `up`; a `down` from another checkout is not seen here (doc/KNOWN-ISSUES.md).
+run_lock_file() { echo "$REPO/.test_run/run.lock"; }
+run_marker() {   # run_marker <up|down|clean> -- the path
+    if [[ "$1" == down ]]; then down_marker; else echo "$REPO/.test_run/$1.inflight"; fi
+}
+run_marker_field() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1; }
+
+# proc_start_ticks <pid> -- field 22 of /proc/<pid>/stat (the process's start, in clock ticks since
+# boot), or rc 1. Not a time anyone reads: only compared with what the marker recorded.
+proc_start_ticks() {
+    local rest f
+    rest="$(proc_stat_rest "$1")" || return 1
+    read -ra f <<<"$rest"
+    [[ "${f[19]:-}" =~ ^[0-9]+$ ]] || return 1
+    echo "${f[19]}"
+}
+
+# with_run_lock <fn> [args...] -- run it holding .test_run/run.lock. The shape of with_claim_lock, and
+# like it a subshell: every side effect in there is a file write or a line of output. A refusal to wait
+# longer than NDT_RUN_LOCK_WAIT (10 s) is rc 5, a guard that refused before anything was written.
+with_run_lock() {
+    local lk w="${NDT_RUN_LOCK_WAIT:-10}"
+    lk="$(run_lock_file)"
+    mkdir -p "$(dirname "$lk")" 2>/dev/null
+    if ! command -v flock >/dev/null 2>&1; then
+        # Said out loud, never silently skipped: without flock this is a check and then a write, and
+        # two verbs started in the same instant can both pass it.
+        warn "flock is not on PATH -- this verb's marker is checked and written WITHOUT a lock, so two"
+        warn "  verbs started in the same instant can both pass. 'ndt status' is then the only witness."
+        "$@"
+        return $?
+    fi
+    (
+        if ! flock -w "$w" 9; then
+            err "gave up waiting ${w}s for ${lk#$REPO/} -- another 'ndt' verb is holding it."
+            err "  it is held only while a verb checks and writes its marker, so a hold this long is a"
+            err "  stuck process. nothing was written and nothing was started."
+            exit 5
+        fi
+        "$@"
+    ) 9>>"$lk"
+}
+
+# run_marker_look <verb> -- read that verb's marker into RM_*. rc 0 a LIVE verb of another process,
+# 1 no marker, 2 STALE (RM_WHY says why), 3 this process's own. Removes nothing.
+RM_PID=""; RM_START=""; RM_PGID=""; RM_ARGV=""; RM_BY=""; RM_AT=""; RM_PHASE=""; RM_WHY=""
+# Set here so that a value exported by the caller cannot switch the stale-marker removal on for a verb that holds no
+# lock, or silence a refusal (both are set only by the functions that mean to, per call).
+RUN_REMOVE_STALE=""; RUN_QUIET=""
+run_marker_look() {
+    local f ticks
+    f="$(run_marker "$1")"
+    RM_PID=""; RM_START=""; RM_PGID=""; RM_ARGV=""; RM_BY=""; RM_AT=""; RM_PHASE=""; RM_WHY=""
+    [[ -f "$f" ]] || return 1
+    RM_PID="$(run_marker_field "$f" pid)";     RM_START="$(run_marker_field "$f" start)"
+    RM_PGID="$(run_marker_field "$f" pgid)";   RM_ARGV="$(run_marker_field "$f" argv)"
+    RM_BY="$(run_marker_field "$f" by)";       RM_AT="$(run_marker_field "$f" at)"
+    RM_PHASE="$(run_marker_field "$f" phase)"
+    if [[ ! "$RM_PID" =~ ^[0-9]+$ ]]; then RM_WHY="it names no usable pid"; return 2; fi
+    [[ "$RM_PID" == "$$" ]] && return 3
+    if ! kill -0 "$RM_PID" 2>/dev/null; then RM_WHY="pid $RM_PID is gone"; return 2; fi
+    if grep -q '^start=' "$f" 2>/dev/null; then
+        if [[ ! "$RM_START" =~ ^[0-9]+$ ]]; then RM_WHY="its start= is not a number"; return 2; fi
+        ticks="$(proc_start_ticks "$RM_PID")" || return 0
+        if [[ "$ticks" != "$RM_START" ]]; then
+            RM_WHY="pid $RM_PID is another process now (it started at tick $ticks, the marker says $RM_START)"
+            return 2
+        fi
+    fi
+    return 0
+}
+
+# run_stale_remove <verb> -- remove a stale marker run_marker_look just read, out loud.
+run_stale_remove() {
+    local f; f="$(run_marker "$1")"
+    warn "removing a stale 'ndt $1' marker: ${RM_WHY:-it is not live} (recorded ${RM_AT:-?}). (${f#$REPO/})"
+    if [[ "$1" == up ]]; then
+        warn "  that 'ndt up'${RM_ARGV:+ ($RM_ARGV)} ended without finishing${RM_PHASE:+ -- it had reached $RM_PHASE} --"
+        warn "  what it started may still be up; 'ndt down' takes it down."
+    elif [[ "$1" == clean ]]; then
+        warn "  that 'ndt clean' ended without finishing."
+    fi
+    rm -f "$f"
+}
+
+# run_why <action> <blocker> -- what the overlap does, in the words of the pair.
+run_why() {
+    case "$1:$2" in
+        build:up)
+            err "  two bring-ups of one lab do not take turns: the second stops the first one's topo session"
+            err "  while the first reports ready on it (measured 2026-11-15: rc 0 'up. ready' beside a lab"
+            err "  with no switches)." ;;
+        "tear down:up")
+            err "  a teardown under a bring-up removes what the bring-up has just started, and the bring-up"
+            err "  then carries on and reports on a lab that is being swept." ;;
+        build:clean|"tear down:clean")
+            err "  a clean clears the app knob and measures the machine; a bring-up or a teardown under it"
+            err "  changes both." ;;
+        "clean:up")
+            err "  a clean clears the app knob the bring-up is about to read, and would list its half-built"
+            err "  fabric as residue." ;;
+        "clean:clean")
+            err "  two cleans of one checkout do not take turns: they clear the same knob and measure a"
+            err "  machine the other is changing." ;;
+        "start an app:up")
+            err "  an app started during a bring-up talks to a stack that is only half built." ;;
+        "start an app:down")
+            err "  an app started under a teardown outlives it and acts on the next fabric." ;;
+        "edit NTG's mode:up"|"edit NTG's mode:down")
+            err "  the topology bridge reads NTG's config when it starts, so an edit made now may or may"
+            err "  not reach the fabric being built or removed." ;;
+    esac
+}
+
+# run_refusal <action> <blocker up|clean> -- the block, from what run_marker_look just read.
+run_refusal() {
+    local b="$2" f stop
+    [[ -n "${RUN_QUIET:-}" ]] && return 0
+    f="$(run_marker "$b")"
+    err "refusing to $1: an 'ndt $b' from this checkout is still running."
+    err "  pid $RM_PID '${RM_ARGV:-ndt $b}' by ${RM_BY:-?}, since ${RM_AT:-?}, at ${RM_PHASE:-?}   (${f#$REPO/})"
+    run_why "$1" "$b"
+    if [[ "$RM_PGID" == "$RM_PID" ]]; then stop="kill -TERM -- -$RM_PID"; else stop="kill -TERM $RM_PID"; fi
+    case "$1" in
+        "start an app"|"edit NTG's mode") err "  wait for it to finish, then run this again." ;;
+        *) err "  wait for it to finish; NDT_RUN_WAIT=<seconds> waits for it here instead of refusing." ;;
+    esac
+    err "  to stop it:  $stop"
+    err "    ndt ends and releases its marker; what it already started stays up ('ndt down' takes that down)."
+    err "    the group form also ends the command it is running; the pid form leaves that to finish on its own."
+    err "  nothing was written."
+}
+
+# run_refusal_down <action> <"pid at"> -- the same, for the older marker, whose first two lines are
+# the ones every other refusal about a teardown opens with.
+run_refusal_down() {
+    [[ -n "${RUN_QUIET:-}" ]] && return 0
+    if [[ "$1" == build ]]; then
+        guard_no_teardown_in_flight
+        return 0
+    fi
+    teardown_in_flight_refusal "$1" "$2"
+    run_why "$1" down
+    err "  wait for it to finish, then run it again. nothing was written."
+}
+
+# run_check_conflicts <action> <blocker verb>... -- rc 0 none of them is live, 5 one is (printed). A stale
+# marker is removed out loud when RUN_REMOVE_STALE is set, which only a caller holding the lock may do.
+run_check_conflicts() {
+    local action="$1" b tif; shift
+    for b in "$@"; do
+        if [[ "$b" == down ]]; then
+            if [[ -n "${RUN_REMOVE_STALE:-}" ]]; then tif="$(teardown_in_flight)" || continue
+            else tif="$(teardown_in_flight_peek)" || continue; fi
+            [[ "${tif%% *}" == "$$" ]] && continue
+            run_refusal_down "$action" "$tif"
+            return 5
+        fi
+        run_marker_look "$b"
+        case $? in
+            0) run_refusal "$action" "$b"; return 5 ;;
+            2) [[ -n "${RUN_REMOVE_STALE:-}" ]] && run_stale_remove "$b" ;;
+        esac
+    done
+    return 0
+}
+
+# run_marker_write <verb> <argv text> -- this process's marker, written whole and moved into place,
+# then read back. A direct writer takes no lock, so a marker that is not ours afterwards is a refusal.
+run_marker_write() {
+    local verb="$1" argv="$2" f tmp ticks pg
+    f="$(run_marker "$verb")"; tmp="$f.$$.new"
+    ticks="$(proc_start_ticks "$$")" || ticks=""
+    pg="$(proc_pgid "$$")" || pg="?"
+    if ! { mkdir -p "$(dirname "$f")" 2>/dev/null &&
+           printf 'pid=%s\nat=%s\nby=%s\nstart=%s\npgid=%s\nverb=%s\nargv=%s\nphase=start\n' \
+               "$$" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${NDT_OWNER:-unset}" "$ticks" "$pg" "$verb" "${argv//$'\n'/ }" > "$tmp" &&
+           mv -f "$tmp" "$f"; } 2>/dev/null; then
+        rm -f "$tmp" 2>/dev/null
+        warn "could not write ${f#$REPO/}: this 'ndt $verb' runs WITHOUT a marker, so nothing else can see it."
+        return 0
+    fi
+    if [[ "$(run_marker_field "$f" pid)" != "$$" ]]; then
+        err "refusing to $verb: another process wrote ${f#$REPO/} at the same moment (pid $(run_marker_field "$f" pid))."
+        err "  nothing was started."
+        return 5
+    fi
+    return 0
+}
+
+# run_take_locked <verb> <argv text> -- the check and the write, under the lock.
+run_take_locked() {
+    local verb="$1" argv="$2" action
+    case "$verb" in up) action=build ;; *) action=clean ;; esac
+    RUN_REMOVE_STALE=1 run_check_conflicts "$action" down up clean || return 5
+    run_marker_write "$verb" "$argv"
+}
+
+# run_with_wait <fn> [args...] -- run it; a non-zero answer is a refusal, and NDT_RUN_WAIT=<s> (default 0, refuse at
+# once) polls once a second for that long before the last attempt, which is the one that prints the refusal. A
+# second `ndt up` beside a running one is a mistake to report, not a queue to join, so the wait is opt-in, for a
+# script that wants a queue. `up`, `down` and `clean` wait this way; the verbs that only look (apps, ntg) do not.
+run_with_wait() {
+    local w="${NDT_RUN_WAIT:-0}" waited=0 rc
+    if [[ "$w" =~ ^[0-9]+$ ]]; then w=$((10#$w)); else w=0; fi   # 10#: "08" is eight seconds, not an octal error
+    while :; do
+        RUN_QUIET=""; (( waited < w )) && RUN_QUIET=1
+        "$@"; rc=$?
+        RUN_QUIET=""
+        (( rc == 0 )) && return 0
+        (( waited >= w )) && return "$rc"
+        (( waited == 0 )) && info "another 'ndt' verb of this checkout is running; waiting up to ${w}s for it (NDT_RUN_WAIT)"
+        sleep 1; waited=$(( waited + 1 ))
+    done
+}
+
+# run_take <up|clean> <argv text> -- rc 0 the marker is ours, 5 refused.
+run_take() { run_with_wait with_run_lock run_take_locked "$1" "$2"; }
+
+# run_release <up|clean> -- remove this process's marker, and only that. `$$` is shared by every subshell,
+# so BASHPID has to match as well: a `$( )` copy of this process must not remove its parent's marker.
+run_release() {
+    local f; f="$(run_marker "$1")"
+    [[ "${BASHPID:-$$}" == "$$" && -f "$f" ]] || return 0
+    [[ "$(run_marker_field "$f" pid)" == "$$" ]] && rm -f "$f"
+    return 0
+}
+
+# run_phase <verb> <phase> -- the owner rewrites its marker's phase line ([1/3] ...), so a refusal can say how far
+# the running verb is. Only the owner, and a no-op when no marker is ours (a direct call from a test).
+run_phase() {
+    local f tmp; f="$(run_marker "$1")"
+    [[ "${BASHPID:-$$}" == "$$" && -f "$f" ]] || return 0
+    [[ "$(run_marker_field "$f" pid)" == "$$" ]] || return 0
+    tmp="$f.$$.new"
+    if sed "s|^phase=.*|phase=$2|" "$f" > "$tmp" 2>/dev/null; then mv -f "$tmp" "$f" 2>/dev/null; fi
+    rm -f "$tmp" 2>/dev/null
+    return 0
+}
+
+# run_phase_self <phase> -- the same for whichever marker this process owns. `say` calls it for every "[k/n]" step
+# line, so a bring-up or a teardown shows how far it is without each step naming its own marker.
+run_phase_self() {
+    local v f
+    [[ "${BASHPID:-$$}" == "$$" ]] || return 0
+    for v in up down clean; do
+        f="$(run_marker "$v")"
+        [[ -f "$f" && "$(run_marker_field "$f" pid)" == "$$" ]] && run_phase "$v" "$1"
+    done
+    return 0
+}
+
+# clean_wait_teardown -- rc 5 while another process's `ndt down` is running, 0 otherwise. Prints and removes nothing:
+# run_with_wait polls it so a standalone clean honours NDT_RUN_WAIT before cmd_clean's own refusal speaks.
+clean_wait_teardown() {
+    local t; t="$(teardown_in_flight_peek)" || return 0
+    [[ "${t%% *}" == "$$" ]] && return 0
+    return 5
+}
+
+# run_check_only <action> <blocker verb>... -- rc 0 free, 1 refused: the verbs that only look (an app start, the
+# NTG edit) write no marker and answer 1, which is the only refusal their rc tables have. A stale marker is
+# not removed here: no lock is held, and the remover could delete a marker a taker has just rewritten.
+run_check_only() {
+    local action="$1"; shift
+    run_check_conflicts "$action" "$@" || return 1
+}
+
+# cmd_up <up_p4|up_ovs> <size> -- the bring-up verb, under its marker. The marker is taken before anything is
+# read or written (the app-package conversion included) and released on every way out of this function; the
+# EXIT trap is for a path that leaves the shell instead of returning.
+cmd_up() {
+    local rc prev; prev="$(trap -p EXIT)"
+    run_take up "${NDT_RUN_ARGV:-ndt up}" || return $?
+    trap 'run_release up' EXIT
+    "$@"; rc=$?
+    run_leave up "$prev"
+    return "$rc"
+}
+
+# run_leave <verb> <the EXIT trap line that was set before this verb took its own> -- release the marker and put
+# that trap back. Only for a verb that took a marker and set the trap: it clears the trap it finds.
+run_leave() {
+    run_release "$1"
+    trap - EXIT
+    [[ -n "${2:-}" ]] && eval "$2"
+    return 0
 }
 
 # --- was there anything here at all? -----------------------------------------------------
@@ -7052,8 +7389,13 @@ cmd_clean() {
     # under the marker it wrote itself -- a guard that read the file rather than its owner would
     # turn the last step of every round into a refusal. Same ownership test as
     # mark_teardown_end, and the same opening two lines as the bring-up refusal.
+    # [Co-developed with claude code -- Adam]
+    # NDT_RUN_WAIT first: a teardown of somebody else's that is running is waited for, as `up` and `down` do, and
+    # only what is left after the wait is refused below.
+    run_with_wait clean_wait_teardown
     local tif
-    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then
+    # The peek, not the reader that removes: a stale marker is removed by whoever holds run.lock (run_take, below).
+    if tif="$(teardown_in_flight_peek)" && [[ "${tif%% *}" != "$$" ]]; then
         teardown_in_flight_refusal "judge this lab" "$tif"
         err "  every process that teardown is in the middle of killing would be listed here as"
         err "  residue, under advice to run 'ndt down --deep' -- which would kill the operator's"
@@ -7065,6 +7407,18 @@ cmd_clean() {
         # 🔴 rc 5: refused. It outranks rc 3 -- a command that refused did not measure this
         # machine at all, so it has nothing to report about what is on it. (2026-09-12)
         return 5
+    fi
+
+    # [Co-developed with claude code -- Adam]
+    # One lab-changing verb at a time (see run_lock_file): a standalone clean takes clean.inflight, and
+    # refuses beside a live bring-up, teardown or clean. As `ndt down`'s own last step it runs under that
+    # teardown's marker, which is this process's, and takes nothing.
+    local run_owned=0 run_prev_trap=""
+    if [[ -z "$tif" || "${tif%% *}" != "$$" ]]; then
+        run_prev_trap="$(trap -p EXIT)"
+        run_take clean "${NDT_RUN_ARGV:-ndt clean}" || return $?
+        run_owned=1
+        trap 'run_release clean' EXIT
     fi
 
     # [Co-developed with claude code -- Adam]
@@ -7163,7 +7517,7 @@ cmd_clean() {
     (( prc == 0 )) && ok "ports closed: $(ndt_port_label all)"
 
     echo
-    if (( rc != 0 )); then say "${R}not clean${N}"; return $rc; fi
+    if (( rc != 0 )); then say "${R}not clean${N}"; (( run_owned )) && run_leave clean "$run_prev_trap"; return $rc; fi
     # 🔴 rc 0 needs a SUBJECT. Nothing dirty was found; whether that is "clean" or "there was
     # nothing here" is decided by whether anything was here to be judged -- the five assertions
     # above answer for the fabric, and the registry answers for this checkout.
@@ -7185,9 +7539,11 @@ cmd_clean() {
             info "  removes them; 'ndt status' marks them):"
             printf '%s\n' "$stale_here" | sed 's/\t/ -- /; s/^/          /'
         fi
+        (( run_owned )) && run_leave clean "$run_prev_trap"
         return 3
     fi
     say "${G}clean${N}"
+    (( run_owned )) && run_leave clean "$run_prev_trap"
     return 0
 }
 
@@ -12168,6 +12524,10 @@ cmd_apps() {
                     sel+=( "$tok" )
                 fi
             done
+            # [Co-developed with claude code -- Adam]
+            # An app started under a live bring-up or teardown talks to a half-built stack, or outlives the
+            # teardown: refused (rc 1, the only refusal this verb's table has). A check, no marker.
+            run_check_only "start an app" up down || return 1
             for a in "${sel[@]}"; do [[ -n "$a" ]] && app_start "$a"; done
             ;;
         stop)
@@ -12277,6 +12637,7 @@ cmd_apps() {
             # shellcheck disable=SC2086
             apps_trim $ttargets ;;
         *)
+            run_check_only "start an app" up down || return 1
             local a; for a in "$@"; do app_start "$a"; done
             ;;
     esac
@@ -12423,6 +12784,10 @@ cmd_ntg() {
         custom_command|prompt) want=custom_command ;;
         *) err "usage: ndt ntg [cli|custom_command]   (prompt = custom_command)"; return 2 ;;
     esac
+    # [Co-developed with claude code -- Adam]
+    # Only the edit is held back: reading the mode is always allowed. The topology bridge reads the file
+    # when it starts, so an edit under a bring-up or a teardown may or may not reach that fabric.
+    if [[ -n "$want" ]]; then run_check_only "edit NTG's mode" up down || return 1; fi
     # One call for both answers: lab_ntg_dir sets the source in the shell it runs in, and a bare
     # command substitution would leave it empty here.
     local labprob; labprob="$(lab_version_problem)"
@@ -13229,6 +13594,8 @@ fi
 
 case "${1:-}" in
     up)
+        # The command line as the run marker shows it to a second caller (run_marker_write).
+        NDT_RUN_ARGV="$(printf '%q ' ndt "$@")"; NDT_RUN_ARGV="${NDT_RUN_ARGV% }"
         shift
         up_take_app_flag "$@" || exit 2
         set -- ${NDT_UP_ARGV[@]+"${NDT_UP_ARGV[@]}"}
@@ -13267,11 +13634,13 @@ case "${1:-}" in
         # it is already there.
         app_elsewhere_reset; APP_ATTRIB_BLIND=""
         hand_run_scan; hand_run_warn up
-        # shellcheck disable=SC2086 -- plan is "<fn> <arg>", both produced by resolve_up_target
+        # The bring-up runs under its marker (cmd_up); decided here, after every check that reads the plan's name.
+        plan="cmd_up $plan"
+        # shellcheck disable=SC2086 -- plan is "cmd_up <fn> <arg>", all produced by resolve_up_target
         $plan
         ;;
-    down)    shift; cmd_down "$@" ;;
-    clean)   cmd_clean ;;
+    down)    NDT_RUN_ARGV="$(printf '%q ' ndt "$@")"; NDT_RUN_ARGV="${NDT_RUN_ARGV% }"; shift; cmd_down "$@" ;;
+    clean)   NDT_RUN_ARGV="ndt clean"; cmd_clean ;;
     status)  cmd_status "${2:-}" ;;
     check)   cmd_check "${2:-}" ;;
     claim)   shift; cmd_claim "$@" ;;
@@ -13320,6 +13689,22 @@ usage: ndt <command>
                 started and puts back what it wrote (the knobs, up.target, the claim
                 note). A fabric, heartbeat or stack component that was already running
                 is left running, and the rollback names what it left, replaced or lost.
+                ONE LAB-CHANGING VERB AT A TIME PER CHECKOUT: 'ndt up', 'ndt down' and a
+                standalone 'ndt clean' each keep a marker in .test_run/ while they run
+                (up.inflight, down.inflight, clean.inflight) and refuse -- rc 5, before they
+                write or build anything -- while another of them is running. Over an 'ndt
+                up' or 'ndt clean' the refusal names its pid, command line, owner, start
+                time and step, and a kill command (TERM: ndt ends and releases its marker,
+                what it started stays up); over an 'ndt down' it names the pid and start
+                time. NDT_RUN_WAIT=<seconds> makes 'ndt up', 'ndt down' and 'ndt clean' wait
+                that long for it first (default 0: refuse at once); 'ndt apps' and 'ndt
+                ntg' never wait. A marker whose process is gone is removed and said so (for
+                the up and clean markers, so is one whose pid is now another process's); a
+                stale 'ndt up' marker says how far that bring-up got and that what it
+                started may still be up. 'ndt apps <name>' and 'ndt ntg cli|custom_command'
+                are refused at once (rc 1) while an 'ndt up' or 'ndt down' is running. The
+                markers belong to this checkout: a verb from another checkout is not seen
+                (doc/KNOWN-ISSUES.md).
                 NDT_TOPO=<file> forces a specific kernel model.
                 A P4 fabric that is already running is reused only when it was built from
                 the inputs this run would build it from (the model, package.json, each
@@ -13398,8 +13783,9 @@ usage: ndt <command>
                   fabric older than the compiled pipeline, a bring-up that could not
                   finish or could not verify; 5 a GUARD REFUSED and nothing was built:
                   the lab is claimed by somebody else, a measurement is in flight, an
-                  'ndt down' from this checkout is still running, or NDT_TOPO names a
-                  model of a different network. An --app package that did not
+                  'ndt up', 'ndt down' or 'ndt clean'
+                  from this checkout is still running, or NDT_TOPO names a model of a
+                  different network. An --app package that did not
                   pass tools/p4_exercise/preflight.py is 5 for the same reason: the
                   table is printed and nothing is built. So is 'ndt up p4' when NTG's
                   config names a mode NTG does not know or a hosts file that does not
@@ -13497,9 +13883,10 @@ usage: ndt <command>
                   a down lab answer 0. (2026-09-25)
                   5 A GUARD REFUSED and nothing was torn down: the lab is claimed by
                   somebody else, the claim DECLARES a measurement in progress, a
-                  measurement is in flight, or another 'ndt down' from this checkout
-                  is still running. --force is the way past the first three and is
-                  not one of them; the fourth is a wait. 2 is a usage error.
+                  measurement is in flight, or an 'ndt up', another 'ndt down' or an
+                  'ndt clean' from this checkout is still running. --force is the way
+                  past the first three and is not one of them; the fourth is a wait
+                  (NDT_RUN_WAIT=<seconds> waits for it). 2 is a usage error.
                   (2026-09-12)
                   🔴 rc 1 CAN BE AN ENDING FROM AN EARLIER ROUND. stack.sh reports a
                   component that died of a fault -- SIGKILL (systemd-oomd does this on
@@ -13609,6 +13996,8 @@ usage: ndt <command>
                   manifest and 23 ports, every one of them that teardown's. The block
                   names the pid to wait for. A marker whose pid is gone is
                   removed and does not refuse. (2026-09-12)
+                  It refuses the same way, rc 5, while an 'ndt up' or another 'ndt clean'
+                  from this checkout is running, and keeps its own marker meanwhile.
   check         telemetry double-count tripwire
                   exit 0 the ratio is inside the +/-50% band, or there was too
                   little traffic to compute one at all; 1 the kernel is not up, a
@@ -13634,6 +14023,8 @@ usage: ndt <command>
                   with the sign flipped. (G-33, measured 2026-09-11)
   apps [names]  start readers/apps; no args on a terminal = interactive picker
                   energy sim nsr viz te      ('ndt apps stop [names|all]')
+                  starting is refused at once (rc 1, no waiting) while an 'ndt up' or
+                    'ndt down' of this checkout is running
                   ndt apps orphans  -- is anything of an app's still running,
                     and is anything of an app's still on the NETWORK?
                     exit 0 neither; 1 untracked PROCESSES are running; 2 a
@@ -13665,6 +14056,8 @@ usage: ndt <command>
                     (viz wrote 875 MB in 1h54m; the app keeps running)
   ntg [cli|custom_command]  which prompt the topology hands control to
                     (prompt = custom_command; edits the hosts file NTG reads under the P4 bridge)
+                    setting a mode is refused at once (rc 1, no waiting) while an 'ndt up' or
+                    'ndt down' of this checkout is running; showing it is not
   ping <src>:<dst>[,<src>:<dst>...] [--for 60s] [--interval 0.2] [--wait] [--force]
                 ping between Mininet hosts in the background, one stream per
                 pair, and read each stream's loss afterwards. <dst> is a host

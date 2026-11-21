@@ -192,7 +192,8 @@ RC_TABLE = {
                      "running, a stale fabric, a bring-up that could not finish or verify)"),
         2: ("usage", "usage error"),
         5: ("refused", "a GUARD REFUSED and nothing was built (claimed by somebody else, a "
-                       "measurement in flight, a teardown still running, a model of another network, an "
+                       "measurement in flight, an 'ndt up', 'ndt down' or 'ndt clean' of this checkout still running, "
+                       "a model of another network, an "
                        "NTG config NTG would refuse, or a lab state it could not read)"),
     },
     "down": {
@@ -200,7 +201,9 @@ RC_TABLE = {
         1: ("dirty", "a step failed, the sweep did not finish, or something is still running"),
         2: ("usage", "usage error"),
         3: ("nothing", "there was nothing to tear down -- this is NOT 'this round ended clean'"),
-        5: ("refused", "a GUARD REFUSED and nothing was torn down"),
+        5: ("refused", "a GUARD REFUSED and nothing was torn down (claimed by somebody else, a "
+                       "measurement in flight, or an 'ndt up', 'ndt down' or 'ndt clean' of this "
+                       "checkout still running)"),
     },
     # 🔴 Two tables, because plain `ndt status` judges nothing: it prints the report and returns
     # 0 whatever the report says (cmd_status's last line). Only --check answers 0/1/3. The live
@@ -238,7 +241,8 @@ RC_TABLE = {
     },
     "apps.start": {
         0: ("ok", "started, or it was already running"),
-        1: ("failed", "it could not be started (the output says why)"),
+        1: ("failed", "it could not be started (the output says why), or an 'ndt up' or 'ndt down' of "
+                      "this checkout is running and the start was refused"),
     },
     "apps.stop": {
         0: ("ok", "it was running, and it is not now"),
@@ -317,7 +321,10 @@ RC_SOURCE = {
                              ("err \"   not starting a second instance. stop the first:  ndt apps stop $name\"",
                               "return 1")),
                             (1, "return 1", "app_start",
-                             ("*) err \"unknown app: $name (known: $APP_NAMES)\"; return 1 ;;",))]},
+                             ("*) err \"unknown app: $name (known: $APP_NAMES)\"; return 1 ;;",)),
+                            (1, "return 1", "cmd_apps",
+                             ("run_check_only \"start an app\" up down || return 1",
+                              "local a; for a in \"$@\"; do app_start \"$a\"; done"))]},
     "apps.stop": {"code": [(1, "return 1", "cmd_apps",
                             ("(( n_fail > 0 )) && { err \"$n_fail app(s) could not be stopped\"; return 1; }",)),
                            (2, "return 2", "cmd_apps",
