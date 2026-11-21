@@ -181,7 +181,7 @@ reset_fix() {
     rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" "$FIX/identity.calls" "$FIX/stack.fabric" "$FIX/fabric_id.seq" \
           "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" "$FIX/stack.up.hook" \
           "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" "$FIX/topo.phases" "$FIX/topo.stop.held" "$FIX/stack.phases" \
-          "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target"
+          "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target" "$FIX/.test_run/up.unfinished"
     echo '{"switches":[]}' > "$FIX/manifest.json"
     rm -f "$FIX/.test_run/pids/"*
     : > "$FIX/sudo.log"; : > "$FIX/stack.log"
@@ -4768,6 +4768,546 @@ OUT="$(glue35 fabric_id)"
 check "🔴 35d and the fabric has no id"                                       "" "$(first35 "$OUT")"
 sp33_kill
 rm -f "$OVR35"
+
+# ==========================================================================================
+section "36. an 'ndt up' that did not finish is kept as a record: 'ndt status' names it, and the next 'ndt up' does not reuse its fabric"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# A bring-up killed where it stood (SIGKILL, the out-of-memory killer) leaves its marker and whatever it had
+# started. Every lock holder removes a stale marker, so the fact "an 'ndt up' died here" was gone before the next
+# bring-up could act on it, and that bring-up reused the half-built fabric as if somebody had verified it. Now the
+# stale marker is moved to .test_run/up.unfinished (as is the marker of a bring-up that abandoned its rollback);
+# `ndt status` shows it in a `run` row and `--check` counts it; the next `ndt up p4` rebuilds instead of reusing, and
+# says why; a bring-up that verified removes it, and so does an `ndt down` whose `verify clean` found none of the fabric.
+UF="$FIX/.test_run/up.unfinished"
+clr36() { clr31; rm -f "$UF" "$UF".*.new "$FIX/marker36.orig"; rm -f "$K_APP" "$K_TEL"; echo 4 > "$K_HOST"; }
+mk36() {   # mk36 <pid> <phase> -- the record an 'ndt up' that was not verified left behind
+    printf 'pid=%s\nat=2026-11-17T18:36:15+0800\nby=other-owner\nstart=1\npgid=%s\nverb=up\nargv=ndt up p4 --app exercises/basic\nphase=%s\n' "$1" "$1" "$2" > "$UF"
+}
+(exit 0) & DEAD36=$!; wait "$DEAD36" 2>/dev/null
+has36() { [[ -e "$1" ]] && echo present || echo absent; }
+mk_helpers "helper same" "helper same"
+
+# 36a. a stale up marker is moved, not dropped: the record holds the marker's own fields
+reset_fix; clr36
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"; cp "$UM" "$FIX/marker36.orig"
+OUT="$(drive 'preflight() { return 5; }
+cmd_up up_p4 4')"
+has   "  36a the stale marker is removed out loud, whose and why"             "removing a stale 'ndt up' marker: pid $DEAD36 is gone" "$OUT"
+has   "🔴 36a and the removal line says where it went"                         "(.test_run/up.inflight, moved to .test_run/up.unfinished)" "$OUT"
+check "🔴 36a the record is there, with the marker's own fields"             "$(cat "$FIX/marker36.orig")" "$(cat "$UF" 2>/dev/null)"
+check "  36a the marker is gone"                                              "absent" "$(has36 "$UM")"
+has   "  36a it says the next bring-up rebuilds"                              "the next 'ndt up p4' rebuilds the fabric instead of reusing it" "$OUT"
+check "  36a no temporary file is left beside the record"                      "0" "$(ls "$FIX/.test_run" | grep -c 'up\.unfinished\..*\.new' || true)"
+# a newer one replaces an older record
+reset_fix; clr36
+mk36 999999 "[1/3]"
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[3/3]"
+OUT="$(drive 'preflight() { return 5; }
+cmd_up up_p4 4')"
+check "  36a a second dead bring-up's record replaces the first one's"         "$DEAD36 [3/3]" "$(sed -n 's/^pid=//p' "$UF") $(sed -n 's/^phase=//p' "$UF")"
+# a stale clean marker is not an unfinished bring-up
+reset_fix; clr36
+mk31 clean "$CM" "$DEAD36" 1 "$DEAD36" "start"
+OUT="$(drive 'preflight() { return 5; }
+cmd_up up_p4 4')"
+has   "  36a (control) the stale clean marker is removed as before"            "removing a stale 'ndt clean' marker" "$OUT"
+check "🔴 36a and it leaves no record: only a bring-up that died is one"       "absent" "$(has36 "$UF")"
+# a live marker is not stale: nothing is moved
+reset_fix; clr36
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(drive 'preflight() { return 5; }
+cmd_up up_p4 4')"
+check "  36a (control) a live bring-up's marker makes no record"               "absent|present" "$(has36 "$UF")|$(has36 "$UM")"
+# a teardown and a standalone clean take the lock too, and move it the same way
+reset_fix; clr36; rm -f "$DM"
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"
+OUT="$(drive 'cmd_clean')"
+check "🔴 36a a standalone 'ndt clean' that removes the stale marker keeps the record" "$DEAD36" "$(sed -n 's/^pid=//p' "$UF" 2>/dev/null)"
+reset_fix; clr36; rm -f "$DM"
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"
+OUT="$(FX_BMV2=10 drive 'cmd_down')"
+check "🔴 36a an 'ndt down' that removes it keeps the record while the fabric is still there" "$DEAD36" "$(sed -n 's/^pid=//p' "$UF" 2>/dev/null)"
+clr36
+
+# 36b. 'ndt status' names it in a `run` row, read-only; --check counts it
+STATUS_RUN36="an 'ndt up' (pid $DEAD36) was not verified (it stopped at [2/3]) -- what it started may still be up; 'ndt down'"
+snap36() { printf '%s|%s|%s|%s\n' "$(fhash "$UM")" "$(fhash "$UF")" "$(fhash "$DM")" "$(ls "$FIX/.test_run" | tr '\n' ' ')"; }
+reset_fix; clr36
+OUT="$(drive 'cmd_status')"
+has   "  36b with nothing recorded the row says none"                         "run            none" "$OUT"
+OUT="$(drive 'cmd_status --check')"
+check "  36b and --check is green"                                            "0" "$(rc_of_out "$OUT")"
+reset_fix; clr36
+mk31 up "$UM" "$$" "$OWN31" "$$" "[2/3]"
+OUT="$(drive 'cmd_status')"
+has   "🔴 36b a live bring-up is a row: its command, owner, pid, start and step" "run            ndt up p4 --app exercises/basic by other-owner, pid $$, since 2026-11-17T18:36:15+0800, at [2/3]" "$OUT"
+OUT="$(drive 'cmd_status --check')"
+check "🔴 36b a bring-up that is running is not a --check problem"             "0" "$(rc_of_out "$OUT")"
+rm -f "$UM"
+reset_fix; clr36
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"; BEFORE36="$(snap36)"
+OUT="$(drive 'cmd_status')"
+has   "🔴 36b a stale up marker is shown as a bring-up that was not verified" "run            $STATUS_RUN36" "$OUT"
+check "🔴 36b status removes and moves nothing"                                "$BEFORE36" "$(snap36)"
+hasnt "  36b and says nothing was removed"                                     "removing a stale" "$OUT"
+OUT="$(drive 'cmd_status --check')"
+check "🔴 36b --check counts it as a problem (rc 1)"                           "1" "$(rc_of_out "$OUT")"
+has   "🔴 36b and names it, with the file"                                     "- $STATUS_RUN36 (.test_run/up.inflight)" "$OUT"
+check "  36b --check removes and moves nothing either"                          "$BEFORE36" "$(snap36)"
+OUT="$(FX_UT_RC=3 drive 'cmd_status --check')"
+check "  36b with no baseline the answer is still 3 (the rule every problem follows)" "3" "$(rc_of_out "$OUT")"
+has   "  36b and the bring-up is listed among what else the report could check" "- $STATUS_RUN36" "$OUT"
+rm -f "$UM"
+reset_fix; clr36
+mk36 "$DEAD36" "[2/3]"; BEFORE36="$(snap36)"
+OUT="$(drive 'cmd_status')"
+has   "🔴 36b the record is shown in the same words"                           "run            $STATUS_RUN36" "$OUT"
+check "  36b status leaves it where it was"                                    "$BEFORE36" "$(snap36)"
+OUT="$(drive 'cmd_status --check')"
+check "🔴 36b --check counts the record as a problem (rc 1)"                   "1" "$(rc_of_out "$OUT")"
+has   "🔴 36b and names the file it is in"                                     "- $STATUS_RUN36 (.test_run/up.unfinished)" "$OUT"
+check "  36b --check leaves it where it was"                                    "$BEFORE36" "$(snap36)"
+# a record naming no usable pid is still a record
+printf 'pid=abc\nat=x\nby=y\n' > "$UF"
+OUT="$(drive 'cmd_status')"
+has   "  36b a record with no usable pid says pid ? and no step"               "run            an 'ndt up' (pid ?) was not verified -- what it started may still be up; 'ndt down'" "$OUT"
+# a live bring-up and an earlier one that died: both are said
+reset_fix; clr36
+mk31 up "$UM" "$$" "$OWN31" "$$" "[1/3]"; mk36 "$DEAD36" "[2/3]"
+OUT="$(drive 'cmd_status')"
+has   "  36b a live bring-up and the record of an earlier one are both rows"    "by other-owner, pid $$, since 2026-11-17T18:36:15+0800, at [1/3]" "$OUT"
+has   "  36b the record on the line below it"                                  "               $STATUS_RUN36" "$OUT"
+OUT="$(drive 'cmd_status --check')"
+check "  36b and the record is the --check problem"                             "1" "$(rc_of_out "$OUT")"
+rm -f "$UM"
+# a FIFO where the record should be is nobody's record, and reading it must not block
+reset_fix; clr36; mkfifo "$UF"
+OUT="$(drive_to 10 'cmd_status')"
+check "🔴 36b a FIFO at up.unfinished does not hang 'ndt status'"               "RC=0" "$(grep -a '^RC=' <<<"$OUT")"
+has   "  36b and is not a record"                                              "run            none" "$OUT"
+rm -f "$UF"
+clr36
+
+# 36c. the next 'ndt up p4' does not reuse the fabric a bring-up that did not finish left
+reset_fix; clr36
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+check "  36c (control) with no record a matching fabric is reused"             "0" "$(rc_of_out "$OUT")"
+has   "  36c and says so"                                                      "already up: 10 switches, 4 hosts, reusing" "$OUT"
+check "  36c (control) nothing was stopped or started"                         "0 0" "$(sudo_calls topo-stop) $(sudo_calls topo-start)"
+reset_fix; clr36
+mk36 "$DEAD36" "[2/3]"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+check "  36c a fabric the record names is rebuilt, and the bring-up succeeds"  "0" "$(rc_of_out "$OUT")"
+has   "🔴 36c one line says why: the bring-up that left it, its step, and that nothing verified it" "an 'ndt up' (pid $DEAD36) was not verified (it stopped at [2/3]), and the lab has not been verified since: that fabric is rebuilt, not reused" "$OUT"
+hasnt "🔴 36c and it was NOT reused"                                            "reusing" "$OUT"
+check "🔴 36c the old topology was stopped and a new one started (the replaced-fabric path)" "1 1" "$(sudo_calls topo-stop) $(sudo_calls topo-start)"
+has   "  36c the stop is announced as for any rebuild"                         "stopping the existing topo session" "$OUT"
+check "  36c the decision came before the identity reading was needed"          "absent" "$(has36 "$FIX/identity.calls")"
+# decided above every write: a refusal that follows leaves the five files as they were
+seed_found; mk36 "$DEAD36" "[2/3]"; BEFORE="$(five_hash)"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'ntg_up_refusal() { return 5; }
+up_p4 4')"
+check "  36c a rebuild that a guard then refuses answers 5"                    "5" "$(rc_of_out "$OUT")"
+has   "  36c the line was printed before the guard spoke"                       "that fabric is rebuilt, not reused" "$OUT"
+check "🔴 36c up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+check "  36c and the record is as it was"                                       "$DEAD36" "$(sed -n 's/^pid=//p' "$UF")"
+# the stale-pipeline refusal still comes first
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'stale_pipeline() { return 0; }
+up_p4 4')"
+check "  36c the stale-pipeline refusal is still the first answer"             "1" "$(rc_of_out "$OUT")"
+hasnt "  36c and the record is not the reason it gives"                         "was not verified" "$OUT"
+# a record and no fabric: nothing to reuse and nothing to say
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"
+OUT="$(drive "$P4_FRESH
+up_p4 4")"
+check "  36c a record with no fabric running builds as usual"                   "0" "$(rc_of_out "$OUT")"
+hasnt "  36c and says nothing about a fabric it did not find"                   "has not been verified since" "$OUT"
+# a stale marker that nothing has moved yet counts the same (a bring-up that reads it before a lock holder did)
+reset_fix; clr36
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "🔴 36c a stale up marker not yet moved forces the rebuild too"          "that fabric is rebuilt, not reused" "$OUT"
+check "  36c (it was only read: the marker is where it was)"                   "present" "$(has36 "$UM")"
+clr36
+
+# 36d. what removes the record: a bring-up that verified, and a teardown whose `verify clean` found none of the fabric
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  36d a bring-up that verified is rc 0"                                  "0" "$(rc_of_out "$OUT")"
+check "🔴 36d and it removed the record"                                      "absent" "$(has36 "$UF")"
+has   "  36d out loud"                                                         "cleared the record of an 'ndt up' that did not finish (.test_run/up.unfinished): this bring-up verified" "$OUT"
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'cmd_up up_p4 4')"
+check "🔴 36d the bring-up that rebuilt over the fabric the record named verified, and removed it" "0|absent" "$(rc_of_out "$OUT")|$(has36 "$UF")"
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"; rc_for stack_up 1
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  36d a bring-up that failed and rolled back is rc 1"                    "1" "$(rc_of_out "$OUT")"
+check "🔴 36d and the record stays"                                           "present" "$(has36 "$UF")"
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"
+OUT="$(FX_VERIFY_RC=1 drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  36d a bring-up that came up and did not verify is rc 1"                "1" "$(rc_of_out "$OUT")"
+check "🔴 36d and the record stays"                                           "present" "$(has36 "$UF")"
+check "  36d (it is now the record of the bring-up that did not verify, at its last step)" "[3/3]|yes" "$(sed -n 's/^phase=//p' "$UF")|$([[ "$(sed -n 's/^pid=//p' "$UF")" != "$DEAD36" ]] && echo yes || echo no)"
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"
+OUT="$(drive 'preflight() { return 5; }
+cmd_up up_p4 4')"
+check "  36d a bring-up its own guards refused is rc 5"                         "5" "$(rc_of_out "$OUT")"
+check "🔴 36d and the record stays"                                           "present" "$(has36 "$UF")"
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"
+OUT="$(drive 'up36() { return 0; }
+cmd_up up36')"
+check "  36d the verb removes it on any bring-up function that returns 0 (the OVS plane's verify is the same rc)" "absent" "$(has36 "$UF")"
+reset_fix; clr36; mk36 "$DEAD36" "[2/3]"; rm -f "$FIX/manifest.json"
+OUT="$(drive 'cmd_clean "the fabric a teardown was asked to remove"')"
+check "  36d (a clean that ends on 'clean')"                                      "0" "$(rc_of_out "$OUT")"
+check "🔴 36d a standalone 'ndt clean' that finds nothing does not remove it"    "present" "$(has36 "$UF")"
+reset_fix; clr36; rm -f "$DM"; mk36 "$DEAD36" "[2/3]"
+OUT="$(drive 'cmd_down')"
+check "  36d a teardown that verified clean is rc 0"                            "0" "$(rc_of_out "$OUT")"
+check "🔴 36d and it removed the record"                                      "absent" "$(has36 "$UF")"
+has   "  36d out loud, and on what"                                            "cleared the record of an 'ndt up' that did not finish (.test_run/up.unfinished): 'verify clean' found none of the fabric itself" "$OUT"
+reset_fix; clr36; rm -f "$DM"; mk36 "$DEAD36" "[2/3]"
+OUT="$(FX_BMV2=10 drive 'cmd_down')"
+check "  36d a teardown whose verify clean still finds the fabric is rc 1"      "1" "$(rc_of_out "$OUT")"
+check "🔴 36d and the record is KEPT: it describes a fabric that is still there" "present" "$(has36 "$UF")"
+reset_fix; clr36; rm -f "$DM" "$FIX/manifest.json"; mk36 "$DEAD36" "[2/3]"
+OUT="$(drive 'cmd_down')"
+check "  36d with nothing up at all (rc 3) the record goes too"                 "3|absent" "$(rc_of_out "$OUT")|$(has36 "$UF")"
+reset_fix; clr36; rm -f "$DM"; mk36 "$DEAD36" "[2/3]"
+OUT="$(FX_TOPO_SESSION=refused drive 'cmd_down')"
+check "  36d a topo session it could not read keeps it (that may be the fabric)" "present" "$(has36 "$UF")"
+reset_fix; clr36; rm -f "$DM"; mk36 "$DEAD36" "[2/3]"
+OUT="$(FX_HELD="8080:777" drive 'cmd_down')"
+check "  36d a stranger on a port is not the fabric: the record goes"            "absent" "$(has36 "$UF")"
+# a stale marker over a clean machine: the same teardown moves it and then removes it, in one run
+reset_fix; clr36; rm -f "$DM"
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"
+OUT="$(drive 'cmd_down')"
+has   "  36d a stale marker is moved by the teardown that takes the lock"       "moved to .test_run/up.unfinished" "$OUT"
+check "🔴 36d and removed by the same teardown's clean verify"                  "absent|absent" "$(has36 "$UF")|$(has36 "$UM")"
+clr36
+
+# 36e. a bring-up that abandoned its rollback leaves the record (real processes: own session, INT at their defaults)
+reset_fix; set33; clr36
+start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_UP='"'$GO32'"'
+'"$P4_FRESH"'
+eval "fx_$(declare -f stack_down_lines)"
+stack_down_lines() {
+    local n=0
+    while (( n < 4 )); do
+        bash -c '"'"'echo "stack stage reached $1" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"'"'"' _ "$n"
+        n=$(( n + 1 ))
+    done
+    fx_stack_down_lines "$@"
+}
+cmd_up up_p4 4'
+read32; learn32; premise32 36e
+sig32 INT
+read32; check "  36e the rollback is in its stack stage"                          "stack stage reached 0" "$L32"
+check "  36e a rollback that is still running has made no record"                "absent" "$(has36 "$UF")"
+sig32 INT
+read32; check "  36e the second signal was handled and the rollback was still in that stage" "stack stage reached 1" "$L32"
+sig32 INT
+read32; check "  36e the third ends the shell, rc 130"                            "exit 130" "$L32"
+OUT="$(body32)"
+has   "  36e the rollback is abandoned"                                          "rollback ABANDONED at stack" "$OUT"
+check "🔴 36e the record is there, written by the bring-up that abandoned it"    "$P32|up|$NDT33|rollback" "$(sed -n 's/^pid=//p' "$UF" 2>/dev/null)|$(sed -n 's/^verb=//p' "$UF" 2>/dev/null)|$(sed -n 's/^by=//p' "$UF" 2>/dev/null)|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+check "  36e its start time was recorded (the same fields as the marker)"         "yes" "$([[ "$(sed -n 's/^start=//p' "$UF" 2>/dev/null)" =~ ^[0-9]+$ ]] && echo yes || echo no)"
+has   "🔴 36e and the run says where, and what the next bring-up does with it"   "recorded in .test_run/up.unfinished: 'ndt up p4' rebuilds what is up instead of reusing it; 'ndt up ovs' refuses to build over it" "$OUT"
+check "  36e the marker itself is released"                                       "absent" "$(has36 "$UM")"
+end32; unset33
+# a rollback that finished leaves none (the machine is back to what it was)
+reset_fix; set33; clr36
+start32 "$SIG32_CODE"
+read32; learn32; premise32 36e
+sig32 INT; read32
+check "  36e (control) an interrupted bring-up whose rollback finished ends rc 130" "exit 130" "$L32"
+check "🔴 36e and it leaves no record"                                          "absent" "$(has36 "$UF")"
+end32; unset33
+clr36
+
+
+# 36f. one rule: a fabric is reused only when the last bring-up of this checkout verified it. A verify that ran and failed
+# records too (the lab is up and nobody verified it); one that passed does not.
+reset_fix; clr36
+OUT="$(FX_VERIFY_RC=1 drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  36f a bring-up whose verify ran and failed is rc 1"                     "1" "$(rc_of_out "$OUT")"
+check "🔴 36f and it leaves the record, at its last step"                       "present|[3/3]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+has   "  36f and says so"                                                       "recorded in .test_run/up.unfinished: 'ndt up p4' rebuilds what is up instead of reusing it; 'ndt up ovs' refuses to build over it" "$OUT"
+: > "$FIX/sudo.log"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "🔴 36f the next 'ndt up p4' over that fabric rebuilds it"                  "that fabric is rebuilt, not reused" "$OUT"
+check "  36f (the old topology was stopped and a new one started)"                "1 1" "$(sudo_calls topo-stop) $(sudo_calls topo-start)"
+reset_fix; clr36
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  36f (control) a bring-up that verified leaves no record"                 "0|absent" "$(rc_of_out "$OUT")|$(has36 "$UF")"
+reset_fix; clr36; echo "0 14 0" > "$FIX/mn.seq"
+OUT="$(drive 'curl() { return 1; }
+cmd_up up_ovs 4')"
+check "  36f the OVS plane's verify that could not read the kernel is rc 1"        "1" "$(rc_of_out "$OUT")"
+check "🔴 36f and leaves the record, at its last step ([4/4])"                    "present|[4/4]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+reset_fix; clr36; rc_for stack_up 1
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+check "  36f (control) a failure whose rollback finished leaves no record"        "1|absent" "$(rc_of_out "$OUT")|$(has36 "$UF")"
+
+# 36g. a rollback that ended INCOMPLETE has left what nobody verified
+reset_fix; clr36; rc_for stack_up 1; rc_for cleanup 1
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4")"
+has   "  36g the rollback says it is INCOMPLETE"                                 "rollback INCOMPLETE" "$OUT"
+check "🔴 36g and leaves the record, from the rollback"                          "present|rollback" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+has   "  36g and says so"                                                       "recorded in .test_run/up.unfinished" "$OUT"
+check "  36g the marker is released"                                             "absent" "$(has36 "$UM")"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "🔴 36g the next 'ndt up p4' over the fabric that is still there rebuilds"  "that fabric is rebuilt, not reused" "$OUT"
+# the same over a fabric this run reused: its rollback cannot finish either
+reset_fix; clr36; rc_for stack_up 1; rc_for stack_down 1
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'cmd_up up_p4 4')"
+has   "  36g over a reused fabric: INCOMPLETE too"                                "rollback INCOMPLETE" "$OUT"
+check "🔴 36g and the record is left there as well"                              "present" "$(has36 "$UF")"
+# nothing started yet: the early return keeps writing nothing, whatever the put-back did
+reset_fix; clr36
+OUT="$(drive 'preflight() { return 5; }
+cmd_up up_p4 4')"
+check "  36g (control) a bring-up that started nothing leaves no record"           "absent" "$(has36 "$UF")"
+
+# 36h. an interrupt at the last step: the lab is up and was not verified, and the record says so (real processes)
+reset_fix; set33; clr36
+start32 'export NDT_OWNER='"$NDT33"'
+'"$P4_FRESH"'
+verify_p4() { echo "verify blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_GO32"; return 0; }
+cmd_up up_p4 4'
+read32; check "  36h the bring-up is at [3/3], verifying" "verify blocked" "$L32"
+learn32; premise32 36h
+sig32 INT; read32
+check "  36h the shell ends, rc 130"                                             "exit 130" "$L32"
+OUT="$(body32)"
+has   "  36h it says the lab is up and was not verified"                         "up, NOT verified -- interrupted during [3/3]" "$OUT"
+check "🔴 36h and the record is there, from the bring-up that was interrupted"   "$P32|[3/3]|$NDT33" "$(sed -n 's/^pid=//p' "$UF" 2>/dev/null)|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)|$(sed -n 's/^by=//p' "$UF" 2>/dev/null)"
+has   "🔴 36h with the line that says what the next bring-up does"                "recorded in .test_run/up.unfinished: 'ndt up p4' rebuilds what is up instead of reusing it; 'ndt up ovs' refuses to build over it" "$OUT"
+hasnt "  36h and it did not roll back"                                           "rollback" "$OUT"
+end32
+OUT="$(NDT_OWNER="$NDT33" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "🔴 36h the next 'ndt up p4' over the same fabric rebuilds it"             "that fabric is rebuilt, not reused" "$OUT"
+hasnt "  36h and does not reuse it"                                              "reusing" "$OUT"
+OUT="$(drive 'cmd_status --check')"
+check "🔴 36h --check after the interrupt is rc 1"                                "1" "$(rc_of_out "$OUT")"
+has   "🔴 36h and its problem line names the step"                               "- an 'ndt up' (pid $P32) was not verified (it stopped at [3/3])" "$OUT"
+unset33
+# an interrupt before anything was started has nothing to roll back and nothing to record
+reset_fix; set33; clr36
+start32 'export NDT_OWNER='"$NDT33"'
+'"$P4_FRESH"'
+app_package_mode() { echo ndtwin; }
+app_pipeline_kind() { echo ndtwin; }
+app_preflight() { echo "preflight blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_GO32"; return 0; }
+NDT_APP_DIR='"$(printf '%q' "$PKG_Y")"'; cmd_up up_p4'
+read32; learn32; premise32 36h
+sig32 INT; read32
+OUT="$(body32)"
+has   "  36h that bring-up had changed nothing"                                  "nothing to roll back" "$OUT"
+check "  36h (control) an interrupt before anything was started leaves no record"   "absent" "$(has36 "$UF")"
+end32; unset33
+# the OVS plane's last step
+reset_fix; set33; clr36; echo "0 14 0" > "$FIX/mn.seq"
+start32 'export NDT_OWNER='"$NDT33"'
+curl() { echo "ovs verify blocked" 1<>"$FX_SYNC32"; read -r -t 60 _ <>"$FX_GO32"; return 1; }
+cmd_up up_ovs 4'
+read32; learn32; premise32 36h
+sig32 INT; read32
+check "🔴 36h an interrupt at [4/4] leaves the record too"                       "present|[4/4]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+end32; unset33
+clr36
+
+# 36i. the newest unfinished bring-up is the one 'ndt status' names; and a record is never written through a directory
+reset_fix; clr36
+mk36 999999 "[1/3]"
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"
+OUT="$(drive 'cmd_status')"
+has   "🔴 36i a stale marker newer than the record is the one named"            "an 'ndt up' (pid $DEAD36) was not verified (it stopped at [2/3])" "$OUT"
+hasnt "  36i not the older record's pid"                                         "pid 999999" "$OUT"
+OUT="$(drive 'cmd_status --check')"
+has   "  36i and --check names it too"                                           "- an 'ndt up' (pid $DEAD36) was not verified (it stopped at [2/3])" "$OUT"
+rm -f "$UM"
+OUT="$(drive 'cmd_status')"
+has   "  36i (control) with the stale marker gone the record is named"            "pid 999999" "$OUT"
+reset_fix; clr36; mkdir "$UF"
+mk31 up "$UM" "$DEAD36" 1 "$DEAD36" "[2/3]"
+OUT="$(drive 'preflight() { return 5; }
+cmd_up up_p4 4')"
+hasnt "🔴 36i a directory where the record belongs is not reported as 'moved to'"  "moved to" "$OUT"
+has   "  36i it says the record was NOT kept"                                    "NOT kept" "$OUT"
+check "🔴 36i and nothing was put inside the directory"                           "0" "$(ls -A "$UF" | wc -l)"
+check "  36i the stale marker is removed as usual"                                 "absent" "$(has36 "$UM")"
+OUT="$(NDT_OWNER=x drive 'up_unfinished_write; echo "W=$?"')"
+has   "🔴 36i writing the record over a directory fails, and says so"            "W=1" "$OUT"
+check "  36i with nothing inside the directory"                                   "0" "$(ls -A "$UF" | wc -l)"
+rmdir "$UF" 2>/dev/null
+clr36
+
+
+# 36j. the exits only the EXIT trap sees, after a stage was started: a `set -u` abort, and a signal bash handles itself once
+# an EXIT trap is set (SIGPIPE when the reader of ndt's output goes away: `ndt up p4 | less`, quit)
+reset_fix; clr36
+OUT="$(drive "$P4_FRESH
+verify_p4() { : \"\$NDT_NO_SUCH_VAR\"; }
+cmd_up up_p4 4")"
+has   "  36j a shell error at [3/3] ends the shell (no rc is returned)"             "unbound variable" "$OUT"
+check "🔴 36j and the record is there, from the exit nothing decided"             "present|[3/3]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+has   "  36j with the line that says what the next bring-up does"                 "recorded in .test_run/up.unfinished" "$OUT"
+check "  36j and the marker is released"                                            "absent" "$(has36 "$UM")"
+: > "$FIX/sudo.log"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "🔴 36j the next 'ndt up p4' over that fabric rebuilds it"                  "that fabric is rebuilt, not reused" "$OUT"
+hasnt "  36j and does not reuse it"                                                "reusing" "$OUT"
+reset_fix; clr36
+OUT="$(drive 'preflight() { : "$NDT_NO_SUCH_VAR"; }
+cmd_up up_p4 4')"
+check "  36j (control) a shell error before anything was started leaves no record"  "absent|absent" "$(has36 "$UF")|$(has36 "$UM")"
+# SIGPIPE: the reader of ndt's output closes its end while the bring-up waits at [3/3]; the bring-up's next line kills it
+reset_fix; clr36
+SYNCP="$FIX/p36.sync"; GOP="$FIX/p36.go"; PIDP="$FIX/p36.pid"
+rm -f "$SYNCP" "$GOP" "$PIDP"; mkfifo "$SYNCP" "$GOP"; exec 7<>"$SYNCP"
+BODYP="echo \$\$ > '$PIDP'
+source '$NDT' >/dev/null 2>&1
+$STUBS
+$P4_FRESH
+verify_p4() { echo VERIFY-REACHED; echo 'verify blocked' 1<>'$SYNCP'; read -r -t 60 _ <>'$GOP'; echo 'a line for a reader that is gone'; return 0; }
+cmd_up up_p4 4"
+READP='while read -r l; do [[ "$l" == VERIFY-REACHED ]] && break; done; exec <&-; echo "reader closed" 1<>"$1"'
+( setsid env --default-signal=INT,TERM,HUP,PIPE bash -c 'bash -c "$1" 2>&1 | bash -c "$2" _ "$3"; exit "${PIPESTATUS[0]}"' _ "$BODYP" "$READP" "$SYNCP" < /dev/null > /dev/null 2>&1
+  echo "exit $?" 1<>"$SYNCP" ) &
+read -r -t 30 -u 7 LP1 || LP1="<nothing within 30 s>"; read -r -t 30 -u 7 LP2 || LP2="<nothing within 30 s>"
+check "  36j the bring-up is at [3/3] and the reader of its output has closed its end"  "reader closed|verify blocked" "$(printf '%s\n%s\n' "$LP1" "$LP2" | sort | paste -sd'|')"
+PP36="$(cat "$PIDP" 2>/dev/null)"
+check "🔴 36j SIGPIPE is not ignored in the bring-up (the cell is not vacuous)"   "clear" "$(grep -q '^SigIgn:' "/proc/${PP36:-0}/status" 2>/dev/null && sigbit32 "${PP36:-0}" SigIgn 13 || echo unreadable)"
+exec 5<>"$GOP"; echo go >&5; exec 5>&-
+read -r -t 30 -u 7 LP3 || LP3="<nothing within 30 s>"
+check "  36j the bring-up itself ends on SIGPIPE (its own status, not the reader's)" "exit 141" "$LP3"
+check "🔴 36j the record is there after a SIGPIPE, from the exit nothing decided" "present|[3/3]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+check "  36j and the marker is released"                                            "absent" "$(has36 "$UM")"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "🔴 36j the next 'ndt up p4' over that fabric rebuilds it"                  "that fabric is rebuilt, not reused" "$OUT"
+exec 7>&-; rm -f "$SYNCP" "$GOP" "$PIDP"
+clr36
+
+# 36k. --check after each of the three ways that leave the record: rc 1, and the problem line names the step
+mk_helpers "helper same" "helper same"
+reset_fix; clr36
+OUT="$(FX_VERIFY_RC=1 drive "$P4_FRESH
+cmd_up up_p4 4 >/dev/null
+cmd_status --check")"
+check "🔴 36k --check after a verify that failed is rc 1"                         "1" "$(rc_of_out "$OUT")"
+has   "🔴 36k and the problem line names the step"                               "- an 'ndt up' (pid " "$OUT"
+has   "  36k and that it stopped at [3/3]"                                         "(it stopped at [3/3]) -- what it started may still be up; 'ndt down'" "$OUT"
+reset_fix; clr36; rc_for stack_up 1; rc_for cleanup 1
+OUT="$(drive "$P4_FRESH
+cmd_up up_p4 4 >/dev/null
+cmd_status --check")"
+check "🔴 36k --check after an INCOMPLETE rollback is rc 1"                      "1" "$(rc_of_out "$OUT")"
+has   "🔴 36k and the problem line names the step it stopped at"                  "(it stopped at rollback) -- what it started may still be up; 'ndt down'" "$OUT"
+
+# 36l. the record written from a bring-up's own marker is not put inside a directory at its path
+reset_fix; clr36; mkdir "$UF"
+OUT="$(FX_VERIFY_RC=1 drive "$P4_FRESH
+cmd_up up_p4 4")"
+has   "🔴 36l a failed verify that cannot write the record says so"               "could not record it in .test_run/up.unfinished" "$OUT"
+check "🔴 36l and nothing was put inside the directory"                           "0" "$(ls -A "$UF" | wc -l)"
+rmdir "$UF" 2>/dev/null
+clr36
+
+# 36m. a signal starts a rollback, and the way out of that rollback is one nothing decided: the record is still written
+# (the rule holds from the signal's first line to its `exit`, not from the line that decides)
+reset_fix; clr36
+OUT="$(drive "$P4_FRESH
+stack_snapshot() { up_on_signal INT 130; }
+knob_restore() { (( UP_ROLLING_BACK )) && : \"\$NDT_NO_SUCH_VAR\"; return 0; }
+cmd_up up_p4 4")"
+has   "  36m the rollback an interrupt started ends on a shell error"                "unbound variable" "$OUT"
+check "🔴 36m and the record is there, at the rollback"                              "present|rollback" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+check "  36m and the marker is released"                                              "absent" "$(has36 "$UM")"
+: > "$FIX/sudo.log"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "🔴 36m the next 'ndt up p4' over that fabric rebuilds it"                     "that fabric is rebuilt, not reused" "$OUT"
+hasnt "  36m and does not reuse it"                                                   "reusing" "$OUT"
+# the same at the last step: the notice before the record ends on a shell error
+reset_fix; clr36
+OUT="$(drive "$P4_FRESH
+verify_p4() { up_on_signal INT 130; }
+up_note_rewrite() { [[ \"\${RUN_PHASE:-}\" == '[3/3]' ]] && : \"\$NDT_NO_SUCH_VAR\"; return 0; }
+cmd_up up_p4 4")"
+has   "  36m the interrupt at [3/3] ends on a shell error before it has recorded"    "unbound variable" "$OUT"
+check "🔴 36m and the record is there, at [3/3]"                                      "present|[3/3]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+check "  36m and the marker is released"                                              "absent" "$(has36 "$UM")"
+: > "$FIX/sudo.log"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "  36m the next 'ndt up p4' over that fabric rebuilds it (the [3/3] interrupt)"  "that fabric is rebuilt, not reused" "$OUT"
+# a signal bash handles itself (no trap of ours), while the rollback an interrupt started is in its stack stage
+reset_fix; set33; clr36
+start32 'export NDT_OWNER='"$NDT33"' FX_BLOCK_STACK_UP='"'$GO32'"'
+'"$P4_FRESH"'
+eval "fx_$(declare -f stack_down_lines)"
+stack_down_lines() {
+    local n=0
+    while (( n < 4 )); do
+        bash -c '"'"'echo "stack stage reached $1" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"'"'"' _ "$n"
+        n=$(( n + 1 ))
+    done
+    fx_stack_down_lines "$@"
+}
+cmd_up up_p4 4'
+read32; learn32; premise32 36m
+check "🔴 36m SIGUSR1 is not ignored in it (the cell is not vacuous)"                 "clear" "$(sigbit32 "$P32" SigIgn 10)"
+sig32 INT
+read32; check "  36m the rollback is in its stack stage"                              "stack stage reached 0" "$L32"
+check "  36m a rollback that is still running has made no record"                      "absent" "$(has36 "$UF")"
+sig32 USR1
+read32; check "  36m the signal ends the shell, rc 138"                               "exit 138" "$L32"
+check "🔴 36m the record is there, written by the bring-up the signal ended"          "$P32|up|$NDT33|rollback" "$(sed -n 's/^pid=//p' "$UF" 2>/dev/null)|$(sed -n 's/^verb=//p' "$UF" 2>/dev/null)|$(sed -n 's/^by=//p' "$UF" 2>/dev/null)|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+check "  36m and the marker is released"                                                "absent" "$(has36 "$UM")"
+: > "$FIX/sudo.log"
+OUT="$(NDT_OWNER="$NDT33" FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "  36m the next 'ndt up p4' over that fabric rebuilds it (the signal)"             "that fabric is rebuilt, not reused" "$OUT"
+end32; unset33
+clr36
+
+# 36n. a verify that ran and failed: the way out between the bring-up's return and its record is one nothing decided, and the
+# record is still written
+reset_fix; clr36
+OUT="$(FX_VERIFY_RC=1 drive "$P4_FRESH
+up_phase_is_verify() { [[ \"\${FUNCNAME[1]:-}\" == cmd_up ]] && : \"\$NDT_NO_SUCH_VAR\"; [[ \"\$1\" == '[3/3]' || \"\$1\" == '[4/4]' ]]; }
+cmd_up up_p4 4")"
+has   "  36n a shell error between a failed verify and its record ends the shell"      "unbound variable" "$OUT"
+check "🔴 36n and the record is there, at [3/3]"                                      "present|[3/3]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+check "  36n and the marker is released"                                                "absent" "$(has36 "$UM")"
+: > "$FIX/sudo.log"
+OUT="$(FX_TOPO_SESSION=1 FX_BMV2=10 FX_FABRIC_HOSTS=4 drive 'up_p4 4')"
+has   "  36n the next 'ndt up p4' over that fabric rebuilds it"                         "that fabric is rebuilt, not reused" "$OUT"
+# a rollback that finished has no record: the same way out after it writes none
+reset_fix; clr36; rc_for stack_up 1
+OUT="$(drive "$P4_FRESH
+up_phase_is_verify() { [[ \"\${FUNCNAME[1]:-}\" == cmd_up ]] && : \"\$NDT_NO_SUCH_VAR\"; [[ \"\$1\" == '[3/3]' || \"\$1\" == '[4/4]' ]]; }
+cmd_up up_p4 4")"
+has   "  36n (control) a shell error after a rollback that finished ends the shell"    "unbound variable" "$OUT"
+check "🔴 36n (control) and it leaves no record"                                       "absent" "$(has36 "$UF")"
+check "  36n (control) and the marker is released"                                       "absent" "$(has36 "$UM")"
+# the record of a failed verify is written once: a way out after the marker is released does not write it again
+reset_fix; clr36
+OUT="$(FX_VERIFY_RC=1 drive "$P4_FRESH
+run_release() { local f; f=\"\$(run_marker \"\$1\")\"; rm -f \"\$f\"; [[ \"\${FUNCNAME[1]:-}\" == run_leave ]] && : \"\$NDT_NO_SUCH_VAR\"; return 0; }
+cmd_up up_p4 4")"
+has   "  36n a shell error as the bring-up leaves ends the shell"                      "unbound variable" "$OUT"
+check "  36n and the record is there, at [3/3]"                                         "present|[3/3]" "$(has36 "$UF")|$(sed -n 's/^phase=//p' "$UF" 2>/dev/null)"
+check "🔴 36n and it was recorded once, not again after the marker was released"        "1" "$(grep -c 'recorded in .test_run/up.unfinished' <<<"$OUT")"
+clr36
 
 # ==========================================================================================
 # The skip count has its own line and the summary below keeps its shape: tools/test_workflow/

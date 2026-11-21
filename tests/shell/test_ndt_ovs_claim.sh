@@ -140,7 +140,7 @@ KNOB="$FIX/p4_proxy/mininet/app_package_override"
 reset_fix() {
     rm -f "$FIX/sudo.log" "$FIX/stack.log" "$FIX/bmv2.seq" "$FIX/mn.seq" \
           "$FIX/.test_run/up.target" "$FIX/.test_run/lab.claim" "$FIX/.test_run/lab.claim.prev" \
-          "$FIX/.test_run/down.inflight"
+          "$FIX/.test_run/down.inflight" "$FIX/.test_run/up.unfinished"
     rm -rf "$FIX/.test_run/lab.claim.overrides" "$FIX/.test_run/apps"
     rm -f "$FIX/.test_run/pids/"* "$FIX/tmp/"*
     echo 4 > "$FIX/p4_proxy/mininet/host_count_override"

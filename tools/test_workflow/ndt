@@ -4252,9 +4252,11 @@ rollback_up() {
         err "rollback INCOMPLETE -- what is left is named above."
         err "  the fabric this run reused was up before it and was not stopped; 'ndt down', with or"
         err "  without --deep, would take that fabric down too."
+        up_unfinished_record
         rc=1
     else
         err "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep"
+        up_unfinished_record
         rc=1
     fi
     return $rc
@@ -4647,6 +4649,16 @@ up_p4() {
         err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
         err "up.target, the knobs and the claim note were not touched."
         return 1
+    fi
+    # [Co-developed with claude code -- Adam]
+    # 🔴 A FABRIC LEFT BY AN `ndt up` THAT DID NOT FINISH IS NOT REUSED, whatever it was built from: nothing verified
+    # it, and what that bring-up had started when it died is not known (up_unfinished_look). It is rebuilt, through the
+    # same path as a fabric whose inputs differ, and the line says why. Read here, above every write, beside the
+    # stale-pipeline refusal and the identity decision. A record with no fabric running changes nothing: `reuse` is
+    # already 0 then, and the record goes when a bring-up verifies.
+    if (( reuse )) && up_unfinished_look; then
+        reuse=0
+        info "$(up_unfinished_what), and the lab has not been verified since: that fabric is rebuilt, not reused"
     fi
     # [Co-developed with claude code -- Adam]
     # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
@@ -6340,17 +6352,167 @@ run_marker_look() {
     return 0
 }
 
-# run_stale_remove <verb> -- remove a stale marker run_marker_look just read, out loud.
+# run_stale_remove <verb> -- remove a stale marker run_marker_look just read, out loud. A stale 'up' marker is not
+# simply dropped: it is moved to .test_run/up.unfinished (up_unfinished_keep), so that the fact "an 'ndt up' died here"
+# is still there for 'ndt status' and for the next 'ndt up', which does not reuse what that bring-up left.
 run_stale_remove() {
-    local f; f="$(run_marker "$1")"
-    warn "removing a stale 'ndt $1' marker: ${RM_WHY:-it is not live} (recorded ${RM_AT:-?}). (${f#$REPO/})"
+    local f unf kept=""; f="$(run_marker "$1")"; unf="$(run_unfinished_file)"
+    # [Co-developed with claude code -- Adam]
+    if [[ "$1" == up ]]; then
+        if up_unfinished_keep "$f"; then kept=", moved to ${unf#$REPO/}"; else kept=", NOT kept"; fi
+    fi
+    warn "removing a stale 'ndt $1' marker: ${RM_WHY:-it is not live} (recorded ${RM_AT:-?}). (${f#$REPO/}${kept})"
     if [[ "$1" == up ]]; then
         warn "  that 'ndt up'${RM_ARGV:+ ($RM_ARGV)} ended without finishing${RM_PHASE:+ -- it had reached $RM_PHASE} --"
         warn "  what it started may still be up; 'ndt down' takes it down."
+        if [[ "$kept" == ", NOT kept" ]]; then
+            warn "  the record could not be written, so the next 'ndt up p4' cannot tell that this one died: it may reuse what is up."
+        else
+            warn "  the next 'ndt up p4' rebuilds the fabric instead of reusing it, until a bring-up verifies or 'ndt down' finds none of it."
+        fi
     elif [[ "$1" == clean ]]; then
         warn "  that 'ndt clean' ended without finishing."
     fi
     rm -f "$f"
+}
+
+# --- an 'ndt up' that did not finish -------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# A bring-up that is killed (SIGKILL, the out-of-memory killer) leaves its marker behind, and whatever it
+# had started is still up. Every lock holder removes that stale marker, so without a record the fact "an 'ndt
+# up' died here" was gone before the next bring-up could act on it, and that bring-up reused the half-built
+# fabric as if somebody had verified it.
+#
+# THE RULE: a P4 fabric is reused only when the last `ndt up` of this checkout verified it. .test_run/up.unfinished is
+# the record of one that did not: the stale marker's own fields, moved there by run_stale_remove (tmp + mv, the way a
+# marker is written), or this process's own marker, written by a bring-up that ends with a fabric nobody verified --
+# one that abandoned its rollback (up_abandon_rollback), whose rollback ended INCOMPLETE (rollback_up), that was
+# interrupted at its last step (up_on_signal), or whose verify ran and failed (cmd_up). A rollback that finished
+# leaves none (the machine is as it was), and neither does a refusal. Nothing reads it for anything but the
+# three things below, and nothing removes it but the two that follow:
+#   * `ndt status` shows it in the `run` row, and `status --check` counts it as a problem (status_run_row);
+#   * the next `ndt up p4` does not reuse the running fabric while it is there: it rebuilds, and says why;
+#   * a bring-up that verified removes it (cmd_up), and so does an `ndt down` whose `verify clean` found none of
+#     the fabric (cmd_down).
+# `ndt status` reads and moves nothing: a stale marker is not a reader's to remove (run.lock is held by whoever does).
+run_unfinished_file() { echo "$REPO/.test_run/up.unfinished"; }
+
+# up_unfinished_keep <marker file> -- its fields, kept as .test_run/up.unfinished. rc 1: it could not be written.
+up_unfinished_keep() {
+    local unf tmp; unf="$(run_unfinished_file)"; tmp="$unf.$$.new"
+    if { cp -- "$1" "$tmp" && mv -f -T -- "$tmp" "$unf"; } 2>/dev/null; then return 0; fi
+    rm -f "$tmp" 2>/dev/null
+    return 1
+}
+
+# up_unfinished_write -- this process's own up marker (or, with none, the same fields) as .test_run/up.unfinished.
+# Called with no lock held, by a bring-up that still owns its marker, so no other bring-up can be writing it.
+up_unfinished_write() {
+    local f unf tmp ticks pg; f="$(run_marker up)"; unf="$(run_unfinished_file)"; tmp="$unf.$$.new"
+    if [[ -f "$f" && "$(run_marker_field "$f" pid)" == "$$" ]]; then
+        { cp -- "$f" "$tmp" && mv -f -T -- "$tmp" "$unf"; } 2>/dev/null && return 0
+    else
+        ticks="$(proc_start_ticks "$$")" || ticks=""
+        pg="$(proc_pgid "$$")" || pg="?"
+        { mkdir -p "$(dirname "$unf")" &&
+          printf 'pid=%s\nat=%s\nby=%s\nstart=%s\npgid=%s\nverb=up\nargv=%s\nphase=%s\n' \
+              "$$" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${NDT_OWNER:-unset}" "$ticks" "$pg" "${NDT_RUN_ARGV:-ndt up}" "${RUN_PHASE:-?}" > "$tmp" &&
+          mv -f -T -- "$tmp" "$unf"; } 2>/dev/null && return 0
+    fi
+    rm -f "$tmp" 2>/dev/null
+    return 1
+}
+
+# up_unfinished_record -- up_unfinished_write, and the line that says so (or that it could not be written). Every way a
+# bring-up ends with a fabric nobody verified calls this (see the rule above): the exits it decides itself at the
+# place they are decided, and the ones only the EXIT trap sees through up_exit_unverified.
+# [Co-developed with claude code -- Adam]
+up_unfinished_record() {
+    local unf; unf="$(run_unfinished_file)"
+    if up_unfinished_write; then
+        warn "recorded in ${unf#$REPO/}: 'ndt up p4' rebuilds what is up instead of reusing it; 'ndt up ovs' refuses to build over it."
+    else
+        warn "could not record it in ${unf#$REPO/}: 'ndt up p4' cannot tell, and may reuse what is up."
+    fi
+}
+
+# up_exit_unverified -- the EXIT trap's half of the rule. A way out that only the EXIT trap sees (a `set -u` abort, a
+# terminating signal bash handles itself once an EXIT trap is set: SIGPIPE when the reader of ndt's output goes away,
+# SIGUSR1/2, SIGALRM, SIGXCPU, SIGXFSZ) after a stage had been started leaves a fabric nobody verified, and no handler
+# ran. Every exit this bring-up decides itself sets UP_EXIT_DECIDED right before it exits, after the rollback or the record
+# that exit stands for: a way out inside that rollback is one this trap still sees. Nothing started means nothing to record.
+# sig_output_check comes first: with the reader of the output gone, the line it prints would end this trap on a SIGPIPE
+# before the record was written.
+# [Co-developed with claude code -- Adam]
+UP_EXIT_DECIDED=0
+up_exit_unverified() {
+    [[ "${BASHPID:-$$}" == "$$" ]] || return 0
+    (( ${UP_EXIT_DECIDED:-0} )) && return 0
+    (( ${#UP_STARTED[@]} )) || return 0
+    UP_EXIT_DECIDED=1
+    sig_output_check
+    up_unfinished_record
+    return 0
+}
+
+# up_unfinished_look -- rc 0 when an 'ndt up' of this checkout ended without being verified: the record, or a stale up
+# marker nobody has removed yet. Fills UF_* from it. Removes and moves nothing.
+UF_FROM=""; UF_PID=""; UF_AT=""; UF_BY=""; UF_ARGV=""; UF_PHASE=""
+up_unfinished_look() {
+    local f lrc; f="$(run_unfinished_file)"
+    UF_FROM=""; UF_PID=""; UF_AT=""; UF_BY=""; UF_ARGV=""; UF_PHASE=""
+    # A stale marker is newer than any record (a take moves a stale marker into the record before it writes its own), so
+    # when both are there it is the one that says what happened last.
+    run_marker_look up; lrc=$?
+    if (( lrc == 2 )); then
+        f="$(run_marker up)"; UF_FROM="${f#$REPO/}"
+        UF_PID="$RM_PID"; UF_AT="$RM_AT"; UF_BY="$RM_BY"; UF_ARGV="$RM_ARGV"; UF_PHASE="$RM_PHASE"
+    elif [[ -f "$f" ]]; then
+        UF_FROM="${f#$REPO/}"
+        UF_PID="$(run_marker_field "$f" pid)"; UF_AT="$(run_marker_field "$f" at)"; UF_BY="$(run_marker_field "$f" by)"
+        UF_ARGV="$(run_marker_field "$f" argv)"; UF_PHASE="$(run_marker_field "$f" phase)"
+    else
+        return 1
+    fi
+    [[ "$UF_PID" =~ ^[0-9]+$ ]] || UF_PID="?"
+    return 0
+}
+
+# up_unfinished_what / up_unfinished_text -- what up_unfinished_look read, as the sentence 'ndt status', its problem
+# list and the next bring-up's line use.
+up_unfinished_what() { echo "an 'ndt up' (pid $UF_PID) was not verified${UF_PHASE:+ (it stopped at $UF_PHASE)}"; }
+up_unfinished_text() { echo "$(up_unfinished_what) -- what it started may still be up; 'ndt down'"; }
+
+# up_unfinished_clear <why> -- remove the record, out loud, when there is one. Only a bring-up that verified and
+# a teardown whose `verify clean` found none of the fabric call this.
+up_unfinished_clear() {
+    local f; f="$(run_unfinished_file)"
+    [[ -e "$f" || -L "$f" ]] || return 0
+    rm -f -- "$f" 2>/dev/null && info "cleared the record of an 'ndt up' that did not finish (${f#$REPO/}): $1"
+    return 0
+}
+
+# status_run_row -- the `run` row of `ndt status`: what is running now (a live marker of an up, down or clean of
+# this checkout), and an 'ndt up' that was not verified. Prints; reads and removes nothing. Fills
+# STATUS_RUN_PROBLEMS: the unfinished bring-up is a problem for `--check`, a live verb is not (it is a row).
+STATUS_RUN_PROBLEMS=()
+status_run_row() {
+    local v lrc lines=() l i=0
+    STATUS_RUN_PROBLEMS=()
+    for v in up down clean; do
+        run_marker_look "$v"; lrc=$?
+        (( lrc == 0 )) && lines+=("${RM_ARGV:-ndt $v} by ${RM_BY:-?}, pid $RM_PID, since ${RM_AT:-?}, at ${RM_PHASE:-?}")
+    done
+    if up_unfinished_look; then
+        lines+=("$(up_unfinished_text)")
+        STATUS_RUN_PROBLEMS+=("$(up_unfinished_text) (${UF_FROM})")
+    fi
+    (( ${#lines[@]} )) || lines=(none)
+    for l in "${lines[@]}"; do
+        printf '  %-14s %s\n' "$( (( i == 0 )) && echo run )" "$l"
+        i=$(( i + 1 ))
+    done
 }
 
 # run_why <action> <blocker> -- what the overlap does, in the words of the pair.
@@ -6556,7 +6718,10 @@ run_check_only() {
 cmd_up() {
     local rc prev prev_sig; prev="$(trap -p EXIT)"; prev_sig="$(trap -p INT TERM HUP)"
     run_take up "${NDT_RUN_ARGV:-ndt up}" || return $?
-    trap 'run_release up' EXIT
+    # [Co-developed with claude code -- Adam] up_exit_unverified: an exit nothing here decided still records a fabric
+    # that was started and not verified.
+    UP_EXIT_DECIDED=0
+    trap 'up_exit_unverified; run_release up' EXIT
     # [Co-developed with claude code -- Adam] An INT, TERM or HUP rolls back what this bring-up started (up_on_signal).
     # Set here, after the take, and never when this file is sourced: a shell that only reads ndt's functions
     # installs nothing.
@@ -6565,8 +6730,17 @@ cmd_up() {
     trap 'up_on_signal TERM 143' TERM
     trap 'up_on_signal HUP 129' HUP
     "$@"; rc=$?
+    # Verified, or a rollback ran (a finished one has no record, an INCOMPLETE one wrote its own): nothing is left to
+    # record. A verify that failed is decided below, after its record, so a way out in between is still seen by
+    # up_exit_unverified.
+    (( rc == 0 || UP_ROLLING_BACK )) && UP_EXIT_DECIDED=1
     trap - INT TERM HUP
     [[ -n "$prev_sig" ]] && eval "$prev_sig"
+    # [Co-developed with claude code -- Adam] rc 0 is "verified" on both planes: only the verify step returns it.
+    # A verify that ran and failed leaves a fabric nobody verified, like every other way a bring-up ends short of it.
+    if (( rc == 0 )); then up_unfinished_clear "this bring-up verified"
+    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi
+    UP_EXIT_DECIDED=1
     run_leave up "$prev"
     return "$rc"
 }
@@ -6690,7 +6864,10 @@ up_abandon_rollback() {
     for (( j = (UP_RB_AT < n ? UP_RB_AT : n) - 1; j >= 0; j-- )); do left+="${left:+, }${UP_STARTED[$j]}"; done
     err "rollback ABANDONED at $at; not undone: ${left:-nothing more -- the checks after its stages did not run}"
     err "  the machine is as that rollback left it. finish it by hand:  ndt down"
+    # [Co-developed with claude code -- Adam] Before the marker is released: what this run left was never verified.
+    up_unfinished_record
     up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} interrupted; rollback abandoned at $at -- run 'ndt down'" || true
+    UP_EXIT_DECIDED=1
     exit "$2"
 }
 
@@ -6707,15 +6884,20 @@ up_on_signal() {
         warn "still rolling back: a step that was running when the signal came may be reported below as not done; $more more signal$( (( more == 1 )) || echo s ) abandon$( (( more == 1 )) && echo s ) the rollback"
         return 0
     fi
+    # Each exit below sets UP_EXIT_DECIDED right before it exits, once the record or the rollback is done: a shell error or a
+    # signal bash handles itself on the way there is seen by up_exit_unverified, which records.
     if up_phase_is_verify "$phase"; then
         say "up, ${R}NOT verified${N} -- interrupted during $phase"
         info "everything was started and nothing is rolled back: the lab is up, and nothing has verified it."
         info "  'ndt status' reads it; 'ndt down' takes it down."
         up_note_rewrite "$CLAIM_NOTE_UP_TEXT (interrupted during verify, not verified)" || true
+        up_unfinished_record
+        UP_EXIT_DECIDED=1
         exit "$code"
     fi
     up_bg_stack_stop
     rollback_up "interrupted by SIG$sig at $phase" || true
+    UP_EXIT_DECIDED=1
     exit "$code"
 }
 
@@ -7391,6 +7573,7 @@ cmd_down() {
     # the record over it would leave every later --check comparing against a fabric that is gone.
     if [[ -z "$CLEAN_FABRIC_LEFT" ]]; then
         clear_up_target "'verify clean' found none of the fabric itself (no bmv2, Mininet or topo session)"
+        up_unfinished_clear "'verify clean' found none of the fabric itself"
     else
         up_target_kept "$CLEAN_FABRIC_LEFT"
     fi
@@ -9084,6 +9267,10 @@ cmd_status() {
     local running
     running="$(ps -eo args= 2>/dev/null | grep -o '/[^ ]*simple_switch_grpc' | sort -u | head -1)"
     [[ -n "$running" ]] && printf '  %-14s %s\n' "binary" "$running"
+    # [Co-developed with claude code -- Adam] The run row: a verb of this checkout that is running, or an 'ndt up'
+    # that was not verified. A reading: nothing here removes or moves a marker.
+    status_run_row
+    (( ${#STATUS_RUN_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_RUN_PROBLEMS[@]}")
     # [Co-developed with claude code -- Adam] The heartbeat row.
     heartbeat_row
     # Printed unconditionally rather than under --check, for the same reason the
@@ -13915,16 +14102,28 @@ usage: ndt <command>
                 ntg' never wait. A marker whose process is gone is removed and said so (for
                 the up and clean markers, so is one whose pid is now another process's); a
                 stale 'ndt up' marker says how far that bring-up got and that what it
-                started may still be up. 'ndt apps <name>' and 'ndt ntg cli|custom_command'
+                started may still be up, and is moved to .test_run/up.unfinished rather than
+                dropped. A P4 fabric is reused only when the last 'ndt up' of this checkout
+                verified it, so the same record is written by a bring-up that ends with a
+                fabric nobody verified: one killed where it stood, one whose rollback was
+                abandoned or ended INCOMPLETE, one interrupted at its last step, and one
+                whose verify ran and failed ('up, but not verified'). 'ndt status' shows
+                the record; the next 'ndt up p4' does not reuse the running fabric while
+                it is there, it rebuilds it and says why. A bring-up that verified removes
+                the record, and so does an 'ndt down' whose 'verify clean' finds none of
+                the fabric. 'ndt apps <name>' and 'ndt ntg cli|custom_command'
                 are refused at once (rc 1) while an 'ndt up' or 'ndt down' is running. The
                 markers belong to this checkout: a verb from another checkout is not seen
                 (doc/KNOWN-ISSUES.md).
                 INTERRUPTING A BRING-UP: INT (Ctrl-C), TERM or HUP to an 'ndt up' rolls back
                 what it started, the way a failed bring-up does, and exits 130, 143 or 129.
                 At its last step ([3/3] on P4, [4/4] on OVS) it rolls nothing back: the lab is
-                left up and the run says 'up, NOT verified -- interrupted during [3/3]'. A
+                left up and the run says 'up, NOT verified -- interrupted during [3/3]', and
+                records it (.test_run/up.unfinished) so the next 'ndt up p4' rebuilds (an
+                OVS bring-up refuses to build over a running fabric). A
                 second signal during the rollback is noted and the rollback goes on; the
-                third abandons it and says what is not undone ('ndt down' finishes that). A
+                third abandons it and says what is not undone ('ndt down' finishes that), and
+                leaves the same record as a killed bring-up. A
                 signal to the process group (Ctrl-C, 'kill -TERM -- -PGID') also ends the
                 command ndt is running, so the rollback starts at once; a signal to the pid
                 alone is held until that command returns, which can take minutes. INT is
@@ -14150,6 +14349,16 @@ usage: ndt <command>
                   it compares the live lab against what the last 'ndt up' asked
                   for, recorded in .test_run/up.target -- data plane kind, host
                   count, kernel graph, and the model file's sha256.
+                  the 'run' row shows what is running: an 'ndt up', 'ndt down' or
+                  'ndt clean' of this checkout (command, owner, pid, start, step),
+                  or an 'ndt up' that was not verified (killed, interrupted, rolled back
+                  incompletely, or its verify failed) -- a stale
+                  .test_run/up.inflight, or the record .test_run/up.unfinished --
+                  or 'none'. It reads and moves nothing. --check counts an
+                  unfinished 'ndt up' as a problem and names it ('ndt down' takes
+                  what it started down; with no baseline the problem is listed
+                  under "everything else this report could still check" and the
+                  answer stays 3); a verb that is running is a row, not a problem.
                   exit 0 all compared fields match; 1 one of them does not (the
                   message names it); 3 nothing was compared, because there is
                   no baseline RIGHT NOW -- .test_run/up.target is absent (every
