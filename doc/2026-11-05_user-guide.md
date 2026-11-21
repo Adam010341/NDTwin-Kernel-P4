@@ -428,15 +428,31 @@ ndt up p4 --app <dir>   # bmv2 on a P4 app package or tutorials exercise (2026-1
   and start time. `NDT_RUN_WAIT=<seconds>`
   makes `ndt up`, `ndt down` and `ndt clean` wait that long for the other verb first; the default is to
   refuse at once, and `ndt apps` and `ndt ntg` never wait. A marker whose process is gone is removed,
-  and `ndt` says so; for a bring-up it also says how far it got, because what it started may still be up. The markers belong to one checkout: a verb run
+  and `ndt` says so; for a bring-up it also says how far it got, because what it started may still be up,
+  and it moves the marker to `.test_run/up.unfinished` instead of dropping it. The markers belong to one checkout: a verb run
   from another checkout of the repository is not seen (see `KNOWN-ISSUES.md`).
+- A P4 fabric is reused only when the last `ndt up` of this checkout verified it. A bring-up that ends with
+  a fabric nobody verified leaves a record, `.test_run/up.unfinished`: a killed `ndt up` (SIGKILL, the
+  out-of-memory killer; its stale marker is moved there by the next verb that takes the lock), one that
+  stopped by a path nothing in `ndt` handles after it had started something (a shell error, or the reader of
+  its output going away, as in `ndt up p4 | less`), one whose rollback was abandoned (the third signal,
+  below) or ended INCOMPLETE, one interrupted at its last step, and one whose `verify` ran and failed (`up,
+  but not verified`). A rollback that finished leaves none, and neither does a refusal. `ndt status` shows
+  the record in the `run` row (`an 'ndt up' (pid N) was not verified (it stopped at [2/3]) -- what it started
+  may still be up; 'ndt down'`), naming the newest one, and `ndt status --check` counts it as a problem.
+  While it is there the next `ndt up p4` does not reuse the running fabric, whatever it was built from: it
+  rebuilds it and says why (an estimate: about 10 s on 4 hosts, longer on 128, not yet measured on a live
+  lab). A bring-up that verified removes the record, and so does an `ndt down` whose `verify clean` found
+  none of the fabric (4.9); nothing else does. The OVS plane never reuses a fabric and does not read the
+  record: `ndt up ovs` refuses only to build over a running Mininet, and one that verified removes the
+  record like any other bring-up.
 - Interrupting a bring-up. An INT (Ctrl-C), TERM or HUP to a running `ndt up` rolls back what it had
   started, the way a failed bring-up does (the `rollback` block, below), and exits 130, 143 or 129; the
   marker is released. At its last step (`[3/3]` on P4, `[4/4]` on OVS) nothing is rolled back: everything
   was started and the step only reads it, so the lab is left up and the run says `up, NOT verified --
-  interrupted during [3/3]`, and the claim note says the same. A second signal while the rollback runs is
+  interrupted during [3/3]`, the claim note says the same, and the record above is left so that the next `ndt up p4` rebuilds. A second signal while the rollback runs is
   noted and the rollback goes on (the step it was in is reported as not done); the third abandons it and
-  says what it did not undo, and `ndt down` finishes that. A signal to the process group (Ctrl-C, or
+  says what it did not undo, and `ndt down` finishes that; it also leaves the record described above. A signal to the process group (Ctrl-C, or
   `kill -TERM -- -<pgid>`) also ends the command `ndt` is running, so the rollback starts at once; a signal
   to the pid alone is held until that command returns, which for `stack.sh up` can take minutes. An `ndt up`
   started as a background job of a script ignores INT, and no signal handler can be set for a signal that was
@@ -570,7 +586,7 @@ The report includes these blocks:
 ```
 lab                 claim, note, measuring, exclusive cpu, code (git commit and uncommitted files)
 configuration       hosts, topology, p4 host knob, bmv2 binary, sample rate and where it was read from
-running             bmv2 switches, topo session, host/switch processes, :8000 :8081 :8080, pidfiles
+running             bmv2 switches, topo session, host/switch processes, :8000 :8081 :8080, run, pidfiles
 network health      switches up/enabled, links total/down, tc netem, sudo grants, apps
 kernel graph        switch, host and edge counts from the kernel
 proxy               (P4, only when :8081 answers) destination paths; --check fails if the count is not hosts x (hosts - 1) on NDTwin's own pipeline
@@ -578,7 +594,11 @@ up target           what the last ndt up asked for, compared with what is runnin
 ```
 
 These are the main blocks; the report also has rows for the app package, telemetry and the heartbeat
-daemon when they apply.
+daemon when they apply. The `run` row in `running` shows an `ndt up`, `ndt down` or `ndt clean` of this
+checkout that is running (its command, owner, pid, start and step), `an 'ndt up' (pid N) was not verified
+(it stopped at [2/3]) -- ...` for a bring-up that ended with a fabric nobody verified (4.3), or `none`. It only
+reads: it removes and moves no marker. `--check` counts the unfinished bring-up as a problem; a verb that is
+running is a row, not a problem.
 
 `code` is the git commit and the number of uncommitted files of the source, not a statement about the
 binary: it does not show that `build/bin/ndtwin_kernel` was rebuilt after you edited C++. Compare the
@@ -600,7 +620,7 @@ inside an app's time window and locks still held. `none` means it asked and foun
 inside an app window, M lock(s) HELD` is a problem; `NOT CHECKED: ...` means it could not ask (kernel
 down, flow table unreadable, or the P4 plane, whose flow statistics have no time axis) and is **not**
 "clean". Rules found are an rc 1 only while a baseline exists; without one the problem is listed under
-"everything else this report could still check" and the rc stays 3. `ndt` deletes none of these rules.
+"everything else this report could still check" and the rc stays 3, as does an unfinished `ndt up` (the `run` row above). `ndt` deletes none of these rules.
 
 A pidfile in `.test_run/pids/` whose process is gone is marked STALE; `ndt down` removes it.
 For the stack's own files (kernel, proxy, Ryu), a live pid that started after the pidfile was written is a recycled number and is stale at once, without asking the process group.
@@ -785,7 +805,8 @@ Its steps can be repeated safely: if it was interrupted, run `ndt down` again an
 When sudo refuses the helper (3.2), `[2/3]` and `[3/3]` say they did not run and print the sudoers
 line, and `ndt down` ends with rc 1. `ndt down` clears the `ndt up` record (`.test_run/up.target`)
 unless `verify clean` still finds the fabric itself: bmv2 switches, Mininet hosts or switches, the
-topo session, or a topo session it cannot read; it also keeps it when its own `verify clean` was
+topo session, or a topo session it cannot read (and removes `.test_run/up.unfinished`, the record of an
+`ndt up` that was not verified, under the same condition: 4.3); it also keeps it when its own `verify clean` was
 refused because another `ndt down` is running. Then it keeps the record, so `ndt status --check`
 still compares against what was asked for. The next `ndt down` that finds none of the fabric clears
 it, the next `ndt up` that builds a fabric replaces it (one that refuses leaves it as it is), and
@@ -1006,6 +1027,7 @@ Logs are in `.test_run/logs/` of the checkout: `kernel.log`, `p4_proxy.log`, `ry
 | `no lab sessions` although the fabric is running | `tmux` needs `TERM` to be set; `ndt` sets `TERM=dumb` itself. Set it when you call `sudo ndtwin-lab status` by hand |
 | `an OVS fabric is running (N bridges) under the topo session` | `ndt up p4` will not tear an OVS fabric down for you: `ndt down` first |
 | `pgrep -c simple_switch_grpc` returns 0 though switches run | the process name is cut to 15 characters in `/proc`; use `pgrep -cx simple_switch_g` or `ps -eo comm= \| grep -c '^simple_switch'` |
+| `ndt status` shows `an 'ndt up' (pid N) was not verified ...`, or `ndt up` says `the lab has not been verified since: that fabric is rebuilt, not reused` | an earlier `ndt up` was killed, interrupted, stopped by a shell error or by the reader of its output going away, abandoned or could not finish its rollback, or came up and did not verify, so the lab has not been verified since (4.3). `ndt down` takes it down and removes the record; or run `ndt up p4` again, which rebuilds the fabric and, once it verifies, removes the record |
 | `ndt down` returns 5 | read the lines it prints: another claim, a declared measurement, a measurement in flight or another teardown. They name the owner and the command to retry |
 | `ndt down` returns 1 and the fabric is gone | see the note on earlier sessions in 4.10 |
 | `ndt apps ...` says `viz is a JavaFX GUI and there is no display` | `viz` needs `DISPLAY` or `WAYLAND_DISPLAY` |

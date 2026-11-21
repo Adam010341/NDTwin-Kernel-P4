@@ -235,7 +235,7 @@ RC_TABLE = {
         # cause.
         1: ("dirty", "ndt reported at least one problem -- a compared field that does not match, a claim "
                      "held by somebody else, a measurement in progress, a netem qdisc, a refused sudo "
-                     "grant, and more; the output names each one"),
+                     "grant, an 'ndt up' that was not verified, and more; the output names each one"),
         3: ("nothing", "nothing was compared: there is no baseline right now -- NOT 'checked and matched'"),
     },
     "claim": {

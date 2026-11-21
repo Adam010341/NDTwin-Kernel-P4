@@ -2809,6 +2809,16 @@ m=$(mutant m230 "$NDT" \
         return 1
     fi
     # [Co-developed with claude code -- Adam]
+    # 🔴 A FABRIC LEFT BY AN `ndt up` THAT DID NOT FINISH IS NOT REUSED, whatever it was built from: nothing verified
+    # it, and what that bring-up had started when it died is not known (up_unfinished_look). It is rebuilt, through the
+    # same path as a fabric whose inputs differ, and the line says why. Read here, above every write, beside the
+    # stale-pipeline refusal and the identity decision. A record with no fabric running changes nothing: `reuse` is
+    # already 0 then, and the record goes when a bring-up verifies.
+    if (( reuse )) && up_unfinished_look; then
+        reuse=0
+        info "$(up_unfinished_what), and the lab has not been verified since: that fabric is rebuilt, not reused"
+    fi
+    # [Co-developed with claude code -- Adam]
     # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
     # inputs this run would build it from -- the model, package.json, each switch'"'"'s program and
     # table entries, the links the package shapes, the telemetry source each switch resolves to, the
@@ -2840,6 +2850,16 @@ m=$(mutant m230 "$NDT" \
     fi
 ' \
     '    # [Co-developed with claude code -- Adam]
+    # 🔴 A FABRIC LEFT BY AN `ndt up` THAT DID NOT FINISH IS NOT REUSED, whatever it was built from: nothing verified
+    # it, and what that bring-up had started when it died is not known (up_unfinished_look). It is rebuilt, through the
+    # same path as a fabric whose inputs differ, and the line says why. Read here, above every write, beside the
+    # stale-pipeline refusal and the identity decision. A record with no fabric running changes nothing: `reuse` is
+    # already 0 then, and the record goes when a bring-up verifies.
+    if (( reuse )) && up_unfinished_look; then
+        reuse=0
+        info "$(up_unfinished_what), and the lab has not been verified since: that fabric is rebuilt, not reused"
+    fi
+    # [Co-developed with claude code -- Adam]
     # 🔴 THE SAME COUNTS DO NOT MAKE THE SAME FABRIC. A fabric is kept only when it was built from the
     # inputs this run would build it from -- the model, package.json, each switch'"'"'s program and
     # table entries, the links the package shapes, the telemetry source each switch resolves to, the
@@ -3238,7 +3258,7 @@ report "M262: giving up on the lock is rc 1" "$m" \
 
 # No EXIT trap: a bring-up that leaves the shell without returning keeps its marker.
 m=$(mutant m263 "$NDT" \
-    "    trap 'run_release up' EXIT" \
+    "    trap 'up_exit_unverified; run_release up' EXIT" \
     '    :')
 report "M263: a bring-up that exits the shell leaves its marker" "$m" \
        "🔴 31d the marker is still gone: the EXIT trap released it"
@@ -3655,6 +3675,443 @@ m=$(mutant n147 "$NDT" \
 report "N147: the OVS plane's last step is not the verify step" "$m" \
        "🔴 32i it says the lab is up and was not verified"
 
+# --- an 'ndt up' that did not finish is kept as a record (section 36) ---------------------------------
+
+# The stale marker is "kept" but nothing is written: the fact is gone before the next bring-up can act on it.
+m=$(mutant m299 "$NDT" \
+    '    if { cp -- "$1" "$tmp" && mv -f -T -- "$tmp" "$unf"; } 2>/dev/null; then return 0; fi
+' \
+    '    if :; then return 0; fi
+')
+report "M299: a stale up marker is said to be kept and nothing is written" "$m" \
+       "🔴 36a the record is there, with the marker's own fields"
+
+# 'ndt status' prints no run row and counts nothing.
+m=$(mutant m300 "$NDT" \
+    '    status_run_row
+    (( ${#STATUS_RUN_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_RUN_PROBLEMS[@]}")
+' \
+    '    :
+')
+report "M300: ndt status has no run row" "$m" \
+       "🔴 36b a live bring-up is a row: its command, owner, pid, start and step"
+
+# The row is there and --check does not count an unfinished bring-up.
+m=$(mutant m301 "$NDT" \
+    '        STATUS_RUN_PROBLEMS+=("$(up_unfinished_text) (${UF_FROM})")
+' \
+    '        :
+')
+report "M301: --check does not count an unfinished bring-up" "$m" \
+       "🔴 36b --check counts it as a problem (rc 1)"
+
+# A reading that removes what it reads: a stale marker is not a reader's to remove.
+m=$(mutant m302 "$NDT" \
+    '    if up_unfinished_look; then
+        lines+=("$(up_unfinished_text)")
+' \
+    '    if up_unfinished_look; then
+        rm -f "$(run_marker up)" "$(run_unfinished_file)"
+        lines+=("$(up_unfinished_text)")
+')
+report "M302: ndt status removes the record it reads" "$m" \
+       "🔴 36b status removes and moves nothing"
+
+# The next bring-up reuses the fabric the record names, as before.
+m=$(mutant m303 "$NDT" \
+    '    if (( reuse )) && up_unfinished_look; then
+' \
+    '    if (( reuse )) && false; then
+')
+report "M303: the next bring-up reuses a fabric an unfinished bring-up left" "$m" \
+       "🔴 36c and it was NOT reused"
+
+# A bring-up that did not verify also removes the record.
+m=$(mutant m304 "$NDT" \
+    '    if (( rc == 0 )); then up_unfinished_clear "this bring-up verified"
+    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi
+' \
+    '    up_unfinished_clear "this bring-up ended"
+')
+report "M304: a bring-up that failed or did not verify removes the record too" "$m" \
+       "🔴 36d and the record stays"
+
+# A bring-up that verified leaves the record where it was.
+m=$(mutant m305 "$NDT" \
+    '    if (( rc == 0 )); then up_unfinished_clear "this bring-up verified"
+    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi
+' \
+    '    :
+')
+report "M305: a bring-up that verified leaves the record" "$m" \
+       "🔴 36d and it removed the record"
+
+# A teardown that verified clean leaves the record.
+m=$(mutant m306 "$NDT" \
+    '        up_unfinished_clear "'"'"'verify clean'"'"' found none of the fabric itself"
+' \
+    '        :
+')
+report "M306: a teardown that verified clean leaves the record" "$m" \
+       "  36d out loud, and on what"
+
+# A teardown removes the record over a fabric that is still there.
+m=$(mutant m307 "$NDT" \
+    '        up_target_kept "$CLEAN_FABRIC_LEFT"
+    fi
+' \
+    '        up_target_kept "$CLEAN_FABRIC_LEFT"
+        up_unfinished_clear "the teardown ended"
+    fi
+')
+report "M307: a teardown removes the record over a fabric it did not take down" "$m" \
+       "🔴 36d and the record is KEPT: it describes a fabric that is still there"
+
+# A bring-up that abandoned its rollback leaves no record.
+m=$(mutant m308 "$NDT" \
+    '    up_unfinished_record
+    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?}' \
+    '    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?}')
+report "M308: an abandoned rollback leaves no record" "$m" \
+       "🔴 36e the record is there, written by the bring-up that abandoned it"
+
+# The reuse rule reads the record and not a stale marker that nothing has moved yet.
+m=$(mutant m309 "$NDT" \
+    '    if (( lrc == 2 )); then
+        f="$(run_marker up)"; UF_FROM="${f#$REPO/}"' \
+    '    if false; then
+        f="$(run_marker up)"; UF_FROM="${f#$REPO/}"')
+report "M309: a stale up marker that nothing has moved yet does not stop a reuse" "$m" \
+       "🔴 36c a stale up marker not yet moved forces the rebuild too"
+
+# The removal line does not say the marker went anywhere.
+m=$(mutant m310 "$NDT" \
+    '        if up_unfinished_keep "$f"; then kept=", moved to ${unf#$REPO/}"; else kept=", NOT kept"; fi' \
+    '        if up_unfinished_keep "$f"; then kept=""; else kept=", NOT kept"; fi')
+report "M310: the removal line does not say the marker was kept" "$m" \
+       "🔴 36a and the removal line says where it went"
+
+# A signal writes the record at once, before the rollback has had a chance to finish.
+m=$(mutant m311 "$NDT" \
+    '    UP_SIG_COUNT=$(( ${UP_SIG_COUNT:-0} + 1 ))
+    echo
+    warn "interrupted (SIG$sig) at $phase"
+' \
+    '    UP_SIG_COUNT=$(( ${UP_SIG_COUNT:-0} + 1 ))
+    echo
+    warn "interrupted (SIG$sig) at $phase"
+    up_unfinished_write
+')
+report "M311: the record is written at the first signal" "$m" \
+       "  36e a rollback that is still running has made no record"
+
+# The record is written with a copy that leaves its temporary file behind.
+m=$(mutant m312 "$NDT" \
+    '    if { cp -- "$1" "$tmp" && mv -f -T -- "$tmp" "$unf"; } 2>/dev/null; then return 0; fi
+' \
+    '    if { cp -- "$1" "$tmp" && cp -f -- "$tmp" "$unf"; } 2>/dev/null; then return 0; fi
+')
+report "M312: the record is copied into place and the temporary file stays" "$m" \
+       "  36a no temporary file is left beside the record"
+
+# Reading a stale marker removes it.
+m=$(mutant m313 "$NDT" \
+    '        f="$(run_marker up)"; UF_FROM="${f#$REPO/}"
+' \
+    '        f="$(run_marker up)"; UF_FROM="${f#$REPO/}"; rm -f "$f"
+')
+report "M313: reading a stale up marker removes it" "$m" \
+       "  36c (it was only read: the marker is where it was)"
+
+# --- widenings ---
+
+# A fabric is never reused, record or not.
+m=$(mutant n148 "$NDT" \
+    '    if (( reuse )) && up_unfinished_look; then
+' \
+    '    if (( reuse )); then
+')
+report "N148: a running fabric is never reused" "$m" \
+       "  36c (control) nothing was stopped or started"
+
+# 'ndt status --check' calls a running verb a problem.
+m=$(mutant n149 "$NDT" \
+    '        (( lrc == 0 )) && lines+=("${RM_ARGV:-ndt $v} by ${RM_BY:-?}, pid $RM_PID, since ${RM_AT:-?}, at ${RM_PHASE:-?}")
+' \
+    '        (( lrc == 0 )) && { lines+=("${RM_ARGV:-ndt $v} by ${RM_BY:-?}, pid $RM_PID, since ${RM_AT:-?}, at ${RM_PHASE:-?}"); STATUS_RUN_PROBLEMS+=("a verb is running"); }
+')
+report "N149: a running verb is a --check problem" "$m" \
+       "🔴 36b a bring-up that is running is not a --check problem"
+
+# A stale marker of any verb becomes the record.
+m=$(mutant n150 "$NDT" \
+    '    if [[ "$1" == up ]]; then
+        if up_unfinished_keep "$f"; then kept=' \
+    '    if [[ "$1" == up || "$1" == clean ]]; then
+        if up_unfinished_keep "$f"; then kept=')
+report "N150: a stale clean marker is kept as an unfinished bring-up" "$m" \
+       "🔴 36a and it leaves no record: only a bring-up that died is one"
+
+# A standalone clean that finds nothing removes the record.
+m=$(mutant n151 "$NDT" \
+    '    say "${G}clean${N}"
+    (( run_owned )) && run_leave clean "$run_prev_trap"
+    return 0
+}' \
+    '    say "${G}clean${N}"
+    up_unfinished_clear "the machine is clean"
+    (( run_owned )) && run_leave clean "$run_prev_trap"
+    return 0
+}')
+report "N151: a standalone clean removes the record" "$m" \
+       "🔴 36d a standalone 'ndt clean' that finds nothing does not remove it"
+
+# A record is read from a path that may be a FIFO.
+m=$(mutant n152 "$NDT" \
+    '    elif [[ -f "$f" ]]; then
+        UF_FROM="${f#$REPO/}"' \
+    '    elif [[ -e "$f" ]]; then
+        UF_FROM="${f#$REPO/}"')
+report "N152: the record is read from anything that exists" "$m" \
+       "🔴 36b a FIFO at up.unfinished does not hang 'ndt status'"
+
+# The record is announced whether or not there is a fabric to rebuild.
+m=$(mutant n153 "$NDT" \
+    '    if (( reuse )) && up_unfinished_look; then
+' \
+    '    if up_unfinished_look; then
+')
+report "N153: the rebuild line is printed over no fabric at all" "$m" \
+       "  36c and says nothing about a fabric it did not find"
+
+# The record is consulted before the stale-pipeline refusal.
+m=$(mutant n154 "$NDT" \
+    '    if (( reuse )) && stale_pipeline; then
+' \
+    '    (( reuse )) && up_unfinished_look && reuse=0
+    if (( reuse )) && stale_pipeline; then
+')
+report "N154: the record is read before the stale-pipeline refusal" "$m" \
+       "  36c the stale-pipeline refusal is still the first answer"
+
+# Any interrupted bring-up leaves the record, finished rollback or not.
+m=$(mutant n155 "$NDT" \
+    '    rollback_up "interrupted by SIG$sig at $phase" || true
+    UP_EXIT_DECIDED=1
+    exit "$code"' \
+    '    rollback_up "interrupted by SIG$sig at $phase" || true
+    up_unfinished_write
+    UP_EXIT_DECIDED=1
+    exit "$code"')
+report "N155: an interrupted bring-up whose rollback finished leaves the record" "$m" \
+       "🔴 36e and it leaves no record"
+
+# A bring-up that is running when a verb looks is recorded as one that died.
+m=$(mutant n156 "$NDT" \
+    '            0) run_refusal "$action" "$b"; return 5 ;;
+' \
+    '            0) up_unfinished_keep "$(run_marker "$b")"; run_refusal "$action" "$b"; return 5 ;;
+')
+report "N156: a live bring-up's marker is kept as a record by a refused verb" "$m" \
+       "  36a (control) a live bring-up's marker makes no record"
+
+# --- one rule: a fabric is reused only when the last bring-up verified it (section 36) ---
+
+# An interrupt at the last step records nothing.
+m=$(mutant m314 "$NDT" \
+    '        up_unfinished_record
+        UP_EXIT_DECIDED=1
+        exit "$code"' \
+    '        UP_EXIT_DECIDED=1
+        exit "$code"')
+report "M314: an interrupt at the last step leaves no record" "$m" \
+       "🔴 36h and the record is there, from the bring-up that was interrupted"
+
+# A rollback that ended INCOMPLETE records nothing (a fabric this run built).
+m=$(mutant m315 "$NDT" \
+    '        err "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep"
+        up_unfinished_record
+' \
+    '        err "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep"
+')
+report "M315: an INCOMPLETE rollback records nothing" "$m" \
+       "🔴 36g and leaves the record, from the rollback"
+
+# ...and over a fabric this run reused.
+m=$(mutant m316 "$NDT" \
+    '        err "  without --deep, would take that fabric down too."
+        up_unfinished_record
+' \
+    '        err "  without --deep, would take that fabric down too."
+')
+report "M316: an INCOMPLETE rollback over a reused fabric records nothing" "$m" \
+       "🔴 36g and the record is left there as well"
+
+# A verify that ran and failed records nothing.
+m=$(mutant m317 "$NDT" \
+    '    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi' \
+    '    fi')
+report "M317: a verify that ran and failed leaves no record" "$m" \
+       "🔴 36f and it leaves the record, at its last step"
+
+# The failed-verify record is written for the P4 step only.
+m=$(mutant m318 "$NDT" \
+    '    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi' \
+    '    elif [[ "${RUN_PHASE:-}" == "[3/3]" ]]; then up_unfinished_record; fi')
+report "M318: only the P4 plane's failed verify is recorded" "$m" \
+       "🔴 36f and leaves the record, at its last step ([4/4])"
+
+# Status names the older record over a newer stale marker.
+m=$(mutant m319 "$NDT" \
+    '    run_marker_look up; lrc=$?
+    if (( lrc == 2 )); then' \
+    '    run_marker_look up; lrc=$?
+    if (( lrc == 2 )) && [[ ! -f "$f" ]]; then')
+report "M319: status names the older record, not the newer stale marker" "$m" \
+       "🔴 36i a stale marker newer than the record is the one named"
+
+# A directory where the record belongs takes the temporary file (kept).
+m=$(mutant m320 "$NDT" \
+    '    if { cp -- "$1" "$tmp" && mv -f -T -- "$tmp" "$unf"; } 2>/dev/null; then return 0; fi' \
+    '    if { cp -- "$1" "$tmp" && mv -f -- "$tmp" "$unf"; } 2>/dev/null; then return 0; fi')
+report "M320: a directory at the record's path takes the moved marker" "$m" \
+       "🔴 36i a directory where the record belongs is not reported as 'moved to'"
+
+# ...and the abandoned-rollback writer.
+m=$(mutant m321 "$NDT" \
+    '          mv -f -T -- "$tmp" "$unf"; } 2>/dev/null && return 0' \
+    '          mv -f -- "$tmp" "$unf"; } 2>/dev/null && return 0')
+report "M321: a directory at the record's path takes the written record" "$m" \
+       "🔴 36i writing the record over a directory fails, and says so"
+
+# The clean verify's removal, caught by the cell that moves and removes in one teardown.
+m=$(mutant m322 "$NDT" \
+    '        up_unfinished_clear "'"'"'verify clean'"'"' found none of the fabric itself"
+' \
+    '        :
+')
+report "M322: the teardown that moved the record leaves it after its clean verify" "$m" \
+       "🔴 36d and removed by the same teardown's clean verify"
+
+# --- widening ---
+
+# Any failed bring-up records, whatever step it ended at.
+m=$(mutant n157 "$NDT" \
+    '    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi' \
+    '    else up_unfinished_record; fi')
+report "N157: every bring-up that fails leaves a record" "$m" \
+       "  36f (control) a failure whose rollback finished leaves no record"
+
+# A rollback with nothing started records too.
+m=$(mutant n158 "$NDT" \
+    '        info "nothing to roll back: this '"'"'ndt up'"'"' had not changed the machine yet"
+' \
+    '        info "nothing to roll back: this '"'"'ndt up'"'"' had not changed the machine yet"
+        up_unfinished_record
+')
+report "N158: an interrupt before anything was started leaves a record" "$m" \
+       "  36h (control) an interrupt before anything was started leaves no record"
+
+# --- the rule holds when only the EXIT trap sees the way out (section 36) ---
+
+# The EXIT trap no longer records: a shell error or a SIGPIPE after a stage was started leaves no record.
+m=$(mutant m323 "$NDT" \
+    "    trap 'up_exit_unverified; run_release up' EXIT" \
+    "    trap 'run_release up' EXIT")
+report "M323: the exit trap records nothing" "$m" \
+       "🔴 36j and the record is there, from the exit nothing decided"
+
+# The signal handler's rollback exit is not marked as decided: the trap writes a record over a rollback that finished.
+m=$(mutant m324 "$NDT" \
+    '    rollback_up "interrupted by SIG$sig at $phase" || true
+    UP_EXIT_DECIDED=1
+' \
+    '    rollback_up "interrupted by SIG$sig at $phase" || true
+')
+report "M324: an interrupted bring-up whose rollback finished is recorded by the exit trap" "$m" \
+       "🔴 36e and it leaves no record"
+
+# The record is written by the own-marker branch without -T: a directory at the path takes the file.
+m=$(mutant m325 "$NDT" \
+    '        { cp -- "$f" "$tmp" && mv -f -T -- "$tmp" "$unf"; } 2>/dev/null && return 0' \
+    '        { cp -- "$f" "$tmp" && mv -f -- "$tmp" "$unf"; } 2>/dev/null && return 0')
+report "M325: a directory at the record's path takes the record written from the bring-up's own marker" "$m" \
+       "🔴 36l a failed verify that cannot write the record says so"
+
+# The signal handler marks its exit as decided before the rollback and the record, as it once did: a way out inside them is
+# not seen by the trap.
+m=$(mutant m340 "$NDT" \
+    '    if up_phase_is_verify "$phase"; then
+        say "up, ${R}NOT verified${N} -- interrupted during $phase"' \
+    '    UP_EXIT_DECIDED=1
+    if up_phase_is_verify "$phase"; then
+        say "up, ${R}NOT verified${N} -- interrupted during $phase"')
+report "M340: the flag is set before the rollback and the record" "$m" \
+       "🔴 36m and the record is there, at the rollback"
+
+# The same, for the rollback a signal starts only.
+m=$(mutant m341 "$NDT" \
+    '    up_bg_stack_stop
+    rollback_up "interrupted by SIG$sig at $phase" || true' \
+    '    up_bg_stack_stop
+    UP_EXIT_DECIDED=1
+    rollback_up "interrupted by SIG$sig at $phase" || true')
+report "M341: the flag is set before the rollback a signal starts" "$m" \
+       "🔴 36m the record is there, written by the bring-up the signal ended"
+
+# The same, for the interrupt at the last step only.
+m=$(mutant m342 "$NDT" \
+    '        say "up, ${R}NOT verified${N} -- interrupted during $phase"' \
+    '        UP_EXIT_DECIDED=1
+        say "up, ${R}NOT verified${N} -- interrupted during $phase"')
+report "M342: the flag is set before the interrupt at the last step records" "$m" \
+       "🔴 36m and the record is there, at [3/3]"
+
+# The bring-up marks its own exit as decided as soon as the bring-up function returns, before the record of a failed verify:
+# a way out in between is not seen by the trap.
+m=$(mutant m343 "$NDT" \
+    '    (( rc == 0 || UP_ROLLING_BACK )) && UP_EXIT_DECIDED=1
+' \
+    '    UP_EXIT_DECIDED=1
+')
+report "M343: the flag is set before the failed verify's record" "$m" \
+       "🔴 36n and the record is there, at [3/3]"
+
+# A rollback that finished is not marked as decided: a way out right after it records over a fabric that is as it was.
+m=$(mutant m360 "$NDT" \
+    '    (( rc == 0 || UP_ROLLING_BACK )) && UP_EXIT_DECIDED=1
+' \
+    '    (( rc == 0 )) && UP_EXIT_DECIDED=1
+')
+report "M360: a way out after a finished rollback leaves a record" "$m" \
+       "🔴 36n (control) and it leaves no record"
+
+# The exit is not marked as decided once the failed verify's record is written: a way out after the marker is released
+# records again.
+m=$(mutant m361 "$NDT" \
+    '    UP_EXIT_DECIDED=1
+    run_leave up "$prev"' \
+    '    run_leave up "$prev"')
+report "M361: the record of a failed verify is written again after the marker is released" "$m" \
+       "🔴 36n and it was recorded once, not again after the marker was released"
+
+# The exit trap records even when nothing was started.
+m=$(mutant n159 "$NDT" \
+    '    (( ${#UP_STARTED[@]} )) || return 0
+    UP_EXIT_DECIDED=1' \
+    '    :
+    UP_EXIT_DECIDED=1')
+report "N159: a shell error before anything was started leaves a record" "$m" \
+       "  36j (control) a shell error before anything was started leaves no record"
+
+# The exit trap records from a subshell too.
+m=$(mutant w36 "$NDT" \
+    '    [[ "${BASHPID:-$$}" == "$$" ]] || return 0
+    (( ${UP_EXIT_DECIDED:-0} )) && return 0' \
+    '    (( ${UP_EXIT_DECIDED:-0} )) && return 0')
+report_green "W36 (behaviour-preserving): the exit trap without its subshell guard" "$m" \
+       "a subshell never runs the parent's EXIT trap"
+
 # --- rewordings and reorderings that must stay green ----------------------------------------------------
 
 m=$(mutant w25 "$NDT" \
@@ -3705,6 +4162,43 @@ m=$(mutant w31 "$NDT" \
 ')
 report_green "W31 (behaviour-preserving): the third signal counted as 'more than two'" "$m" \
        "the same count"
+
+# The verbs asked for a live marker, in another order.
+m=$(mutant w32 "$NDT" \
+    '    for v in up down clean; do
+        run_marker_look "$v"; lrc=$?' \
+    '    for v in clean down up; do
+        run_marker_look "$v"; lrc=$?')
+report_green "W32 (behaviour-preserving): the run row looks at the verbs in another order" "$m" \
+       "one verb is live at a time in every cell"
+
+# The same test, written as two.
+m=$(mutant w33 "$NDT" \
+    '    [[ -e "$f" || -L "$f" ]] || return 0
+' \
+    '    [[ -e "$f" ]] || [[ -L "$f" ]] || return 0
+')
+report_green "W33 (behaviour-preserving): the record's existence test written as two" "$m" \
+       "the same condition"
+
+# The same comparison, written another way.
+m=$(mutant w34 "$NDT" \
+    '    if (( rc == 0 )); then up_unfinished_clear "this bring-up verified"
+    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi
+' \
+    '    if (( ! rc )); then up_unfinished_clear "this bring-up verified"
+    elif up_phase_is_verify "${RUN_PHASE:-}"; then up_unfinished_record; fi
+')
+report_green "W34 (behaviour-preserving): rc 0 tested as 'not rc'" "$m" \
+       "the same count"
+
+# The warning for a record that could not be written, reworded.
+m=$(mutant w35 "$NDT" \
+    '            warn "  the record could not be written, so the next '"'"'ndt up p4'"'"' cannot tell that this one died: it may reuse what is up."' \
+    '            warn "  nothing could be written for it, so a later '"'"'ndt up'"'"' will not know this one died and may reuse what is up."')
+report_green "W35 (behaviour-preserving): the could-not-record warning reworded" "$m" \
+       "no cell reads that sentence"
+
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

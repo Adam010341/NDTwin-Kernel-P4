@@ -300,7 +300,7 @@ q() { printf '%q' "$1"; }
 
 reset_fix() {
     rm -f "$FIX/sudo.log" "$FIX/stack.log" "$FIX/bmv2_count" "$PREFLIGHT_FAIL" "$STACK_FAIL" \
-          "$KNOB" "$FIX/.test_run/up.target" "$FIX/.test_run/host_count_override.pre-up" \
+          "$KNOB" "$FIX/.test_run/up.target" "$FIX/.test_run/up.unfinished" "$FIX/.test_run/host_count_override.pre-up" \
           "$FIX/.test_run/logs/p4_proxy.log" "$FIX/.test_run/logs/topo.log"
     : > "$FIX/sudo.log"; : > "$FIX/stack.log"
     printf '4\n' > "$FIX/p4_proxy/mininet/host_count_override"
