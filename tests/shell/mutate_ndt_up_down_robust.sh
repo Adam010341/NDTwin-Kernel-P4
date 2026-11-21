@@ -536,10 +536,10 @@ report "N1 (control, always green): preflight refuses nothing" "$m" \
 # suite could read at a glance is still there.
 m=$(mutant n2 "$NDT" \
     '    for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
-        stage="${UP_STARTED[$i]}"
+        stage="${UP_STARTED[$i]}"; UP_RB_AT=$i
         case "$stage" in' \
     '    for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
-        stage="${UP_STARTED[$i]}"
+        stage="${UP_STARTED[$i]}"; UP_RB_AT=$i
         case "nothing" in')
 report "N2 (widening, green): the rollback prints and does nothing" "$m" \
        "  stops the topo session"
@@ -554,11 +554,11 @@ report "N2 (widening, green): the rollback prints and does nothing" "$m" \
 # tests/shell/README.md §1's case, and the reason the gate's verdict is the one we ship.
 # 🔴 Re-anchored 2026-09-12: the teardown's single exit now returns down_verdict,
 # which is down_rc except in the one case where nothing was there to tear down (rc 3).
+# Re-anchored again: the exit now takes the signal traps off between the marker's removal and the return, so the
+# anchor is the return line alone.
 m=$(mutant n3 "$NDT" \
-    '    mark_teardown_end
-    return "$down_verdict"' \
-    '    mark_teardown_end
-    return 0')
+    '    return "$down_verdict"' \
+    '    return 0')
 report "N3 (widening, green): 'ndt down' always exits 0" "$m" \
        "🔴 a process that never leaves is still RED"
 
@@ -634,11 +634,11 @@ report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$
 
 # M30 restores H3: nothing records that a teardown is running, so the only reading a P4
 # bring-up can take is the ports -- which look identical coming up and going down.
+# Re-anchored: the traps' block now sits between the marker's call and `say "ndt down"`; the mutation still removes the call.
 m=$(mutant m30 "$NDT" \
     '    mark_teardown_start || return 5
-
-    say "ndt down"' \
-    '    say "ndt down"')
+    # [Co-developed with claude code -- Adam] An INT, TERM or HUP says where the teardown was and ends it' \
+    '    # [Co-developed with claude code -- Adam] An INT, TERM or HUP says where the teardown was and ends it')
 # 🔴 Named case chosen after running the gate: "the marker is absent when `down` finishes" is
 # satisfied by a `down` that never wrote one, so it cannot see this mutation at all. Only the
 # cell that reads the marker from INSIDE the teardown can.
@@ -656,8 +656,8 @@ report "M31: the guard is not called from preflight" "$m" \
 # M32: the marker is never removed, so one teardown makes the lab permanently unstartable.
 m=$(mutant m32 "$NDT" \
     '    mark_teardown_end
-    return "$down_verdict"' \
-    '    return "$down_verdict"')
+    trap - EXIT INT TERM HUP' \
+    '    trap - EXIT INT TERM HUP')
 report "M32: the teardown never removes its marker" "$m" \
        "  🔴 'ndt down' removes its own marker when it finishes"
 
@@ -913,11 +913,11 @@ m=$(mutant m166 "$NDT" \
 report "M166: a failed 'ndt up p4' that rolled back exits 0" "$m" \
        "a failed fresh 'ndt up p4' is still red"
 
-# M167: up_p4 does not record the fabric it starts, so the rollback leaves that fabric up.
+# M167: up_p4 does not record the fabric it starts, so the rollback leaves that fabric up. (Re-anchored: the line sits above the replace block now.)
 m=$(mutant m167 "$NDT" \
-    '        # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
+    '        # must run the fabric stage, and not say that nothing had changed yet over a fabric half taken down.
         up_started fabric' \
-    '        # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.')
+    '        # must run the fabric stage, and not say that nothing had changed yet over a fabric half taken down.')
 report "M167: a fresh P4 rollback does not stop the fabric it started" "$m" \
        "  it rolled back the fabric and the stack"
 
@@ -3332,6 +3332,232 @@ m=$(mutant m274 "$NDT" \
 report "M274: a teardown's own verify clean waits for the teardown's own marker" "$m" \
        "🔴 31g 'ndt down' with NDT_RUN_WAIT does not wait for its own verify clean"
 
+# --- section 32: a signal to 'ndt up' (INT, TERM, HUP) -------------------------------------------------
+
+# Ctrl-C ends the bring-up where it stands, as it did before the handler.
+m=$(mutant m275 "$NDT" \
+    '    trap '"'"'up_on_signal INT 130'"'"' INT
+' \
+    '    :
+')
+report "M275: a bring-up holds no INT trap" "$m" \
+       "🔴 32a the signal and where it came"
+
+# Every signal answers 130 (bash's own code for INT): TERM and HUP are not told apart.
+m=$(mutant m276 "$NDT" \
+    '    trap '"'"'up_on_signal TERM 143'"'"' TERM
+' \
+    '    trap '"'"'up_on_signal TERM 130'"'"' TERM
+')
+report "M276: TERM ends the bring-up with 130" "$m" \
+       "🔴 32b SIGTERM ends the bring-up with 143"
+
+# ...and HUP.
+m=$(mutant m277 "$NDT" \
+    '    trap '"'"'up_on_signal HUP 129'"'"' HUP
+' \
+    '    trap '"'"'up_on_signal HUP 130'"'"' HUP
+')
+report "M277: HUP ends the bring-up with 130" "$m" \
+       "🔴 32b SIGHUP ends the bring-up with 129"
+
+# The handler reports the signal and exits: what was started stays up.
+m=$(mutant m278 "$NDT" \
+    '    rollback_up "interrupted by SIG$sig at $phase" || true
+' \
+    '    true
+')
+report "M278: the handler does not roll back" "$m" \
+       "🔴 32a the rollback ran, over what was started"
+
+# A signal to ndt's pid leaves the background stack.sh running: it goes on to start a kernel.
+m=$(mutant m279 "$NDT" \
+    '    up_bg_stack_stop
+    rollback_up' \
+    '    rollback_up')
+report "M279: the OVS plane's background stack.sh is not stopped" "$m" \
+       "🔴 32f and it did not go on to start a kernel when its prompt ended"
+
+# The subshell that launched stack.sh dies and stack.sh, its child, does not.
+m=$(mutant m280 "$NDT" \
+    '            for k in ${PROC_KIDS[@]+"${PROC_KIDS[@]}"} "$pid"; do kill -TERM "$k" 2>/dev/null; done
+' \
+    '            for k in "$pid"; do kill -TERM "$k" 2>/dev/null; done
+')
+report "M280: only the subshell is stopped, not what runs under it" "$m" \
+       "🔴 32f and it did not go on to start a kernel when its prompt ended"
+
+# The handler names no step: every signal arrives at 'start'.
+m=$(mutant m281 "$NDT" \
+    '    RUN_PHASE="$1"
+' \
+    '    :
+')
+report "M281: the step a signal arrived at is not remembered" "$m" \
+       "🔴 32a the signal and where it came"
+
+# A second signal starts a second rollback inside the first instead of being noted.
+m=$(mutant m282 "$NDT" \
+    '    UP_ROLLING_BACK=1; RUN_PHASE=rollback; UP_RB_AT=${#UP_STARTED[@]}
+' \
+    '    RUN_PHASE=rollback; UP_RB_AT=${#UP_STARTED[@]}
+')
+report "M282: a rollback does not note that it is running" "$m" \
+       "🔴 32e the second signal is said, and that the rollback goes on"
+
+# A rollback that cannot be stopped from the keyboard.
+m=$(mutant m283 "$NDT" \
+    '        (( UP_SIG_COUNT >= 3 )) && up_abandon_rollback "$sig" "$code"
+' \
+    '        (( UP_SIG_COUNT >= 99 )) && up_abandon_rollback "$sig" "$code"
+')
+report "M283: the third signal does not abandon the rollback" "$m" \
+       "🔴 32e2 the rollback is abandoned at the stage it was in, naming what is not undone"
+
+# The note goes on saying the lab is in use, with no word of the abandoned rollback.
+m=$(mutant m284 "$NDT" \
+    '    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} interrupted; rollback abandoned at $at -- run '"'"'ndt down'"'"'" || true
+' \
+    '    :
+')
+report "M284: an abandoned rollback leaves the claim note as it was" "$m" \
+       "🔴 32e2 the note says so, and what to run"
+
+# The stages left are not listed.
+m=$(mutant m285 "$NDT" \
+    '    for (( j = (UP_RB_AT < n ? UP_RB_AT : n) - 1; j >= 0; j-- )); do left+="${left:+, }${UP_STARTED[$j]}"; done
+' \
+    '    for (( j = -1; j >= 0; j-- )); do left+="${left:+, }${UP_STARTED[$j]}"; done
+')
+report "M285: an abandoned rollback names nothing as not undone" "$m" \
+       "🔴 32e2 the rollback is abandoned at the stage it was in, naming what is not undone"
+
+# The note gives no sign that nothing verified the lab.
+m=$(mutant m286 "$NDT" \
+    '        up_note_rewrite "$CLAIM_NOTE_UP_TEXT (interrupted during verify, not verified)" || true
+' \
+    '        :
+')
+report "M286: a bring-up interrupted at verify leaves the note as it was" "$m" \
+       "🔴 32d the claim note says what is true"
+
+# The lab is left up, and the run is silent about it.
+m=$(mutant m287 "$NDT" \
+    '        say "up, ${R}NOT verified${N} -- interrupted during $phase"
+' \
+    '        :
+')
+report "M287: a bring-up interrupted at verify does not say it was not verified" "$m" \
+       "🔴 32d it says the lab is up and was not verified"
+
+# Another verb reading the marker sees the step the bring-up was at before it failed.
+m=$(mutant m288 "$NDT" \
+    '    run_phase up rollback
+' \
+    '    :
+')
+report "M288: a rollback does not move the marker's phase" "$m" \
+       "  32e3 the marker says the bring-up is rolling back"
+
+# A shell that ran 'ndt up' keeps rolling back for the rest of its life.
+m=$(mutant m289 "$NDT" \
+    '    trap - INT TERM HUP
+    [[ -n "$prev_sig" ]] && eval "$prev_sig"
+' \
+    '    :
+')
+report "M289: the traps stay set when the bring-up returns" "$m" \
+       "🔴 32h and a bring-up that returns leaves none behind, nor an exit trap"
+
+# An interrupted teardown says nothing about where it stopped.
+m=$(mutant m290 "$NDT" \
+    '    trap '"'"'down_on_signal INT 130'"'"' INT
+' \
+    '    :
+')
+report "M290: 'ndt down' holds no INT trap" "$m" \
+       "🔴 32g it says where it stopped, and that the verb can be run again"
+
+# The note goes on saying what an earlier bring-up wrote.
+m=$(mutant m291 "$NDT" \
+    '    if set_claim_note "down at $when interrupted at $phase; claim kept -- run '"'"'ndt down'"'"' again"; then
+' \
+    '    if false; then
+')
+report "M291: an interrupted teardown leaves the claim note as it was" "$m" \
+       "🔴 32g the note says the teardown was interrupted, and where"
+
+# The marker is left for the next verb to find stale.
+m=$(mutant m292 "$NDT" \
+    '    trap '"'"'mark_teardown_end'"'"' EXIT
+' \
+    '    :
+')
+report "M292: an interrupted teardown leaves its marker" "$m" \
+       "🔴 32g the teardown's marker is released"
+
+# Two files in $TMPDIR for every interrupted OVS bring-up.
+m=$(mutant m293 "$NDT" \
+    '    [[ -n "$UP_BG_FIFO$UP_BG_OUT" ]] && rm -f "$UP_BG_FIFO" "$UP_BG_OUT" 2>/dev/null
+' \
+    '    :
+')
+report "M293: the background stack.sh's FIFO and output file are left" "$m" \
+       "🔴 32f its FIFO and output file are removed"
+
+# The handler can be ended by the first line it writes: Ctrl-C also ended the tee its output goes to, and the write is a SIGPIPE.
+m=$(mutant m294 "$NDT" \
+    '    sig_output_check
+    UP_SIG_COUNT=$(( ${UP_SIG_COUNT:-0} + 1 ))' \
+    '    UP_SIG_COUNT=$(( ${UP_SIG_COUNT:-0} + 1 ))')
+report "M294: the bring-up's signal handler does not protect itself from a dead output" "$m" \
+       "🔴 32j the rollback ran although the reader of its output was gone: topo-start, topo-stop, cleanup"
+
+m=$(mutant m295 "$NDT" \
+    '    sig_output_check
+    DOWN_SIG_COUNT=$(( ${DOWN_SIG_COUNT:-0} + 1 ))' \
+    '    DOWN_SIG_COUNT=$(( ${DOWN_SIG_COUNT:-0} + 1 ))')
+report "M295: the teardown's signal handler does not protect itself from a dead output" "$m" \
+       "🔴 32k the note says the teardown was interrupted although the reader of its output was gone"
+
+# --- section 32, more cells ------------------------------------------------------------------------------
+
+# The fabric is recorded as started only after the old session is stopped: a signal in between says nothing had changed.
+m=$(mutant m296 "$NDT" \
+    '        up_started fabric
+        # [Co-developed with claude code -- Adam] A fabric that was running is taken down here and
+        # is not rebuilt if this run fails: the rollback says so by name and does not call the
+        # machine back as it was (up_replaced is recorded before the call, like every stage).
+        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+' \
+    '        # [Co-developed with claude code -- Adam] A fabric that was running is taken down here and
+        # is not rebuilt if this run fails: the rollback says so by name and does not call the
+        # machine back as it was (up_replaced is recorded before the call, like every stage).
+        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+        up_started fabric
+')
+report "M296: the fabric stage is recorded after the replace, not before" "$m" \
+       "🔴 32m it does not say nothing had changed over a fabric it had begun to replace"
+
+# The prompt's FIFO is closed before the background stack.sh is stopped: its prompt is answered and it goes on.
+m=$(mutant m297 "$NDT" \
+    '    local pid="$UP_BG_PID" line rest k
+' \
+    '    local pid="$UP_BG_PID" line rest k
+    exec 3>&-
+')
+report "M297: the prompt's FIFO is closed before the background stack.sh is stopped" "$m" \
+       "🔴 32f and it did not go on to start a kernel when its prompt ended"
+
+# The remaining-signal count is always one.
+m=$(mutant m298 "$NDT" \
+    '        local more=$(( 3 - UP_SIG_COUNT ))
+' \
+    '        local more=1
+')
+report "M298: the line says one more signal abandons the rollback, whichever signal it was" "$m" \
+       "🔴 32e3 and that two more signals abandon it (this was the first of the run)"
+
 # --- widenings: the guard stops discriminating -------------------------------------------------------
 
 # The lock never opens: every verb is refused.
@@ -3387,6 +3613,48 @@ m=$(mutant n143 "$NDT" \
 report "N143: a verb that only looks never sees a live teardown" "$m" \
        "🔴 31i 'ndt apps <name>' under a live teardown is refused with 1"
 
+# --- section 32 widenings ---------------------------------------------------------------------------
+
+# Ctrl-C always undoes: a lab that came up and was only being read is torn down.
+m=$(mutant n144 "$NDT" \
+    '    if up_phase_is_verify "$phase"; then
+' \
+    '    if false; then
+')
+report "N144: an interrupt at verify rolls back too" "$m" \
+       "🔴 32d it says the lab is up and was not verified"
+
+# Two signals are enough to abandon it.
+m=$(mutant n145 "$NDT" \
+    '    UP_SIG_COUNT=$(( ${UP_SIG_COUNT:-0} + 1 ))
+    echo
+    warn "interrupted (SIG$sig) at $phase"
+' \
+    '    UP_SIG_COUNT=$(( ${UP_SIG_COUNT:-0} + 2 ))
+    echo
+    warn "interrupted (SIG$sig) at $phase"
+')
+report "N145: the second signal abandons the rollback" "$m" \
+       "  32e and it was not abandoned (two signals are not three)"
+
+# The files an interrupted run wrote before its first stage are not put back.
+m=$(mutant n146 "$NDT" \
+    '    rollback_up "interrupted by SIG$sig at $phase" || true
+' \
+    '    (( ${#UP_STARTED[@]} )) && { rollback_up "interrupted by SIG$sig at $phase" || true; }
+')
+report "N146: nothing is rolled back when nothing was started" "$m" \
+       "🔴 32c nothing had been started, and it says so"
+
+# On OVS an interrupt at the last step rolls the lab back.
+m=$(mutant n147 "$NDT" \
+    'up_phase_is_verify() { [[ "$1" == "[3/3]" || "$1" == "[4/4]" ]]; }
+' \
+    'up_phase_is_verify() { [[ "$1" == "[3/3]" ]]; }
+')
+report "N147: the OVS plane's last step is not the verify step" "$m" \
+       "🔴 32i it says the lab is up and was not verified"
+
 # --- rewordings and reorderings that must stay green ----------------------------------------------------
 
 m=$(mutant w25 "$NDT" \
@@ -3408,6 +3676,35 @@ m=$(mutant w28 "$NDT" \
     '    RUN_REMOVE_STALE=1 run_check_conflicts "$action" clean up down || return 5')
 report_green "W28 (behaviour-preserving): the conflicting verbs asked in another order" "$m" \
        "any live one refuses"
+
+# # The explanation under the verify line, reworded.
+m=$(mutant w29 "$NDT" \
+    '        info "everything was started and nothing is rolled back: the lab is up, and nothing has verified it."
+' \
+    '        info "nothing is rolled back: everything was started, so the lab is up and nothing has checked it."
+')
+report_green "W29 (behaviour-preserving): the verify handler's explanation reworded" "$m" \
+       "the cells read the line that says it was not verified, not the explanation"
+
+# The traps are set in another order.
+m=$(mutant w30 "$NDT" \
+    '    trap '"'"'up_on_signal TERM 143'"'"' TERM
+    trap '"'"'up_on_signal HUP 129'"'"' HUP
+' \
+    '    trap '"'"'up_on_signal HUP 129'"'"' HUP
+    trap '"'"'up_on_signal TERM 143'"'"' TERM
+')
+report_green "W30 (behaviour-preserving): TERM and HUP traps set in the other order" "$m" \
+       "the order the three traps are set in changes nothing"
+
+# The same comparison, written another way.
+m=$(mutant w31 "$NDT" \
+    '        (( UP_SIG_COUNT >= 3 )) && up_abandon_rollback "$sig" "$code"
+' \
+    '        (( UP_SIG_COUNT > 2 )) && up_abandon_rollback "$sig" "$code"
+')
+report_green "W31 (behaviour-preserving): the third signal counted as 'more than two'" "$m" \
+       "the same count"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

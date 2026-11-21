@@ -4052,6 +4052,10 @@ HBROW
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
 rollback_up() {
     local why="$1" i stage rc=0 out src crc left=0 deferred="" stopped="" names="" deferred_what="the port(s) stack.sh down named"
+    # [Co-developed with claude code -- Adam] A signal that arrives from here on is a signal during a rollback (up_on_signal),
+    # whichever branch called this; the marker says so, and UP_RB_AT says which stage a third signal abandons.
+    UP_ROLLING_BACK=1; RUN_PHASE=rollback; UP_RB_AT=${#UP_STARTED[@]}
+    run_phase up rollback
     # [Co-developed with claude code -- Adam]
     # 🔴 FIRST, because it is true in both branches: the P4 host knob is the
     # one persistent file `ndt up p4 <n>` writes, so "the machine is back to what it was before
@@ -4089,7 +4093,7 @@ rollback_up() {
     info "this bring-up started: ${UP_STARTED[*]} -- taking them back down"
     (( ${#UP_LEFT[@]} )) && info "up before this 'ndt up', and not touched by this rollback: $(join_list "${UP_LEFT[@]}")"
     for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
-        stage="${UP_STARTED[$i]}"
+        stage="${UP_STARTED[$i]}"; UP_RB_AT=$i
         case "$stage" in
             # [Co-developed with claude code -- Adam] The heartbeat is started
             # after the fabric, so unwound before it -- the daemon watches that topology.
@@ -4165,6 +4169,7 @@ rollback_up() {
         esac
     done
 
+    UP_RB_AT=-1
     # Same reason: a kill is a request, and the process table catches up
     # afterwards. Assert after the bounded wait, never instead of it.
     if up_did_start fabric; then
@@ -4838,13 +4843,15 @@ up_p4() {
             refusal_unwind "the topo session could not be checked; nothing was built" || return 1
             return 5
         fi
+        # Recorded before the first call that changes the fabric, not after: a topo-start that fails part way
+        # through has still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up. It is
+        # above the replace below on purpose: a signal that arrives while the old session is being stopped
+        # must run the fabric stage, and not say that nothing had changed yet over a fabric half taken down.
+        up_started fabric
         # [Co-developed with claude code -- Adam] A fabric that was running is taken down here and
         # is not rebuilt if this run fails: the rollback says so by name and does not call the
         # machine back as it was (up_replaced is recorded before the call, like every stage).
         (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
-        # Recorded before the call, not after: a topo-start that fails part way through has
-        # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
-        up_started fabric
         # [Co-developed with claude code -- Adam]
         # The output is PRINTED, not discarded. topo-start's one line is "topo session started
         # from <KERNEL_DIR>", and ndtwin-lab prints it deliberately -- its comment there says
@@ -5874,6 +5881,8 @@ up_ovs() {
         bash "$STACK" up ovs > "$out" 2>&1 < "$fifo" ) &
     local stack_pid=$!
     exec 3> "$fifo"
+    # [Co-developed with claude code -- Adam] Where a signal handler finds the background stack.sh (see up_on_signal).
+    UP_BG_PID="$stack_pid"; UP_BG_FIFO="$fifo"; UP_BG_OUT="$out"
 
     for i in $(seq 1 90); do
         grep -q '2/3' "$out" && break
@@ -5940,6 +5949,7 @@ up_ovs() {
     info "Ryu settles for ${NDTWIN_RYU_SETTLE_S:-${settle_default:-?}}s before installing paths (NDTWIN_RYU_SETTLE_S)"
     echo "" >&3
     wait "$stack_pid"; local rc=$?
+    UP_BG_PID=""; UP_BG_FIFO=""; UP_BG_OUT=""
     exec 3>&-; rm -f "$fifo"
     if (( rc != 0 )); then
         # The measured case, 2026-09-02 23:36: stack.sh's [3/3] refused :8000 and `ndt up`
@@ -6386,8 +6396,19 @@ run_refusal() {
         *) err "  wait for it to finish; NDT_RUN_WAIT=<seconds> waits for it here instead of refusing." ;;
     esac
     err "  to stop it:  $stop"
-    err "    ndt ends and releases its marker; what it already started stays up ('ndt down' takes that down)."
-    err "    the group form also ends the command it is running; the pid form leaves that to finish on its own."
+    if [[ "$b" == up ]]; then
+        # [Co-developed with claude code -- Adam] TERM reaches the handler cmd_up installs even when INT was ignored at launch.
+        err "    ndt rolls back what it started and releases its marker (exit 143). At its last step it is"
+        err "    left up and reported 'NOT verified' instead; 'ndt down' takes that down."
+        if [[ "$RM_PGID" == "$RM_PID" ]]; then
+            err "    the group form also ends the command ndt is running, so the rollback starts at once."
+        else
+            err "    the pid form lets the command ndt is running finish first, which can take minutes; the rollback starts then."
+        fi
+    else
+        err "    ndt ends and releases its marker; what it already started stays up ('ndt down' takes that down)."
+        err "    the group form also ends the command it is running; the pid form leaves that to finish on its own."
+    fi
     err "  nothing was written."
 }
 
@@ -6502,6 +6523,9 @@ run_phase() {
 # line, so a bring-up or a teardown shows how far it is without each step naming its own marker.
 run_phase_self() {
     local v f
+    # [Co-developed with claude code -- Adam] The step this process has reached, for the signal handlers below
+    # (the marker's phase line is for another process to read; this is for this one).
+    RUN_PHASE="$1"
     [[ "${BASHPID:-$$}" == "$$" ]] || return 0
     for v in up down clean; do
         f="$(run_marker "$v")"
@@ -6530,12 +6554,169 @@ run_check_only() {
 # read or written (the app-package conversion included) and released on every way out of this function; the
 # EXIT trap is for a path that leaves the shell instead of returning.
 cmd_up() {
-    local rc prev; prev="$(trap -p EXIT)"
+    local rc prev prev_sig; prev="$(trap -p EXIT)"; prev_sig="$(trap -p INT TERM HUP)"
     run_take up "${NDT_RUN_ARGV:-ndt up}" || return $?
     trap 'run_release up' EXIT
+    # [Co-developed with claude code -- Adam] An INT, TERM or HUP rolls back what this bring-up started (up_on_signal).
+    # Set here, after the take, and never when this file is sourced: a shell that only reads ndt's functions
+    # installs nothing.
+    UP_SIG_COUNT=0; UP_ROLLING_BACK=0; RUN_PHASE=start
+    trap 'up_on_signal INT 130' INT
+    trap 'up_on_signal TERM 143' TERM
+    trap 'up_on_signal HUP 129' HUP
     "$@"; rc=$?
+    trap - INT TERM HUP
+    [[ -n "$prev_sig" ]] && eval "$prev_sig"
     run_leave up "$prev"
     return "$rc"
+}
+
+# [Co-developed with claude code -- Adam]
+# 🔴 A signal to `ndt up`. Without a handler bash ended ndt where it stood and nothing it had recorded in UP_STARTED
+# was used: the bmv2 fabric, the heartbeat, the stack and the files it had written all stayed (measured with a
+# SIGINT to the group at [2/3]), and the next `ndt up` reused that fabric as if somebody had vouched for it.
+# Now the handler runs rollback_up -- the function the failure branches use, with its ownership rules -- and
+# exits 130 / 143 / 129, and the EXIT trap cmd_up set releases the marker.
+#
+# When it runs. A signal to the whole process group (Ctrl-C at a terminal, `kill -INT -- -PGID`) also kills the
+# command ndt is waiting on, so the handler runs at once. A signal to ndt's pid alone is held by bash until
+# that command returns (`stack.sh up` can take minutes): the handler runs then, and the command it was
+# running is not stopped by it (up_ovs's `wait` is the exception: it returns at once, and the handler stops the
+# background stack.sh itself). Measured with a victim shaped like cmd_up. INT is ignored by a bring-up that
+# was started as a background job of a script, and bash cannot trap what was ignored on entry: TERM is the signal
+# that always reaches this handler.
+#
+# Four decisions:
+#   * at the last step ([3/3] on P4, [4/4] on OVS) nothing is rolled back: the stack is up and verifying only
+#     reads it, which is the rule that already keeps a failed verification from tearing a lab down. It is
+#     reported as not verified, and the claim note says so.
+#   * the OVS plane's background stack.sh is stopped first. A signal to ndt's pid alone does not reach it (it
+#     is a grandchild; a group signal does, as this bash does not make that background job ignore INT), it
+#     reads the "Mininet is up" prompt from a FIFO, and the end of that FIFO answers the prompt: left alone it
+#     would go on and start a kernel after ndt is gone.
+#   * a signal while a rollback is running -- the one this handler started, or a failure branch's -- is
+#     said and the rollback goes on: the step it was in (its command was killed by the same signal) ends
+#     non-zero and the rollback reports it as not done. The third signal of the run abandons the rollback
+#     and says what it left.
+#   * nothing here waits for a child or reads the machine: a handler that hung would be worse than none.
+UP_SIG_COUNT=0; UP_ROLLING_BACK=0; RUN_PHASE=start
+UP_RB_AT=0                      # the index in UP_STARTED the running rollback has reached (-1 once its stages are done)
+UP_BG_PID=""; UP_BG_FIFO=""; UP_BG_OUT=""     # up_ovs's background stack.sh, while there is one
+
+# up_phase_is_verify <phase> -- the last step of either plane: P4's [3/3] and OVS's [4/4].
+up_phase_is_verify() { [[ "$1" == "[3/3]" || "$1" == "[4/4]" ]]; }
+
+# proc_descendants <pid> -- the pids below <pid>, deepest first, read from /proc with no process spawned (a signal
+# handler is no place to fork a hundred times). Sets PROC_KIDS.
+PROC_KIDS=()
+proc_descendants() {
+    local f line rest pid ppid todo=("$1") cur found=()
+    local -A parent=()
+    for f in /proc/[0-9]*/stat; do
+        read -r line 2>/dev/null < "$f" || continue
+        [[ "$line" == *") "* ]] || continue
+        rest="${line##*) }"; pid="${f#/proc/}"; pid="${pid%/stat}"
+        ppid="${rest#* }"; ppid="${ppid%% *}"
+        parent[$pid]="$ppid"
+    done
+    while (( ${#todo[@]} )); do
+        cur="${todo[0]}"; todo=("${todo[@]:1}")
+        for pid in "${!parent[@]}"; do
+            [[ "${parent[$pid]}" == "$cur" ]] && { found+=("$pid"); todo+=("$pid"); }
+        done
+    done
+    PROC_KIDS=()
+    local i
+    for (( i = ${#found[@]} - 1; i >= 0; i-- )); do PROC_KIDS+=("${found[$i]}"); done
+    return 0
+}
+
+# sig_output_check -- first thing a signal handler does. A Ctrl-C also ends the `tee` or pager ndt's output goes to, and the
+# first line written after that is a SIGPIPE, which would end the handler before it had rolled anything back. SIGPIPE is
+# ignored from here, and an output that cannot be written is sent to /dev/null: a function that ends in a print returns the
+# print's status, so a lost line would otherwise turn into a failed step.
+sig_output_check() {
+    trap '' PIPE
+    echo 2>/dev/null || exec >/dev/null
+    echo >&2 2>/dev/null || exec 2>/dev/null
+    return 0
+}
+
+# up_bg_stack_stop -- stop up_ovs's background `stack.sh up ovs`, and the processes under it, and remove its
+# FIFO and output file. Children first, then the subshell that launched them, and the FIFO's writing end last:
+# the end of that FIFO is what stack.sh reads as the answer to its prompt, so closing it first would let a
+# stack.sh that is still alive go on and start the kernel. Whatever stack.sh had already started while it lives
+# (Ryu, its supervisor: `setsid ... &` in a script without job control does not fork, so they are its
+# descendants) is stopped with it; what is registered and still running afterwards is the rollback's to stop.
+# Only a pid that is this process's child is touched.
+up_bg_stack_stop() {
+    local pid="$UP_BG_PID" line rest k
+    if [[ "$pid" =~ ^[0-9]+$ ]] && read -r line 2>/dev/null < "/proc/$pid/stat" && [[ "$line" == *") "* ]]; then
+        rest="${line##*) }"; rest="${rest#* }"; rest="${rest%% *}"
+        if [[ "$rest" == "$$" ]]; then
+            proc_descendants "$pid"
+            for k in ${PROC_KIDS[@]+"${PROC_KIDS[@]}"} "$pid"; do kill -TERM "$k" 2>/dev/null; done
+            info "stopped the background 'stack.sh up ovs' (pid $pid)"
+        fi
+    fi
+    exec 3>&-
+    [[ -n "$UP_BG_FIFO$UP_BG_OUT" ]] && rm -f "$UP_BG_FIFO" "$UP_BG_OUT" 2>/dev/null
+    UP_BG_PID=""; UP_BG_FIFO=""; UP_BG_OUT=""
+    return 0
+}
+
+# up_note_rewrite <text> -- the claim note, but only the one this run wrote and only while it still says it
+# (the rule rollback_record_back and refusal_unwind use). rc 0 written or nothing to do, 1 could not be written.
+up_note_rewrite() {
+    [[ -n "$REFUSAL_NOTE_WRITTEN" && -n "${NDT_OWNER:-}" && -f "$CLAIM" \
+       && "$(claim_field owner)" == "$NDT_OWNER" && "$(claim_field note)" == "$REFUSAL_NOTE_WRITTEN" ]] || return 0
+    if claim_rewrite note "$1"; then
+        warn "$(short_repo_path "$CLAIM"): the note now says: $1"
+        REFUSAL_NOTE_WRITTEN="$1"
+        return 0
+    fi
+    err "could NOT rewrite the claim note this 'ndt up' wrote"
+    return 1
+}
+
+# up_abandon_rollback <SIG> <code> -- the third signal: stop rolling back, say what was not undone, exit.
+up_abandon_rollback() {
+    local at="its first stage" left="" j n="${#UP_STARTED[@]}"
+    if (( UP_RB_AT < 0 )); then
+        at="its final checks"
+    elif (( UP_RB_AT < n )); then
+        at="${UP_STARTED[$UP_RB_AT]}"
+    fi
+    for (( j = (UP_RB_AT < n ? UP_RB_AT : n) - 1; j >= 0; j-- )); do left+="${left:+, }${UP_STARTED[$j]}"; done
+    err "rollback ABANDONED at $at; not undone: ${left:-nothing more -- the checks after its stages did not run}"
+    err "  the machine is as that rollback left it. finish it by hand:  ndt down"
+    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} interrupted; rollback abandoned at $at -- run 'ndt down'" || true
+    exit "$2"
+}
+
+# up_on_signal <INT|TERM|HUP> <exit code> -- the trap cmd_up installs. See the block above.
+up_on_signal() {
+    local sig="$1" code="$2" phase="${RUN_PHASE:-start}"
+    sig_output_check
+    UP_SIG_COUNT=$(( ${UP_SIG_COUNT:-0} + 1 ))
+    echo
+    warn "interrupted (SIG$sig) at $phase"
+    if (( ${UP_ROLLING_BACK:-0} )); then
+        (( UP_SIG_COUNT >= 3 )) && up_abandon_rollback "$sig" "$code"
+        local more=$(( 3 - UP_SIG_COUNT ))
+        warn "still rolling back: a step that was running when the signal came may be reported below as not done; $more more signal$( (( more == 1 )) || echo s ) abandon$( (( more == 1 )) && echo s ) the rollback"
+        return 0
+    fi
+    if up_phase_is_verify "$phase"; then
+        say "up, ${R}NOT verified${N} -- interrupted during $phase"
+        info "everything was started and nothing is rolled back: the lab is up, and nothing has verified it."
+        info "  'ndt status' reads it; 'ndt down' takes it down."
+        up_note_rewrite "$CLAIM_NOTE_UP_TEXT (interrupted during verify, not verified)" || true
+        exit "$code"
+    fi
+    up_bg_stack_stop
+    rollback_up "interrupted by SIG$sig at $phase" || true
+    exit "$code"
 }
 
 # run_leave <verb> <the EXIT trap line that was set before this verb took its own> -- release the marker and put
@@ -6918,6 +7099,15 @@ cmd_down() {
     # comment on mark_teardown_start for the 02:07:18-02:07:32 timeline.
     # 🔴 rc 5: its only non-zero return is the refusal against somebody else's live teardown.
     mark_teardown_start || return 5
+    # [Co-developed with claude code -- Adam] An INT, TERM or HUP says where the teardown was and ends it
+    # (down_on_signal), and the marker is released on every way out of the shell. Set after the marker is ours,
+    # and put back at the one exit below.
+    local down_prev; down_prev="$(trap -p EXIT INT TERM HUP)"
+    DOWN_SIG_COUNT=0; RUN_PHASE=start
+    trap 'mark_teardown_end' EXIT
+    trap 'down_on_signal INT 130' INT
+    trap 'down_on_signal TERM 143' TERM
+    trap 'down_on_signal HUP 129' HUP
 
     say "ndt down"
 
@@ -7338,7 +7528,31 @@ cmd_down() {
     # One exit path, so one removal. A `down` killed before it gets here leaves the marker
     # behind, which is why teardown_in_flight checks the pid rather than trusting the file.
     mark_teardown_end
+    trap - EXIT INT TERM HUP
+    [[ -n "$down_prev" ]] && eval "$down_prev"
     return "$down_verdict"
+}
+
+# [Co-developed with claude code -- Adam]
+# down_on_signal <INT|TERM|HUP> <exit code> -- the trap cmd_down installs. A teardown does not roll back or
+# forward: every step of it is repeatable, so the handler says where it stopped, writes that into the claim
+# note (which an earlier 'ndt up' left saying the lab is in use), and exits. A second signal exits at once.
+DOWN_SIG_COUNT=0
+down_on_signal() {
+    local sig="$1" code="$2" phase="${RUN_PHASE:-start}" when
+    sig_output_check
+    DOWN_SIG_COUNT=$(( ${DOWN_SIG_COUNT:-0} + 1 ))
+    (( DOWN_SIG_COUNT > 1 )) && exit "$code"
+    echo
+    warn "interrupted (SIG$sig) at $phase; 'ndt down' is idempotent: run it again"
+    info "it does not roll forward or back: what it had not reached is still there."
+    when="$(date '+%Y-%m-%d %H:%M:%S')"
+    if set_claim_note "down at $when interrupted at $phase; claim kept -- run 'ndt down' again"; then
+        info "claim note now says the teardown was interrupted at $phase"
+    else
+        claim_note_unwritten
+    fi
+    exit "$code"
 }
 
 # fabric_left <what> -- add one item to CLEAN_FABRIC_LEFT (cmd_clean's list of what of the fabric is still
@@ -13694,9 +13908,9 @@ usage: ndt <command>
                 (up.inflight, down.inflight, clean.inflight) and refuse -- rc 5, before they
                 write or build anything -- while another of them is running. Over an 'ndt
                 up' or 'ndt clean' the refusal names its pid, command line, owner, start
-                time and step, and a kill command (TERM: ndt ends and releases its marker,
-                what it started stays up); over an 'ndt down' it names the pid and start
-                time. NDT_RUN_WAIT=<seconds> makes 'ndt up', 'ndt down' and 'ndt clean' wait
+                time and step, and a kill command (TERM: an 'ndt up' rolls back what it
+                started, an 'ndt clean' ends; both release their marker); over an 'ndt
+                down' it names the pid and start time. NDT_RUN_WAIT=<seconds> makes 'ndt up', 'ndt down' and 'ndt clean' wait
                 that long for it first (default 0: refuse at once); 'ndt apps' and 'ndt
                 ntg' never wait. A marker whose process is gone is removed and said so (for
                 the up and clean markers, so is one whose pid is now another process's); a
@@ -13705,6 +13919,18 @@ usage: ndt <command>
                 are refused at once (rc 1) while an 'ndt up' or 'ndt down' is running. The
                 markers belong to this checkout: a verb from another checkout is not seen
                 (doc/KNOWN-ISSUES.md).
+                INTERRUPTING A BRING-UP: INT (Ctrl-C), TERM or HUP to an 'ndt up' rolls back
+                what it started, the way a failed bring-up does, and exits 130, 143 or 129.
+                At its last step ([3/3] on P4, [4/4] on OVS) it rolls nothing back: the lab is
+                left up and the run says 'up, NOT verified -- interrupted during [3/3]'. A
+                second signal during the rollback is noted and the rollback goes on; the
+                third abandons it and says what is not undone ('ndt down' finishes that). A
+                signal to the process group (Ctrl-C, 'kill -TERM -- -PGID') also ends the
+                command ndt is running, so the rollback starts at once; a signal to the pid
+                alone is held until that command returns, which can take minutes. INT is
+                ignored by a bring-up started as a background job of a script; TERM always
+                reaches it. An interrupted 'ndt down' says where it stopped and exits with the
+                same code: it is idempotent, run it again.
                 NDT_TOPO=<file> forces a specific kernel model.
                 A P4 fabric that is already running is reused only when it was built from
                 the inputs this run would build it from (the model, package.json, each
@@ -13795,7 +14021,9 @@ usage: ndt <command>
                   OVS fabric is (ovs-vsctl did not answer): 'topo-stop' would destroy
                   whatever is there, so it stops before it touches the fabric, and
                   puts back any file it had already written.
-                  2 is a usage error.
+                  2 is a usage error. 130 interrupted by SIGINT, 143 interrupted by
+                  SIGTERM, 129 interrupted by SIGHUP: the bring-up rolled back what it
+                  started (or, at its last step, left the lab up and said NOT verified).
                   🔴 THE CLAIM AND THE MEASUREMENT ARE REFUSED BY ONE GUARD, before
                   anything is written -- on OVS only since 2026-09-25: until then
                   'ndt up ovs' built a fabric under somebody else's claim and exited
