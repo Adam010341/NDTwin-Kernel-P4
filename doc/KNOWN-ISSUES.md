@@ -181,6 +181,18 @@ the same machine, are not refused. A `ndt down` from one checkout can tear down 
 is refused with rc 5 while another is running (the "One lab-changing verb at a time" paragraph of
 `ndt help`). A bring-up from a second checkout is also refused before it builds anything when the
 helper acts in another tree (`guard_lab_acts_in_this_tree`); a teardown is not.
+An `ndt up` does not stop a topology session it did not start: one that is there at `[1/3]` and that its
+decision did not see, or one that makes its own `topo-start` (on OVS `ovs-topo-start` or `ovs-topo-4host`) fail
+with `topo session already running`, is refused with rc 5 and left running (a helper call run by hand, a
+script that calls the helper, an older `ndt`). A session it had already seen when it decided to build (a
+fabric of another size, say) is still replaced. One that its own `topo-stop` failed to end is not replaced:
+that bring-up rolls back with rc 1. Four things are not covered. The orphan sweep before `[1/3]` is machine-wide (`ndtwin-lab
+cleanup`), so a session that starts during it can lose its bridge or switches. The knob writes before
+`[1/3]` can shape a session started by hand in that window, and are then put back. The check compares
+presence only: a session that was replaced by another one between the decision and `[1/3]` is stopped as the
+one that was seen. Last, the refusal is recognised by the sentence the helper dies with, as the installed
+helper words it; a helper installed from an older tree that words it differently is not recognised, and the
+bring-up then falls back to the rollback it had before, which stops that session.
 
 **Why.** The verbs record that they are running in `.test_run/up.inflight`, `down.inflight` and
 `clean.inflight` of the checkout they run from (`run_marker`, `run_take` and `with_run_lock` in

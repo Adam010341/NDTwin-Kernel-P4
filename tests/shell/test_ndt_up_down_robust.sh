@@ -123,6 +123,9 @@ case "$1 ${2:-}" in
     "up ovs")
         echo "[1/3] control plane (Ryu)"
         [[ -f "$FIX/stack_ovs_dies_early" ]] && exit 9
+        # [Co-developed with claude code -- Adam] Section 33q: with ovs_marks present this stack.sh says who it is (before it prints
+        # the banner ndt waits for), and says in a file if it ever gets past the read of its prompt.
+        [[ -f "$FIX/ovs_marks" ]] && echo "$$" > "$FIX/ovs33.pid"
         # [Co-developed with claude code -- Adam] Section 32: held before the "[2/3]" banner, the way a stack.sh that is still
         # starting Ryu is. It says it is here on a FIFO, and if it ever gets past the read of its prompt (stdin: the FIFO's end
         # answers it) it says so in a file.
@@ -134,10 +137,14 @@ case "$1 ${2:-}" in
             echo proceeded > "$FIX/ovs32.proceeded"
             exit 9
         fi
+        # [Co-developed with claude code -- Adam] Section 33t: what the real stack.sh does before it prints the banner: start and register
+        # Ryu. stack.pre.hook is sourced in this shell, so a component it starts with `setsid ... &` is this stack.sh's own child.
+        [[ -f "$FIX/stack.pre.hook" ]] && . "$FIX/stack.pre.hook"
         echo "[2/3] data plane (Mininet, needs sudo)"
         [[ -f "$FIX/stack_ovs_no_prompt" ]] && { sleep 0.05; exit 9; }
         [[ -f "$FIX/stack.up.hook" ]] && . "$FIX/stack.up.hook"
         read -r _ || true
+        [[ -f "$FIX/ovs_marks" ]] && echo proceeded > "$FIX/ovs33.proceeded"
         echo "converged"
         exit "$(rc_of stack_up)" ;;
     "up p4")
@@ -157,9 +164,13 @@ case "$1 ${2:-}" in
         shift
         for n in "$@"; do
             [[ -f "$FIX/.test_run/pids/$n.pid" ]] || continue
-            kill "$(cat "$FIX/.test_run/pids/$n.pid")" 2>/dev/null
+            # [Co-developed with claude code -- Adam] "stopped" only for a process that was alive when the signal went (stop_one's rule: a
+            # component that is already gone is reported by its exit status, not as stopped).
+            p="$(cat "$FIX/.test_run/pids/$n.pid")"; alive=no
+            if read -r l 2>/dev/null < "/proc/$p/stat"; then r="${l##*) }"; [[ "${r%% *}" == Z ]] || alive=yes; fi
+            kill "$p" 2>/dev/null
             rm -f "$FIX/.test_run/pids/$n.pid"
-            echo "  stopped $n"
+            [[ "$alive" == yes ]] && echo "  stopped $n"
         done
         exit "$(rc_of stack_stop)" ;;
     "down"*)
@@ -178,16 +189,17 @@ chmod +x "$FIX/stack.sh"
 
 # The scripted exit statuses and the reading sequences, reset between groups.
 reset_fix() {
-    rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" "$FIX/identity.calls" "$FIX/stack.fabric" "$FIX/fabric_id.seq" \
-          "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" "$FIX/stack.up.hook" \
+    rm -f "$FIX/rc."* "$FIX/out."* "$FIX/err."* "$FIX/sudo.log" "$FIX/stack.log" "$FIX/identity.calls" "$FIX/stack.fabric" "$FIX/fabric_id.seq" \
+          "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" "$FIX/stack.up.hook" "$FIX/stack.pre.hook" "$FIX/ovs_marks" "$FIX/ovs33.pid" "$FIX/ovs33.proceeded" \
           "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" "$FIX/topo.phases" "$FIX/topo.stop.held" "$FIX/stack.phases" \
-          "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target" "$FIX/.test_run/up.unfinished"
+          "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/topo.seq" "$FIX/.test_run/up.target" "$FIX/.test_run/up.unfinished"
     echo '{"switches":[]}' > "$FIX/manifest.json"
     rm -f "$FIX/.test_run/pids/"*
     : > "$FIX/sudo.log"; : > "$FIX/stack.log"
 }
 rc_for()  { printf '%s\n' "$2" > "$FIX/rc.$1"; }       # rc_for <verb|stack_up|stack_down> <rc>
 out_for() { printf '%s\n' "$2" > "$FIX/out.$1"; }      # what the fake $LAB prints for <verb>
+err_for() { printf '%s\n' "$2" > "$FIX/err.$1"; }      # what the fake $LAB prints on stderr for <verb>
 
 # --- the seam ---------------------------------------------------------------------------
 # `ndt` is sourced (it returns at its own source seam), then every reading that would describe
@@ -251,6 +263,7 @@ sudo() {
         read -r -t 60 _ <>"$FX_BLOCK_TOPO_STOP"
     fi
     [[ -f "'"$FIX"'/out.$verb" ]] && cat "'"$FIX"'/out.$verb"
+    [[ -f "'"$FIX"'/err.$verb" ]] && cat "'"$FIX"'/err.$verb" >&2
     [[ -f "'"$FIX"'/rc.$verb" ]] && return "$(cat "'"$FIX"'/rc.$verb")"
     return 0
 }
@@ -674,12 +687,21 @@ has   "🔴 and the helper's 'which tree' line reaches the operator" \
       "topo session started from $FIX" "$OUT"
 
 # The failure path keeps it too: what the helper said is the only evidence of why it refused.
-reset_fix; rc_for topo-start 1; out_for topo-start "topo session already running (topo-stop first)"
+reset_fix; rc_for topo-start 1; err_for topo-start "ndtwin-lab: topo bridge could not start"
 echo "0 10" > "$FIX/bmv2.seq"
 OUT="$(drive 'up_p4')"
 check "a failed topo-start is still red"                   "1"  "$(rc_of_out "$OUT")"
-has   "  and what the helper said is not swallowed"        "topo session already running" "$OUT"
+has   "  and what the helper said is not swallowed"        "topo bridge could not start" "$OUT"
 has   "  alongside ndt's own line"                         "topo-start failed" "$OUT"
+check "  and the fabric stage of the rollback runs: topo-stop" "1" "$(grep -c ' topo-stop' "$FIX/sudo.log")"
+# ...and the one failure that is somebody else's session: refused, the session is not stopped or swept.
+reset_fix; rc_for topo-start 1; err_for topo-start "ndtwin-lab: topo session already running (topo-stop first)"
+echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'up_p4')"
+check "🔴 a topo-start refused because a session is there is rc 5, not a rolled-back failure" "5" "$(rc_of_out "$OUT")"
+has   "  and what the helper said is not swallowed"        "topo session already running" "$OUT"
+check "🔴 and that session is not stopped"                 "0" "$(grep -c ' topo-stop' "$FIX/sudo.log")"
+check "🔴 nor swept"                                       "0" "$(grep -c ' cleanup' "$FIX/sudo.log")"
 
 # ==========================================================================================
 section "8. H4: a model of a DIFFERENT network is refused before anything is built"
@@ -3833,6 +3855,222 @@ has   "🔴 31j a subshell copy of the owner does not remove the owner's marker"
 has   "  31j the owner does"                                              "GONE" "$OUT"
 clr31
 
+# 31k. a topo session that was not there when the bring-up decided to build is not the bring-up's to stop
+# [Co-developed with claude code -- Adam]
+# A hand-run `sudo ndtwin-lab topo-start` and an `ndt up` of another checkout are not seen by this checkout's marker. The reuse
+# decision reads the session once; `[1/3]` reads it again before it may replace one. topo.seq is what successive readings answer
+# (seq_read: the last value repeats): 1 no session, 0 a session, 2 could not tell.
+TOPOSEQ31='topo_session() { local v; v="$(seq_read "$FIX/topo.seq" 1)"; return "$v"; }'
+X31=""   # extra shell code for a cell (a wrapper of a function of ndt), run after ndt is sourced
+up31k() { NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+$TOPOSEQ31
+$X31
+cmd_up up_p4 4"; }
+# What a cell reads off the three lines a refusal over a foreign session prints: what the record held at the moment they were printed.
+PROBE31='eval "orig_$(declare -f up_foreign_session_lines)"
+up_foreign_session_lines() { echo "PROBE started=[${UP_STARTED[*]:-}] foreign=$UP_FOREIGN_SESSION"; orig_up_foreign_session_lines; }'
+# A put-back of the claim note that fails once topo-start has been asked for (the refusals that follow it have a note to put back).
+FAILNOTE31='eval "orig_$(declare -f claim_rewrite)"
+claim_rewrite() { grep -q " topo-start" "$FIX/sudo.log" && return 1; orig_claim_rewrite "$@"; }'
+UNF31="$FIX/.test_run/up.unfinished"
+seed_found; clr31; BEFORE="$(five_hash)"; printf '1 0\n' > "$FIX/topo.seq"
+OUT="$(up31k)"
+check "🔴 31k a session that appeared after the decision to build refuses the bring-up with 5" "5" "$(rc_of_out "$OUT")"
+has   "  31k and says what it saw"                                       "a topo session is running that this bring-up did not see when it decided to build" "$OUT"
+has   "  31k and that it is not this run's to stop"                       "it is not this run's to stop" "$OUT"
+has   "  31k and that ndt status shows a session is there, with no owner"  "'ndt status' shows that a session is there (it names no owner)" "$OUT"
+has   "  31k and how to end it where it was started"                       "'sudo ndtwin-lab topo-stop' for one started by hand" "$OUT"
+check "🔴 31k no topo-stop"                                                "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "🔴 31k no topo-start"                                               "0" "$(nlines31 ' topo-start' "$FIX/sudo.log")"
+check "🔴 31k no heartbeat stop"                                           "0" "$(nlines31 'heartbeat' "$FIX/sudo.log")"
+check "  31k and the stack was not touched"                                "0" "$(nlines31 . "$FIX/stack.log")"
+hasnt "  31k nothing was started, so there is no rollback to report"       "this bring-up started" "$OUT"
+hasnt "  31k and it does not call itself a rollback"                       "rolled back" "$OUT"
+has   "  31k up.target is put back, and it says so"                        ".test_run/up.target put back to what it was" "$OUT"
+check "🔴 31k up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+check "🔴 31k the run marker is released"                                  "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+check "🔴 31k and no unfinished record is left (nothing was started)"      "absent" "$([[ -e "$UNF31" ]] && echo present || echo absent)"
+# the control: a session the decision saw (a fabric of another size) is still replaced
+seed_found; clr31; printf '0\n' > "$FIX/topo.seq"
+OUT="$(up31k)"
+check "31k control: a session the decision saw does not refuse the bring-up" "0" "$(rc_of_out "$OUT")"
+check "🔴 31k control: it is stopped, once"                                "1" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "  31k control: and the new fabric is started"                       "1" "$(nlines31 ' topo-start' "$FIX/sudo.log")"
+has   "  31k control: the line says so"                                    "stopping the existing topo session" "$OUT"
+hasnt "  31k control: and nothing refuses"                                 "did not see when it decided to build" "$OUT"
+# the control: no session at either reading, the fabric is built and nothing is stopped
+seed_found; clr31; printf '1\n' > "$FIX/topo.seq"
+OUT="$(up31k)"
+check "31k control: no session at either reading builds"                   "0" "$(rc_of_out "$OUT")"
+check "  31k control: with a topo-start"                                   "1" "$(nlines31 ' topo-start' "$FIX/sudo.log")"
+check "  31k control: and no topo-stop"                                    "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+# a decision that could not tell saw no session: one that is there at [1/3] is refused the same way
+seed_found; clr31; BEFORE="$(five_hash)"; printf '2 0\n' > "$FIX/topo.seq"
+OUT="$(up31k)"
+check "🔴 31k a decision that could not tell, then a session at [1/3]: refused with 5" "5" "$(rc_of_out "$OUT")"
+has   "  31k with the same line"                                           "did not see when it decided to build" "$OUT"
+check "🔴 31k and no topo-stop"                                            "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "  31k and the files are as they were"                               "$BEFORE" "$(five_hash)"
+seed_found; clr31; printf '2 1\n' > "$FIX/topo.seq"
+OUT="$(up31k)"
+check "31k control: a decision that could not tell, then no session: builds" "0" "$(rc_of_out "$OUT")"
+check "  31k control: with no topo-stop"                                   "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+# a session the decision saw, gone by [1/3]: nothing is there to stop, and the fabric is built
+seed_found; clr31; printf '0 1\n' > "$FIX/topo.seq"
+OUT="$(up31k)"
+check "31k control: a session the decision saw and [1/3] did not: builds"   "0" "$(rc_of_out "$OUT")"
+check "🔴 31k control: with no topo-stop"                                  "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "  31k control: and a topo-start"                                    "1" "$(nlines31 ' topo-start' "$FIX/sudo.log")"
+# a decision that could not read the lab does not reuse a fabric, even when the counts match
+seed_found; clr31; printf '2 0\n' > "$FIX/topo.seq"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BMV2=10 FX_FABRIC_HOSTS=4 drive "$TOPOSEQ31
+cmd_up up_p4 4")"
+hasnt "🔴 31k a decision that could not read the lab does not reuse the fabric whose counts match" "reusing" "$OUT"
+check "  31k it is refused instead (a session at [1/3] it did not see)"    "5" "$(rc_of_out "$OUT")"
+check "  31k and nothing was stopped"                                       "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+# the orphan sweep before [1/3] runs, and the refusal comes after it
+seed_found; clr31; printf '1 1 1 0\n' > "$FIX/topo.seq"; echo 3 > "$FIX/bmv2.seq"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$TOPOSEQ31
+cmd_up up_p4 4")"
+check "31k with orphans to sweep, a session at [1/3] that the decision did not see is refused with 5" "5" "$(rc_of_out "$OUT")"
+check "  31k the sweep ran before the refusal (pinned: it is machine-wide)" "1" "$(nlines31 ' cleanup' "$FIX/sudo.log")"
+check "🔴 31k and no topo-stop"                                            "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "  31k and no topo-start"                                            "0" "$(nlines31 ' topo-start' "$FIX/sudo.log")"
+
+# 31l. the session appears after the [1/3] reading and makes this run's own topo-start refuse: it is not this run's to stop
+BUSY31="ndtwin-lab: topo session already running (topo-stop first)"
+seed_found; clr31; BEFORE="$(five_hash)"; printf '1 1\n' > "$FIX/topo.seq"; rc_for topo-start 1; err_for topo-start "$BUSY31"
+OUT="$(up31k)"
+check "🔴 31l a topo-start that finds a session is refused with 5"         "5" "$(rc_of_out "$OUT")"
+has   "  31l and the helper's own line is shown"                          "topo session already running" "$OUT"
+has   "  31l and ndt says what it found"                                  "a topo session is running that this bring-up did not see when it decided to build" "$OUT"
+has   "  31l and that it is not this run's to stop"                       "it is not this run's to stop" "$OUT"
+check "  31l the helper was asked to start once"                          "1" "$(nlines31 ' topo-start' "$FIX/sudo.log")"
+check "🔴 31l the session that is there is not stopped"                    "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "🔴 31l nor swept"                                                  "0" "$(nlines31 ' cleanup' "$FIX/sudo.log")"
+hasnt "  31l and no rollback is reported for what was never started"       "this bring-up started" "$OUT"
+check "🔴 31l up.target, both knobs, the claim and the host-count knob are byte-identical" "$BEFORE" "$(five_hash)"
+check "🔴 31l the run marker is released"                                  "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+check "🔴 31l and no unfinished record is left"                            "absent" "$([[ -e "$UNF31" ]] && echo present || echo absent)"
+# the replace path: the session the decision saw was stopped by this run, and a new one beat its topo-start
+seed_found; clr31; printf '0\n' > "$FIX/topo.seq"; rc_for topo-start 1; err_for topo-start "$BUSY31"
+OUT="$(up31k)"
+check "🔴 31l after a replace, a topo-start that finds another session is refused with 5" "5" "$(rc_of_out "$OUT")"
+check "  31l the one this run saw was stopped, once"                      "1" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "🔴 31l the new one is not swept"                                   "0" "$(nlines31 ' cleanup' "$FIX/sudo.log")"
+has   "🔴 31l the fabric that was taken down stays down, and is named"      "replaced and not restored: bmv2 fabric (4 hosts)" "$OUT"
+has   "  31l and the session that is there is said to be left running"     "left running" "$OUT"
+check "  31l what up.target described is not up: the record is cleared"    "absent" "$(fhash "$UPT")"
+check "  31l the run marker is released"                                   "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
+# the same replace path with no claim note: the lines the rollback prints for it are its own, not the note's echo of them
+seed_found; clr31; rm -f "$CLM"; printf '0\n' > "$FIX/topo.seq"; rc_for topo-start 1; err_for topo-start "$BUSY31"
+OUT="$(up31k)"
+check "31l without a claim note, the same refusal is rc 5"                "5" "$(rc_of_out "$OUT")"
+has   "🔴 31l and the rollback says nothing of this run's is left to take down" "nothing of this run's is left to take down" "$OUT"
+has   "🔴 31l and names the fabric it took down and cannot put back"       "replaced and not restored: bmv2 fabric (4 hosts)" "$OUT"
+# the replace path where the topo-stop this run asked for FAILED: the session is still there, and it is this run's to roll back
+seed_found; clr31; printf '0\n' > "$FIX/topo.seq"; rc_for topo-stop 1; rc_for topo-start 1; err_for topo-start "$BUSY31"
+OUT="$(up31k)"
+check "🔴 31l a topo-stop that failed leaves the session this run's: the ordinary rollback, rc 1" "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 31l it is not called somebody else's"                           "it is not this run's to stop" "$OUT"
+hasnt "🔴 31l and the fabric is not said to be replaced and gone"         "replaced and not restored" "$OUT"
+has   "  31l the rollback ran on it"                                      "this bring-up started: fabric" "$OUT"
+check "🔴 31l and an unfinished record is left"                           "present" "$([[ -e "$UNF31" ]] && echo present || echo absent)"
+# a topo-stop that answered 0 is the case above: the session there now is somebody else's
+seed_found; clr31; printf '0\n' > "$FIX/topo.seq"; rc_for topo-stop 0; rc_for topo-start 1; err_for topo-start "$BUSY31"
+OUT="$(up31k)"
+check "31l control: a topo-stop that worked, then a session that is not this run's: rc 5" "5" "$(rc_of_out "$OUT")"
+# a refusal whose put-back fails is not a refusal that finished: rc 1, both ways
+seed_found; clr31; printf '1 1\n' > "$FIX/topo.seq"; rc_for topo-start 1; err_for topo-start "$BUSY31"; X31="$FAILNOTE31"
+OUT="$(up31k)"
+check "🔴 31l a refusal that could not put the claim note back is rc 1, not 5"  "1" "$(rc_of_out "$OUT")"
+has   "  31l and says what it could not do"                               "could NOT put the claim note back" "$OUT"
+check "🔴 31l and it still did not stop the session that is there"        "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+seed_found; clr31; printf '0\n' > "$FIX/topo.seq"; rc_for topo-start 1; err_for topo-start "$BUSY31"; X31="$FAILNOTE31"
+OUT="$(up31k)"
+check "🔴 31l after a replace, a rollback that could not put the claim note back is rc 1, not 5"  "1" "$(rc_of_out "$OUT")"
+check "🔴 31l and it still did not sweep the session that is there"       "0" "$(nlines31 ' cleanup' "$FIX/sudo.log")"
+# what the record held when the three lines were printed: the fabric is already out of it, and the run already knows
+seed_found; clr31; printf '1 1\n' > "$FIX/topo.seq"; rc_for topo-start 1; err_for topo-start "$BUSY31"; X31="$PROBE31"
+OUT="$(up31k)"
+has   "🔴 31l the session is known not to be this run's before the first of the three lines" "PROBE started=[] foreign=1" "$OUT"
+X31=""
+# any other topo-start failure still rolls back what it recorded, as before
+seed_found; clr31; printf '1 1\n' > "$FIX/topo.seq"; rc_for topo-start 1; err_for topo-start "ndtwin-lab: topo bridge could not start"
+OUT="$(up31k)"
+check "31l control: another topo-start failure is rc 1"                    "1" "$(rc_of_out "$OUT")"
+check "🔴 31l control: and it rolls back the fabric stage (topo-stop)"      "1" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+has   "  31l control: naming what it started"                              "this bring-up started: fabric" "$OUT"
+
+# 31m. OVS: the verb that starts the fabric finds a session. The stack this run started is rolled back; the session is not touched
+seed_found; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+check "🔴 31m an OVS bring-up whose fabric verb finds a session is refused with 5" "5" "$(rc_of_out "$OUT")"
+has   "  31m the helper's own line is shown"                              "topo session already running" "$OUT"
+has   "  31m and ndt says it is not this run's to stop"                    "it is not this run's to stop" "$OUT"
+check "🔴 31m the stack this run started is rolled back (stack.sh down)"    "1" "$(grep -c '^down' "$FIX/stack.log")"
+check "🔴 31m the session that is there is not stopped"                    "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+check "🔴 31m nor swept"                                                  "0" "$(nlines31 ' cleanup' "$FIX/sudo.log")"
+check "  31m the fabric verb was asked for once"                           "1" "$(nlines31 ' ovs-topo-4host' "$FIX/sudo.log")"
+hasnt "🔴 31m and it does not say the machine is back to what it was"      "back to what it was before this 'ndt up'" "$OUT"
+has   "🔴 31m it says what is true: this run's part is taken down, the session is left running" "the topology session that is there is not this run's, and is left running" "$OUT"
+# with no claim note to echo it, the rollback's own line about the session is what says it
+seed_found; clr31; rm -f "$CLM"; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+has   "🔴 31m the rollback says the session that is there is left running" "the topology session that is there is not this run's: it is left running" "$OUT"
+# through cmd_up, which is what takes the marker
+seed_found; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "cmd_up up_ovs 4
+$AFTER31")"
+check "🔴 31m through cmd_up the refusal is rc 5 too"                       "5" "$(rc_of_out "$OUT")"
+has   "🔴 31m and the run marker is released"                              "MARKER_AFTER=absent" "$OUT"
+# the rollback of the stack cannot finish: rc 1, and the advice stops only what this run started
+seed_found; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"; rc_for stack_down 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+check "🔴 31m a rollback that cannot finish over a session that is not this run's is rc 1" "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 31m it does not tell the operator to end the session with 'ndt down --deep'" "ndt down --deep" "$OUT"
+has   "🔴 31m it names the command that stops only this run's stack"        "bash tools/test_workflow/stack.sh down" "$OUT"
+has   "🔴 31m and says 'ndt down' would also stop the session that is not this run's" "'ndt down' would also stop the topology session that is not this run's" "$OUT"
+check "🔴 31m no unfinished record: this run started no fabric"           "absent" "$([[ -e "$UNF31" ]] && echo present || echo absent)"
+check "🔴 31m the session that is there is still not stopped"             "0" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+# what the record held when the three lines were printed
+seed_found; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$PROBE31
+up_ovs 4")"
+has   "🔴 31m the session is known not to be this run's before the first of the three lines" "foreign=1" "$OUT"
+hasnt "🔴 31m and the fabric is already out of the record then"           "started=[stack fabric]" "$OUT"
+# ...and before the background stack.sh is stopped (the stop reads /proc, which takes long enough for a signal to land in it: a rollback started from
+# there must already find the fabric out of the record). [Co-developed with claude code -- Adam]
+PROBE_STOP31='eval "orig_$(declare -f up_bg_stack_stop)"
+up_bg_stack_stop() { echo "STOPPROBE started=[${UP_STARTED[*]:-}] foreign=$UP_FOREIGN_SESSION"; orig_up_bg_stack_stop; }'
+seed_found; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$PROBE_STOP31
+up_ovs 4")"
+has   "🔴 31m the session is known not to be this run's before the background stack.sh is stopped" "STOPPROBE started=[stack] foreign=1" "$OUT"
+seed_found; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "ndtwin-lab: topo bridge could not start"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$PROBE_STOP31
+up_ovs 4")"
+has   "🔴 31m control: another verb failure still has the fabric in the record at the stop" "STOPPROBE started=[stack fabric] foreign=0" "$OUT"
+# control: another failure of the verb is the rollback it always was
+seed_found; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "ndtwin-lab: topo bridge could not start"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+check "31m control: another failure of the fabric verb is rc 1"            "1" "$(rc_of_out "$OUT")"
+check "🔴 31m control: and its rollback stops the topo session it may have left" "1" "$(nlines31 ' topo-stop' "$FIX/sudo.log")"
+# control: a verb that succeeds is not read for the sentence
+seed_found; clr31; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+hasnt "31m control: a successful fabric verb is not refused for what it printed" "it is not this run's to stop" "$OUT"
+
+# 31n. the sentence ndt matches is the one the helper's three launch verbs die with
+BUSY_NDT="$(drive 'printf "%s\n" "$LAB_TOPO_BUSY_TEXT"' | head -1)"
+check "31n ndt carries the sentence it matches"                          "topo session already running (topo-stop first)" "$BUSY_NDT"
+for v in topo-start ovs-topo-start ovs-topo-4host; do
+    check "🔴 31n the helper's $v arm dies with that sentence"           "present" "$(awk -v v="$v)" '$1==v {f=1} f && /die "/ {print; exit}' "$LABFILE" | grep -qF "die \"$BUSY_NDT\"" && echo present || echo absent)"
+done
+check "🔴 31n and no other verb of the helper dies with it"              "3" "$(grep -cF "die \"$BUSY_NDT\"" "$LABFILE")"
+
+rm -f "$FIX/topo.seq"; clr31
+
 # ==========================================================================================
 section "33. a failed 'ndt up' puts back what it wrote, and says what it left running or could not restore"
 # ==========================================================================================
@@ -4026,6 +4264,17 @@ fi
 rm -f "$FIX/run/probe"
 unset33
 
+# 31k (heartbeat). with a daemon running, a refused bring-up leaves it alone
+seed_found; clr31; printf '1 0\n' > "$FIX/topo.seq"; mkdir -p "$FIX/run"; hb33_spawn daemon; echo "$HB33_PID" > "$FIX/run/heartbeat.pid"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$P4_FRESH
+$HB_REUSE33
+$TOPOSEQ31
+cmd_up up_p4 4")"
+check "31k a session at [1/3] with a heartbeat daemon running is refused with 5" "5" "$(rc_of_out "$OUT")"
+check "🔴 31k the heartbeat is not asked to stop"                          "0" "$(nlines31 ' heartbeat stop' "$FIX/sudo.log")"
+check "  31k and the daemon is still running"                              "yes" "$(alive33 "$HB33_PID")"
+hb33_kill; rm -f "$FIX/run/heartbeat.pid"; clr31
+
 # 33b. the control: no heartbeat before, the fake helper's start writes the pidfile -- this run started it,
 # so the rollback stops it (the same as test_ndt_heartbeat.sh section 5).
 HB_START33='eval "fx_$(declare -f sudo)"
@@ -4059,6 +4308,10 @@ sp33_kill() { local p; for p in $SP33_PIDS $(cat "$FIX/spawned.pids" 2>/dev/null
 # what a hook line does: start a component (it registers itself) / replace one / make one go
 HOOK_START='pid="$(bash -c "setsid sleep 120 </dev/null >/dev/null 2>&1 & echo \$!")"; echo "$pid" > "$FIX/.test_run/pids/%s.pid"; echo "$pid" >> "$FIX/spawned.pids"'
 hook33_start() { printf "$HOOK_START\n" "$1"; }
+# the same, started the way the real stack.sh starts Ryu: `setsid ... &` in its own shell, so the process is its child (a new session; nothing
+# but the parent link ties it to the stack.sh that registered it). For stack.pre.hook, sourced before the banner.
+HOOK_DESC='setsid sleep 120 </dev/null >/dev/null 2>&1 & echo $! > "$FIX/.test_run/pids/%s.pid"; echo $! >> "$FIX/spawned.pids"'
+hook33_desc() { printf "$HOOK_DESC\n" "$1"; }
 stackcalls33() { grep -c "^$1" "$FIX/stack.log"; }
 last_spawned33() { tail -1 "$FIX/spawned.pids" 2>/dev/null; }
 
@@ -4167,6 +4420,159 @@ check "🔴 33m and not to bring the stack down"                            "0" 
 check "🔴 33m the kernel from before is still running"                    "yes" "$(alive33 "$K33")"
 has   "  33m and the line names it"                                       "left running (up before this 'ndt up'): kernel (pid $K33)" "$RB"
 sp33_kill; unset33
+
+# 33p. OVS, a session that is not this run's: what the rollback names to stop is this run's part of the stack, and never the part
+# that was up before it. The kernel was running before; this run started Ryu; the verb finds a session; stack.sh stop fails.
+# [Co-developed with claude code -- Adam]
+seed_found; clr31; rm -f "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"; hook33_desc ryu > "$FIX/stack.pre.hook"
+rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"; rc_for stack_stop 1
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+check "🔴 33p a rollback that cannot stop this run's Ryu, over a session that is not this run's, is rc 1" "1" "$(rc_of_out "$OUT")"
+check "🔴 33p stack.sh was asked to stop Ryu, by name, and not to bring the stack down"  "1 0" "$(stackcalls33 'stop ryu$') $(stackcalls33 'down')"
+hasnt "🔴 33p the advice does not name 'stack.sh down' (it would stop the kernel that was up before)" "stack.sh down" "$OUT"
+has   "🔴 33p it names the command that stops only this run's part"       "to stop only that:  bash tools/test_workflow/stack.sh stop ryu" "$OUT"
+has   "🔴 33p and says what is left of this run's"                         "what is left of this run's: ryu." "$OUT"
+check "🔴 33p the kernel from before is still running"                    "yes" "$(alive33 "$K33")"
+has   "  33p and the rollback says it was left alone"                     "up before this 'ndt up', and not touched by this rollback: kernel (pid $K33)" "$OUT"
+sp33_kill
+# Ryu was running before as well, so this run's part of the stack is empty, and only the claim note cannot be put back:
+# nothing of this run's is left, and no stack command is named.
+FAILNOTE_OVS='eval "orig_$(declare -f claim_rewrite)"
+claim_rewrite() { grep -q " ovs-topo-4host" "$FIX/sudo.log" && return 1; orig_claim_rewrite "$@"; }'
+seed_found; clr31; rm -f "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"; sp33_spawn ryu
+rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$FAILNOTE_OVS
+up_ovs 4")"
+check "🔴 33p Ryu reused, the note cannot be put back: rc 1"              "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 33p no 'stack.sh down' is named"                                "stack.sh down" "$OUT"
+hasnt "🔴 33p nor any 'stack.sh stop': nothing of this run's is registered"  "stack.sh stop" "$OUT"
+check "  33p and stack.sh was asked to stop nothing"                      "0" "$(stackcalls33 'stop ')"
+check "🔴 33p the kernel from before is still running"                    "yes" "$(alive33 "$K33")"
+sp33_kill
+# The stack stopped cleanly and only the claim note could not be put back: no stack command, and nothing is said to be left.
+seed_found; clr31
+rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$FAILNOTE_OVS
+up_ovs 4")"
+check "  33p a stack that stopped and a note that cannot be put back: rc 1" "1" "$(rc_of_out "$OUT")"
+has   "  33p the rollback says it is incomplete, and that the reason is above"   "rollback INCOMPLETE -- see above." "$OUT"
+hasnt "🔴 33p it does not say something of this run's is left"             "what is left of this run's" "$OUT"
+has   "🔴 33p it says nothing of this run's is still running"             "nothing of this run's is still running; what could not be put back is named above." "$OUT"
+hasnt "🔴 33p and names no command to stop anything"                      "to stop only that" "$OUT"
+has   "  33p and still says 'ndt down' would stop the session that is not this run's" "'ndt down' would also stop the topology session that is not this run's" "$OUT"
+check "  33p the stack was brought down once"                             "1" "$(stackcalls33 'down')"
+
+# 33q. OVS: a bring-up that fails after it started its background `stack.sh up ovs` does not leave that stack.sh behind. It sits at
+# its prompt, and the end of the FIFO that answers the prompt reads as "go on": a stack.sh that outlives the rollback goes on to start
+# a kernel after the rollback has said this run's part is taken down. The fake says who it is before its banner and, if it ever gets
+# past the read of its prompt, in a file; each failure of up_ovs after the launch is driven and the process is waited for (10 s at
+# most) before the file is read.
+# [Co-developed with claude code -- Adam]
+ovs33_after() {   # ovs33_after <pidfile> <marker> <label> -- the background stack.sh of the drive that just ended: started, gone, never past its prompt
+    local p="" i
+    for (( i = 0; i < 30; i++ )); do [[ -s "$1" ]] && break; sleep 0.1; done
+    p="$(cat "$1" 2>/dev/null)"
+    for (( i = 0; i < 100; i++ )); do [[ "$(alive33 "${p:-0}")" == yes ]] || break; sleep 0.1; done
+    check "  $3 the background stack.sh was started (the cell is not vacuous)" "yes" "$([[ -n "$p" ]] && echo yes || echo no)"
+    check "🔴 $3 it is gone" "no" "$(alive33 "${p:-0}")"
+    check "🔴 $3 and it never went past its prompt (it did not go on to start a kernel)" "absent" "$([[ -e "$2" ]] && echo present || echo absent)"
+}
+BUSY33="ndtwin-lab: topo bridge could not start"
+# the fabric verb finds a session that is not this run's (rc 5)
+seed_found; clr31; touch "$FIX/ovs_marks"; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+check "  33q a refused bring-up over a session that is not this run's is rc 5"  "5" "$(rc_of_out "$OUT")"
+has   "  33q it says it stopped the background stack.sh"                  "stopped the background 'stack.sh up ovs'" "$OUT"
+ovs33_after "$FIX/ovs33.pid" "$FIX/ovs33.proceeded" "33q busy refusal"
+# the fabric verb fails for another reason (rc 1)
+seed_found; clr31; touch "$FIX/ovs_marks"; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY33"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+check "  33q a failed fabric verb is rc 1"                                "1" "$(rc_of_out "$OUT")"
+ovs33_after "$FIX/ovs33.pid" "$FIX/ovs33.proceeded" "33q verb failure"
+# the fabric has fewer hosts than asked
+seed_found; clr31; touch "$FIX/ovs_marks"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_FABRIC_HOSTS=3 drive 'up_ovs 4')"
+check "  33q a fabric of 3 hosts for 4 is rc 1"                           "1" "$(rc_of_out "$OUT")"
+has   "  33q and says so"                                                  "fabric has 3 hosts, expected 4" "$OUT"
+ovs33_after "$FIX/ovs33.pid" "$FIX/ovs33.proceeded" "33q host count"
+# the host count is right and the processes are too few
+seed_found; clr31; touch "$FIX/ovs_marks"; echo "0 5" > "$FIX/mn.seq"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"
+check "  33q too few host/switch processes is rc 1"                       "1" "$(rc_of_out "$OUT")"
+has   "  33q and says so"                                                  "fabric did not build: 5 host/switch processes" "$OUT"
+ovs33_after "$FIX/ovs33.pid" "$FIX/ovs33.proceeded" "33q process count"
+# the prompt is never reached while stack.sh is alive (the 32f machinery holds it before its banner; its own files are used here)
+seed_found; clr31; rm -f "$FIX/ovs32.pid" "$FIX/ovs32.proceeded"
+OUT="$(NDT_OWNER="$NOTE_OWNER" FX_BLOCK_OVS=1 FX_SYNC32="$FIX/p33.sync" drive 'up_ovs 4')"
+check "  33q a stack.sh that never reaches its prompt is rc 1"            "1" "$(rc_of_out "$OUT")"
+has   "  33q and says so"                                                  "Ryu never reached the Mininet prompt" "$OUT"
+ovs33_after "$FIX/ovs32.pid" "$FIX/ovs32.proceeded" "33q no prompt"
+rm -f "$FIX/ovs_marks" "$FIX/ovs33.pid" "$FIX/ovs33.proceeded" "$FIX/ovs32.pid" "$FIX/ovs32.proceeded" "$FIX/p33.sync" "$FIX/mn.seq"
+
+# 33r. OVS, a session that is not this run's: a port of the stack this run stopped that is still held (or cannot be read) after the
+# rollback's stages is something of this run's left running, and the rollback says so and names the command that stops it. The kernel
+# was up before, this run started Ryu, `stack.sh stop ryu` answers 0, and the port is taken (or unreadable) once it has run.
+# [Co-developed with claude code -- Adam]
+STRANGER_OVS='ndt_port_open() { [[ "$1" == 8080 ]] && grep -q "^stop" "$FIX/stack.log" && return 0; return 1; }'
+BLIND_OVS='ndt_port_open() { [[ "$1" == 8080 ]] && grep -q "^stop" "$FIX/stack.log" && return 2; return 1; }'
+for v33 in held unreadable; do
+    seed_found; clr31; rm -f "$FIX/spawned.pids"
+    sp33_spawn kernel; K33="$SP33_PID"; hook33_desc ryu > "$FIX/stack.pre.hook"
+    rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+    if [[ "$v33" == held ]]; then X33="$STRANGER_OVS"; else X33="$BLIND_OVS"; fi
+    OUT="$(NDT_OWNER="$NOTE_OWNER" drive "$X33
+up_ovs 4")"
+    check "🔴 33r a port that is $v33 after Ryu was stopped: rc 1"          "1" "$(rc_of_out "$OUT")"
+    if [[ "$v33" == held ]]; then has "  33r $v33: the port is named" "still held after the rollback's stages ran: 8080" "$OUT"
+    else has "  33r $v33: the port is named" "could not re-read :8080" "$OUT"; fi
+    has   "🔴 33r $v33: it says what is left of this run's"               "what is left of this run's: ryu." "$OUT"
+    has   "🔴 33r $v33: and names the command that stops only that"       "to stop only that:  bash tools/test_workflow/stack.sh stop ryu" "$OUT"
+    hasnt "🔴 33r $v33: it does not say nothing of this run's is running" "nothing of this run's is still running" "$OUT"
+    check "  33r $v33: stack.sh was asked to stop Ryu once and not to bring the stack down" "1 0" "$(stackcalls33 'stop ryu$') $(stackcalls33 'down')"
+    check "  33r $v33: the kernel from before is still running"          "yes" "$(alive33 "$K33")"
+    sp33_kill
+done
+
+# 33s. `ndt help` and the user guide say what the third signal does over a session that is not this run's: the paragraph and the
+# bullet that describe the abandoned rollback ('ndt down' finishes it, and it leaves the record) name the exception.
+# [Co-developed with claude code -- Adam]
+GUIDE33="${GUIDE_UNDER_TEST:-$HERE/../../doc/2026-11-05_user-guide.md}"
+flat33() { tr '\n' ' ' | tr -s ' '; }
+HELP_INT33="$(bash "$NDT" help 2>&1 | flat33 | sed -e 's/.*INTERRUPTING A BRING-UP//' -e 's/ signal to the process group.*//')"
+GUIDE_INT33="$(flat33 < "$GUIDE33" | sed -e 's/.*- Interrupting a bring-up\.//' -e 's/ A signal to the process group.*//')"
+has   "  33s ndt help: the paragraph is the one that says 'ndt down' finishes an abandoned rollback" "the third abandons it and says what is not undone ('ndt down' finishes that)" "$HELP_INT33"
+has   "🔴 33s ndt help: over a session that is not this run's it names the stack command instead" "Over a topology session that is not this run's it names the stack command instead" "$HELP_INT33"
+has   "🔴 33s ndt help: and says it writes no record"                      "writes no record" "$HELP_INT33"
+has   "🔴 33s ndt help: the command is named only when there is one"       "names the stack command instead, when there is one ('ndt down' would end that session)" "$HELP_INT33"
+has   "  33s the guide: the bullet is the one that says \`ndt down\` finishes an abandoned rollback" 'the third abandons it and says what it did not undo, and `ndt down` finishes that' "$GUIDE_INT33"
+has   "🔴 33s the guide: over a session that is not this run's it names the stack command instead" "Over a topology session that is not this run's (the refusal described above) it names the stack command instead" "$GUIDE_INT33"
+has   "🔴 33s the guide: and says it writes no record"                      "writes no record" "$GUIDE_INT33"
+has   "🔴 33s the guide: the command is named only when there is one"       'names the stack command instead, when there is one, since `ndt down` would end that session' "$GUIDE_INT33"
+
+# 33t. OVS: a failure after the background stack.sh was started leaves the components it registered (Ryu, started with `setsid ... &`, so
+# its child) to the rollback's stack stage, which stops them by name and says so. Stopping stack.sh must not take Ryu down first: the
+# stage would then find nothing alive, and the closing line would say nothing of this run's was taken down. The fake registers a real
+# child of its own before the banner (stack.pre.hook); its `stop` says "stopped" only for a process that was alive.
+# [Co-developed with claude code -- Adam]
+for b33 in busy hosts; do
+    seed_found; clr31; rm -f "$FIX/spawned.pids"
+    sp33_spawn kernel; K33="$SP33_PID"; hook33_desc ryu > "$FIX/stack.pre.hook"
+    if [[ "$b33" == busy ]]; then
+        rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"
+        OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'up_ovs 4')"; W33="rolled back: ryu taken down; left running (up before this 'ndt up'): kernel (pid $K33)"; E33=5
+    else
+        OUT="$(NDT_OWNER="$NOTE_OWNER" FX_FABRIC_HOSTS=3 drive 'up_ovs 4')"; W33="rolled back: ryu, fabric taken down; left running (up before this 'ndt up'): kernel (pid $K33)"; E33=1
+    fi
+    R33="$(last_spawned33)"
+    check "  33t $b33: the bring-up ends rc $E33"                          "$E33" "$(rc_of_out "$OUT")"
+    has   "🔴 33t $b33: the closing line says Ryu was taken down, and the kernel was left"  "$W33" "$OUT"
+    has   "🔴 33t $b33: stack.sh's stop of Ryu reports it stopped"          "  stopped ryu" "$OUT"
+    check "  33t $b33: stack.sh was asked to stop Ryu once and not to bring the stack down" "1 0" "$(stackcalls33 'stop ryu$') $(stackcalls33 'down')"
+    check "  33t $b33: Ryu is gone and the kernel from before is not"      "no yes" "$(alive33 "${R33:-0}") $(alive33 "$K33")"
+    sp33_kill
+done
 
 # 33i. OVS: a failed `ndt up ovs 4` puts the record and the note back (up_ovs took no snapshot before).
 reset_fix; set33; rc_for stack_up 1; echo "0 14 0" > "$FIX/mn.seq"
@@ -4400,6 +4806,139 @@ has   "🔴 32e2 the note says so, and what to run"                          "ro
 check "🔴 32e2 up.target is kept: the fabric it describes may still be up"   "no" "$([[ "$(bytes33 "$T33")" == "$B_T" ]] && echo yes || echo no)"
 check "  32e2 and the marker is gone"                                       "absent" "$([[ -e "$UM" ]] && echo present || echo absent)"
 end32; unset33
+
+# 32e4. the third signal abandons a rollback over a topology session that is not this run's: it does not send the operator to
+# 'ndt down' (which would stop that session), names the stack command, and writes no unfinished record (no fabric was built)
+# [Co-developed with claude code -- Adam]
+reset_fix; set33; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"; rm -f "$FIX/.test_run/up.unfinished"
+start32 'export NDT_OWNER='"$NDT33"'
+eval "fx_$(declare -f stack_down_lines)"
+stack_down_lines() {
+    local n=0
+    while (( n < 4 )); do
+        bash -c '"'"'echo "stack stage reached $1" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"'"'"' _ "$n"
+        n=$(( n + 1 ))
+    done
+    fx_stack_down_lines "$@"
+}
+cmd_up up_ovs 4'
+read32; learn32; premise32 32e4
+check "  32e4 the rollback of the refusal is in its stack stage"             "stack stage reached 0" "$L32"
+sig32 INT
+read32; check "  32e4 the first signal was handled and the rollback was still in that stage" "stack stage reached 1" "$L32"
+sig32 INT
+read32; check "  32e4 so was the second"                                    "stack stage reached 2" "$L32"
+sig32 INT
+read32; check "  32e4 the third ends the shell, rc 130"                      "exit 130" "$L32"
+OUT="$(body32)"
+has   "  32e4 the rollback is abandoned at the stack"                       "rollback ABANDONED at stack" "$OUT"
+hasnt "🔴 32e4 it does not send the operator to 'ndt down' to finish it"    "finish it by hand:  ndt down" "$OUT"
+has   "🔴 32e4 it names the command that stops only what is left of this run's" "to stop only what is left of this run's:  bash tools/test_workflow/stack.sh down" "$OUT"
+has   "🔴 32e4 and says 'ndt down' would also stop the session that is not this run's" "'ndt down' would also stop the topology session that is not this run's" "$OUT"
+check "🔴 32e4 no unfinished record: this run built no fabric"             "absent" "$([[ -e "$UNF31" ]] && echo present || echo absent)"
+has   "  32e4 and it says so"                                              "not recorded: this run built no fabric" "$OUT"
+hasnt "🔴 32e4 the note does not tell the operator to run 'ndt down'"       "run 'ndt down'" "$(note33)"
+has   "  32e4 it says the session that is there is not this run's"         "the topology session that is there is not this run's" "$(note33)"
+check "🔴 32e4 the session that is there was not stopped"                  "0" "$(grep -cE ' (topo-stop|cleanup)$' "$FIX/sudo.log" || true)"
+end32; unset33
+
+# 32e5. the same abandon, with the kernel up before this run and the signals arriving BEFORE the rollback has sorted the stack into
+# this run's and the rest: nothing of the stack is known to be this run's yet, so no stack command is named (`stack.sh stop` with
+# no name is a usage error, and `stack.sh down` would stop the kernel that was up before). The stack stage is open, so the
+# advice does have a place to name one.
+# [Co-developed with claude code -- Adam]
+reset_fix; set33; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"; rm -f "$FIX/.test_run/up.unfinished" "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"; hook33_desc ryu > "$FIX/stack.pre.hook"
+start32 'export NDT_OWNER='"$NDT33"'
+eval "fx_$(declare -f knob_restore)"
+knob_restore() {
+    local n=0
+    while (( n < 4 )); do
+        bash -c '"'"'echo "before the sort $1" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"'"'"' _ "$n"
+        n=$(( n + 1 ))
+    done
+    fx_knob_restore "$@"
+}
+cmd_up up_ovs 4'
+read32; learn32; premise32 32e5
+check "  32e5 the rollback of the refusal has not sorted the stack yet"      "before the sort 0" "$L32"
+sig32 INT
+read32; check "  32e5 the first signal was handled and the rollback was still there" "before the sort 1" "$L32"
+sig32 INT
+read32; check "  32e5 so was the second"                                    "before the sort 2" "$L32"
+sig32 INT
+read32; check "  32e5 the third ends the shell, rc 130"                      "exit 130" "$L32"
+OUT="$(body32)"
+has   "  32e5 the rollback is abandoned"                                    "rollback ABANDONED at" "$OUT"
+has   "  32e5 it says 'ndt down' would also stop the session that is not this run's" "'ndt down' would also stop the topology session that is not this run's" "$OUT"
+hasnt "🔴 32e5 it names no 'stack.sh stop' (no part of the stack is known to be this run's)" "stack.sh stop" "$OUT"
+hasnt "🔴 32e5 and no 'stack.sh down' (the kernel from before would go with it)"  "stack.sh down" "$OUT"
+check "  32e5 stack.sh was not asked to do anything after the launch"     "0" "$(grep -cE '^(stop|down)' "$FIX/stack.log" || true)"
+check "  32e5 the kernel from before is still running"                    "yes" "$(alive33 "$K33")"
+end32; sp33_kill; unset33
+
+# 32e6. ... and the signals arriving in the stack stage, after the sort: this run's part (Ryu) is known, and the command stops only it.
+# [Co-developed with claude code -- Adam]
+reset_fix; set33; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"; rm -f "$FIX/.test_run/up.unfinished" "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"; hook33_desc ryu > "$FIX/stack.pre.hook"
+start32 'export NDT_OWNER='"$NDT33"'
+eval "fx_$(declare -f stack_down_lines)"
+stack_down_lines() {
+    local n=0
+    while (( n < 4 )); do
+        bash -c '"'"'echo "stack stage reached $1" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"'"'"' _ "$n"
+        n=$(( n + 1 ))
+    done
+    fx_stack_down_lines "$@"
+}
+cmd_up up_ovs 4'
+read32; learn32; premise32 32e6
+check "  32e6 the rollback of the refusal is in its stack stage"            "stack stage reached 0" "$L32"
+sig32 INT
+read32; check "  32e6 the first signal was handled"                          "stack stage reached 1" "$L32"
+sig32 INT
+read32; check "  32e6 so was the second"                                    "stack stage reached 2" "$L32"
+sig32 INT
+read32; check "  32e6 the third ends the shell, rc 130"                      "exit 130" "$L32"
+OUT="$(body32)"
+has   "  32e6 the rollback is abandoned at the stack"                       "rollback ABANDONED at stack" "$OUT"
+has   "🔴 32e6 it names the command that stops only this run's part"        "to stop only what is left of this run's:  bash tools/test_workflow/stack.sh stop ryu" "$OUT"
+hasnt "🔴 32e6 and not 'stack.sh down' (the kernel from before would go with it)" "stack.sh down" "$OUT"
+check "  32e6 stack.sh was asked to stop Ryu, and nothing else"            "1 0" "$(stackcalls33 'stop ryu$') $(stackcalls33 'down')"
+check "  32e6 the kernel from before is still running"                    "yes" "$(alive33 "$K33")"
+end32; sp33_kill; unset33
+
+# 32e7. ... and the signals arriving after the sort and before the stack stage stops anything: Ryu, this run's own child of the stack.sh that
+# was stopped when the verb failed, is still running, so "what is left of this run's" is true, and the command that stops it is named.
+# [Co-developed with claude code -- Adam]
+reset_fix; set33; clr31; rc_for ovs-topo-4host 1; err_for ovs-topo-4host "$BUSY31"; rm -f "$FIX/.test_run/up.unfinished" "$FIX/spawned.pids"
+sp33_spawn kernel; K33="$SP33_PID"; hook33_desc ryu > "$FIX/stack.pre.hook"
+start32 'export NDT_OWNER='"$NDT33"'
+eval "fx_$(declare -f rollback_stack_classify)"
+rollback_stack_classify() {
+    fx_rollback_stack_classify "$@"
+    local n=0
+    while (( n < 4 )); do
+        bash -c '"'"'echo "after the sort $1" 1<>"$FX_SYNC32"; read -r -t 30 _ <>"$FX_GO32"'"'"' _ "$n"
+        n=$(( n + 1 ))
+    done
+}
+cmd_up up_ovs 4'
+read32; learn32; premise32 32e7
+check "  32e7 the rollback of the refusal has sorted the stack and has stopped nothing" "after the sort 0" "$L32"
+R32="$(cat "$FIX/.test_run/pids/ryu.pid" 2>/dev/null)"
+sig32 INT
+read32; check "  32e7 the first signal was handled"                          "after the sort 1" "$L32"
+sig32 INT
+read32; check "  32e7 so was the second"                                    "after the sort 2" "$L32"
+sig32 INT
+read32; check "  32e7 the third ends the shell, rc 130"                      "exit 130" "$L32"
+OUT="$(body32)"
+check "🔴 32e7 Ryu, registered by the stack.sh that was stopped, is still running (it is the rollback's to stop)" "yes" "$(alive32 "${R32:-0}")"
+has   "🔴 32e7 the command that stops only what is left of this run's is named" "to stop only what is left of this run's:  bash tools/test_workflow/stack.sh stop ryu" "$OUT"
+check "  32e7 stack.sh was not asked to stop or bring down anything"       "0" "$(grep -cE '^(stop|down)' "$FIX/stack.log" || true)"
+check "  32e7 the kernel from before is still running"                    "yes" "$(alive33 "$K33")"
+end32; sp33_kill; unset33
 
 # 32f. the OVS plane: a signal to ndt's pid alone does not reach its background stack.sh; the handler stops it, so it
 # does not go on to start a kernel when the FIFO that answers its prompt ends. (A group signal would reach both: this

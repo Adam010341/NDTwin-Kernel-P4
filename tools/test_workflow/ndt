@@ -3503,6 +3503,42 @@ UP_STARTED=()
 up_started() { UP_STARTED+=("$1"); }
 
 # [Co-developed with claude code -- Adam]
+# A topo session this run did not start. ndtwin-lab's three launch verbs (topo-start, ovs-topo-start, ovs-topo-4host) refuse
+# with this sentence, before they change anything, when a session already exists; it is matched in ONE place
+# (topo_busy_said), and a cell compares it with the helper's own text, so a rewording on either side is caught.
+# up_unstarted takes a stage back out of the record: the verb that was about to start it refused, so this run never did.
+# UP_FOREIGN_SESSION is set once the run knows the session there is not its own: no stage of rollback_up may stop it.
+LAB_TOPO_BUSY_TEXT="topo session already running (topo-stop first)"
+UP_FOREIGN_SESSION=0
+topo_busy_said() { [[ "$1" == *"$LAB_TOPO_BUSY_TEXT"* ]]; }
+up_unstarted() {   # <stage> -- drop its last record
+    local i
+    for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
+        [[ "${UP_STARTED[$i]}" == "$1" ]] && { unset 'UP_STARTED[i]'; UP_STARTED=(${UP_STARTED[@]+"${UP_STARTED[@]}"}); return 0; }
+    done
+    return 0
+}
+# up_foreign_session_lines -- what a refusal over a session that is not this run's says: the same three lines at [1/3] and
+# at the verb that starts the fabric. `ndt status` shows that a session is there and names no owner.
+up_foreign_session_lines() {
+    err "a topo session is running that this bring-up did not see when it decided to build"
+    err "(started by hand, by a script that calls ndtwin-lab, or by an older ndt): it is not this run's to stop."
+    err "'ndt status' shows that a session is there (it names no owner); end it where it was started ('sudo ndtwin-lab topo-stop' for one started by hand), then run this 'ndt up' again."
+}
+# up_foreign_stack_cmd -- the one command that stops what this run started of the stack and nothing that was up before it,
+# printed (nothing when there is none to name). `stack.sh down` stops the kernel, the proxy and Ryu whatever started them, so
+# it is only named when nothing of the stack was up before this run; otherwise it is `stack.sh stop` of this run's part
+# (STACK_STOPSET, read by rollback_up before it stopped anything), and with no part of this run's there is no command.
+# [Co-developed with claude code -- Adam]
+up_foreign_stack_cmd() {
+    if (( ${#STACK_BEFORE[@]} == 0 )); then
+        printf '%s' "bash tools/test_workflow/stack.sh down"
+    elif (( ${#STACK_STOPSET[@]} )); then
+        printf '%s' "bash tools/test_workflow/stack.sh stop ${STACK_STOPSET[*]}"
+    fi
+}
+
+# [Co-developed with claude code -- Adam]
 # What a rollback cannot make as it was, kept as the run goes: UP_LEFT is what this 'ndt up' found
 # running and left alone (the reused fabric), UP_REPLACED is what it took down to build its own
 # and cannot put back. rollback_up reads them for the up.target record, the claim note and the
@@ -4051,7 +4087,7 @@ HBROW
 
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
 rollback_up() {
-    local why="$1" i stage rc=0 out src crc left=0 deferred="" stopped="" names="" deferred_what="the port(s) stack.sh down named"
+    local why="$1" i stage rc=0 out src crc left=0 deferred="" stopped="" names="" deferred_what="the port(s) stack.sh down named" stack_left=0
     # [Co-developed with claude code -- Adam] A signal that arrives from here on is a signal during a rollback (up_on_signal),
     # whichever branch called this; the marker says so, and UP_RB_AT says which stage a third signal abandons.
     UP_ROLLING_BACK=1; RUN_PHASE=rollback; UP_RB_AT=${#UP_STARTED[@]}
@@ -4075,7 +4111,12 @@ rollback_up() {
     refusal_put_back "$(telemetry_knob_path)" "this bring-up was rolled back" || rc=1
     APP_KNOB_WRITTEN=""
     if (( ${#UP_STARTED[@]} == 0 )); then
-        info "nothing to roll back: this 'ndt up' had not changed the machine yet"
+        if (( UP_FOREIGN_SESSION )); then
+            info "nothing of this run's is left to take down: the topology session that is there is not this run's, and it is left running"
+            (( ${#UP_REPLACED[@]} )) && warn "replaced and not restored: $(join_list "${UP_REPLACED[@]}")"
+        else
+            info "nothing to roll back: this 'ndt up' had not changed the machine yet"
+        fi
         # $rc, not 0: putting the app knob back is the only thing a rollback can have to DO when no
         # stage was started, and a knob that could not be put back is the one outcome this
         # sentence must not be printed over -- it still points the next proxy at a package.
@@ -4091,6 +4132,7 @@ rollback_up() {
     STACK_STOPSET=()
     if up_did_start stack && (( ${#STACK_BEFORE[@]} )); then rollback_stack_classify; fi
     info "this bring-up started: ${UP_STARTED[*]} -- taking them back down"
+    (( UP_FOREIGN_SESSION )) && info "the topology session that is there is not this run's: it is left running"
     (( ${#UP_LEFT[@]} )) && info "up before this 'ndt up', and not touched by this rollback: $(join_list "${UP_LEFT[@]}")"
     for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
         stage="${UP_STARTED[$i]}"; UP_RB_AT=$i
@@ -4121,7 +4163,7 @@ rollback_up() {
                         names="$(sed -n -E 's/^[[:space:]]*stopped (kernel|p4_proxy|ryu)$/\1/p' <<<"$out" | paste -sd, - | sed 's/,/, /g')"
                         [[ -n "$names" ]] && stopped="${stopped:+$stopped, }$names"
                         stack_down_lines "$out"
-                        if (( src != 0 )); then err "stack.sh stop exited $src"; rc=1; fi
+                        if (( src != 0 )); then err "stack.sh stop exited $src"; rc=1; stack_left=1; fi
                         deferred="$(stack_ports_of "${STACK_STOPSET[@]}")"
                         deferred_what="the port(s) of what this rollback stopped"
                     else
@@ -4150,7 +4192,7 @@ rollback_up() {
                     info "  they are read again after the rollback's other stages run."
                 else
                     stack_down_lines "$out"
-                    if (( src != 0 )); then err "stack.sh down exited $src"; rc=1; fi
+                    if (( src != 0 )); then err "stack.sh down exited $src"; rc=1; stack_left=1; fi
                 fi
                 ;;
             fabric)
@@ -4217,14 +4259,14 @@ rollback_up() {
             for p in $unread; do unread_c="${unread_c:+$unread_c }:$p"; done
             [[ "$unread" == *" "* ]] && unread_are="they are"
             err "rollback: could not re-read $unread_c, so whether $unread_are still held is unknown -- not a pass"
-            left=1
+            left=1; stack_left=1
         fi
         if [[ -n "$held" ]]; then
             err "rollback: still held after the rollback's stages ran: $held"
             for p in $held; do
                 err "    :$p is held by $(ndt_port_holder "$p" "$(ndt_port_proto "$p")")"
             done
-            left=1
+            left=1; stack_left=1
         fi
     fi
     # [Co-developed with claude code -- Adam]
@@ -4244,8 +4286,30 @@ rollback_up() {
         (( ${#UP_LEFT[@]} )) && line+="; left running (up before this 'ndt up'): $(join_list "${UP_LEFT[@]}")"
         (( ${#UP_REPLACED[@]} )) && line+="; replaced and not restored: $(join_list "${UP_REPLACED[@]}")"
         ok "$line"
+    elif (( rc == 0 && left == 0 && UP_FOREIGN_SESSION )); then
+        # [Co-developed with claude code -- Adam] The machine is not as it was: a topology session this run did not start
+        # is there, and was left running.
+        ok "rolled back: what this 'ndt up' started is taken down; the topology session that is there is not this run's, and is left running"
     elif (( rc == 0 && left == 0 )); then
         ok "rolled back: the machine is back to what it was before this 'ndt up'"
+    elif (( UP_FOREIGN_SESSION )); then
+        # [Co-developed with claude code -- Adam]
+        # A rollback that could not finish while a topology session that is not this run's is there. What is left of THIS
+        # run's is named only when something is (a stack that did not stop, a port it still holds), with the one command that
+        # stops only that (up_foreign_stack_cmd); a rollback that stopped everything and could not put a file back says so.
+        # 'ndt down' stops every session and every component there is, and would end the one this run has just said is not
+        # its own. No unfinished record: this run started no fabric, and the record is about a fabric that may be half up.
+        err "rollback INCOMPLETE -- see above."
+        if (( stack_left )); then
+            local what="stack" cmd; cmd="$(up_foreign_stack_cmd)"
+            (( ${#STACK_BEFORE[@]} && ${#STACK_STOPSET[@]} )) && what="${STACK_STOPSET[*]}"
+            err "  what is left of this run's: $what."
+            [[ -n "$cmd" ]] && err "  to stop only that:  $cmd"
+        else
+            err "  nothing of this run's is still running; what could not be put back is named above."
+        fi
+        err "  'ndt down' would also stop the topology session that is not this run's."
+        rc=1
     elif [[ "${UP_P4_FABRIC:-}" == reused ]]; then
         # [Co-developed with claude code -- Adam] Not 'ndt down --deep': this run did not start the
         # fabric, and both 'ndt down' and --deep take it down.
@@ -4640,8 +4704,12 @@ up_p4() {
     if [[ -z "$tel_word" ]]; then
         tel_word="$(telemetry_word_for_bring_up "$app_dir")" || tel_word_rc=$?
     fi
-    local reuse=0
-    topo_session && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]] && reuse=1
+    # [Co-developed with claude code -- Adam]
+    # The session reading is kept, not only its verdict: [1/3] asks again before it may stop a session, and a session
+    # this decision did not see is not one that bring-up replaces (see there). 0 a session, 1 none, 2 could not tell.
+    local reuse=0 dec_sess_rc=0
+    topo_session || dec_sess_rc=$?
+    (( dec_sess_rc == 0 )) && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]] && reuse=1
     if (( reuse )) && stale_pipeline; then
         # Reusing here would measure the old pipeline while every readout says the new one.
         err "the fabric predates the current build of ndtwin_switch.json."
@@ -4855,6 +4923,19 @@ up_p4() {
             refusal_unwind "the topo session could not be checked; nothing was built" || return 1
             return 5
         fi
+        # [Co-developed with claude code -- Adam]
+        # 🔴 A SESSION THAT WAS NOT THERE WHEN THIS RUN DECIDED TO BUILD IS NOT THIS RUN'S TO STOP. The replace below is for
+        # a session the decision above saw (a fabric of another size, a stale record, a build that differs). One that shows
+        # up between that reading and this one belongs to somebody else -- a `topo-start` run by hand, a script that calls
+        # the helper, an older ndt, none of which the run marker of this one can see -- and `topo-stop` would end their
+        # bring-up. Refused before anything is started, so there is nothing to roll back and no record is left; a decision
+        # that could not tell (rc 2) saw no session either. Nothing here stops or starts anything. A session that appears
+        # after this reading is met by the topo-start below (the same refusal, at its failure).
+        if (( sess_rc == 0 && dec_sess_rc != 0 )); then
+            up_foreign_session_lines
+            refusal_unwind "a topo session appeared after this bring-up decided to build; nothing was built" || return 1
+            return 5
+        fi
         # Recorded before the first call that changes the fabric, not after: a topo-start that fails part way
         # through has still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up. It is
         # above the replace below on purpose: a signal that arrives while the old session is being stopped
@@ -4863,7 +4944,9 @@ up_p4() {
         # [Co-developed with claude code -- Adam] A fabric that was running is taken down here and
         # is not rebuilt if this run fails: the rollback says so by name and does not call the
         # machine back as it was (up_replaced is recorded before the call, like every stage).
-        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+        # [Co-developed with claude code -- Adam] stop_rc is what that topo-stop answered: 0 when nothing was stopped at all.
+        local stop_rc=0
+        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1 || stop_rc=$?; }
         # [Co-developed with claude code -- Adam]
         # The output is PRINTED, not discarded. topo-start's one line is "topo session started
         # from <KERNEL_DIR>", and ndtwin-lab prints it deliberately -- its comment there says
@@ -4879,6 +4962,26 @@ up_p4() {
         [[ -n "$tsout" ]] && printf '%s\n' "$tsout" | sed 's/^/      /'
         if (( tsrc != 0 )); then
             err "topo-start failed"
+            # [Co-developed with claude code -- Adam]
+            # 🔴 THE HELPER REFUSED BECAUSE A SESSION IS THERE, and it is not this run's when this run did not leave it there:
+            # nothing was stopped (no session at the reading above), or the topo-stop above answered 0, so what is there now
+            # was started by somebody else in the meantime and topo-start refused before it changed anything. Recorded as
+            # started a few lines up, `fabric` would make the rollback run topo-stop and cleanup on it. It is taken back out
+            # of the record instead, before a word is said (a signal in between must not roll the session back). With nothing
+            # else of this run's to roll back (the fabric is the only stage at this point) the refusal is the one at [1/3]:
+            # the files are put back, rc 5. When this run had stopped a running fabric to build its own, that fabric stays
+            # gone and the rollback says so. A topo-stop that FAILED leaves the session it was asked to stop where it was:
+            # the sentence is then about that one, which is this run's to roll back, and the ordinary rollback below runs.
+            if (( stop_rc == 0 )) && topo_busy_said "$tsout"; then
+                up_unstarted fabric; UP_FOREIGN_SESSION=1
+                up_foreign_session_lines
+                if (( ${#UP_STARTED[@]} == 0 && ${#UP_REPLACED[@]} == 0 )); then
+                    refusal_unwind "a topo session this bring-up did not start was there when it ran topo-start; nothing was built" || return 1
+                    return 5
+                fi
+                rollback_up "a topo session this bring-up did not start was there when it ran topo-start; it is left running" || return 1
+                return 5
+            fi
             # [Co-developed with claude code -- Adam]
             # The bridge may never have been launched at all here -- `ndtwin-lab topo-start`
             # refuses outright when a topo session is already up -- so whatever topo.log holds
@@ -5907,10 +6010,13 @@ up_ovs() {
     done
     if ! grep -q '2/3' "$out"; then
         err "Ryu never reached the Mininet prompt"; sed 's/^/      /' "$out"
-        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
-        # `kill $stack_pid` ends the shell that launched Ryu, not Ryu: start_bg setsids it into
-        # its own process group, which is precisely why a failed `ndt up ovs4` left :8080/:6653/
-        # :6633 bound on 09-02. stack.sh down is the thing that knows how to stop it.
+        # [Co-developed with claude code -- Adam]
+        # A bare `kill $stack_pid` reaches the subshell that launched stack.sh, not stack.sh, and neither reaches Ryu:
+        # start_bg setsids it into its own process group, which is precisely why a failed `ndt up ovs4` left
+        # :8080/:6653/:6633 bound on 09-02. up_bg_stack_stop stops stack.sh and closes the FIFO last; what stack.sh
+        # registered and left running is the rollback's to stop (`stack.sh down`, or `stack.sh stop <names>` when part
+        # of the stack was up before this run).
+        up_bg_stack_stop
         rollback_up "Ryu never reached the Mininet prompt"
         return 1
     fi
@@ -5918,10 +6024,32 @@ up_ovs() {
 
     say "[2/4] data plane (OVS fabric)"
     up_started fabric
-    sudo -n "$LAB" "$ovs_verb" >/dev/null || {
-        err "$ovs_verb failed"; exec 3>&-; rm -f "$fifo" "$out"
+    # [Co-developed with claude code -- Adam]
+    # What the helper says on stderr is read as well as shown: its three launch verbs refuse, before they change anything,
+    # when a topo session already exists (see topo_busy_said). stdout is discarded as before.
+    local ovs_err ovs_rc
+    ovs_err="$(sudo -n "$LAB" "$ovs_verb" 2>&1 >/dev/null)"; ovs_rc=$?
+    [[ -n "$ovs_err" ]] && printf '%s\n' "$ovs_err" >&2
+    if (( ovs_rc != 0 )); then
+        # [Co-developed with claude code -- Adam] The background stack.sh is stopped, not just left without its FIFO: the end of that
+        # FIFO is the answer to its prompt, and one that is still alive would go on and start a kernel after the rollback is done.
+        # [Co-developed with claude code -- Adam]
+        # 🔴 A session that was there when the verb ran is not this run's: it is taken out of the record, so the rollback's
+        # fabric stage does not run topo-stop and cleanup on it. The stack this run started (Ryu) is still rolled back. rc 5
+        # when that rollback finished (a guard refused: no fabric was built), 1 when it did not. Decided before the
+        # background stack.sh is stopped, whose /proc scan is the longest step here: a signal in it must already find the record
+        # corrected.
+        local busy=0
+        if topo_busy_said "$ovs_err"; then busy=1; up_unstarted fabric; UP_FOREIGN_SESSION=1; fi
+        err "$ovs_verb failed"; up_bg_stack_stop
+        if (( busy )); then
+            up_foreign_session_lines
+            rollback_up "a topo session this bring-up did not start was there when $ovs_verb ran; it is left running" || return 1
+            return 5
+        fi
         rollback_up "$ovs_verb failed; it may still have left a topo session behind"
-        return 1; }
+        return 1
+    fi
     # Wait on the HOST count, not on "at least N processes". `-ge` against hosts+10 was
     # satisfied by any fabric at least that big -- 139 >= 26 -- which is how a 128-host fabric
     # passed for 16. [Co-developed with claude code -- Adam]
@@ -5935,13 +6063,13 @@ up_ovs() {
     n="$(mn_count)"
     if [[ "$live_hosts" -ne "$ovs_hosts" ]]; then
         err "fabric has $live_hosts hosts, expected $ovs_hosts"
-        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+        up_bg_stack_stop
         rollback_up "the fabric built $live_hosts hosts, not $ovs_hosts"
         return 1
     fi
     if [[ "$n" -lt "$want_procs" ]]; then
         err "fabric did not build: $n host/switch processes"
-        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+        up_bg_stack_stop
         rollback_up "the data plane did not build ($n host/switch processes)"
         return 1
     fi
@@ -6389,7 +6517,8 @@ run_stale_remove() {
 # marker is written), or this process's own marker, written by a bring-up that ends with a fabric nobody verified --
 # one that abandoned its rollback (up_abandon_rollback), whose rollback ended INCOMPLETE (rollback_up), that was
 # interrupted at its last step (up_on_signal), or whose verify ran and failed (cmd_up). A rollback that finished
-# leaves none (the machine is as it was), and neither does a refusal. Nothing reads it for anything but the
+# leaves none (the machine is as it was), and neither does a refusal -- nor a bring-up that was refused over a topology
+# session that is not this run's, which built no fabric, whatever became of its rollback (up_unfinished_record). Nothing reads it for anything but the
 # three things below, and nothing removes it but the two that follow:
 #   * `ndt status` shows it in the `run` row, and `status --check` counts it as a problem (status_run_row);
 #   * the next `ndt up p4` does not reuse the running fabric while it is there: it rebuilds, and says why;
@@ -6430,6 +6559,13 @@ up_unfinished_write() {
 # [Co-developed with claude code -- Adam]
 up_unfinished_record() {
     local unf; unf="$(run_unfinished_file)"
+    # [Co-developed with claude code -- Adam] A refusal over a topology session that is not this run's built no fabric (the
+    # verb died before it changed anything), so there is no fabric nobody verified to record: not on a decided exit, not
+    # from a third signal, not from the EXIT trap. The next 'ndt up p4' would otherwise rebuild over that session.
+    if (( UP_FOREIGN_SESSION )) && ! up_did_start fabric; then
+        info "not recorded: this run built no fabric"
+        return 0
+    fi
     if up_unfinished_write; then
         warn "recorded in ${unf#$REPO/}: 'ndt up p4' rebuilds what is up instead of reusing it; 'ndt up ovs' refuses to build over it."
     else
@@ -6730,8 +6866,8 @@ cmd_up() {
     trap 'up_on_signal TERM 143' TERM
     trap 'up_on_signal HUP 129' HUP
     "$@"; rc=$?
-    # Verified, or a rollback ran (a finished one has no record, an INCOMPLETE one wrote its own): nothing is left to
-    # record. A verify that failed is decided below, after its record, so a way out in between is still seen by
+    # Verified, or a rollback ran (a finished one has no record, an INCOMPLETE one wrote its own, except one over a topology
+    # session that is not this run's, which built no fabric): nothing is left to record. A verify that failed is decided below, after its record, so a way out in between is still seen by
     # up_exit_unverified.
     (( rc == 0 || UP_ROLLING_BACK )) && UP_EXIT_DECIDED=1
     trap - INT TERM HUP
@@ -6816,20 +6952,28 @@ sig_output_check() {
     return 0
 }
 
-# up_bg_stack_stop -- stop up_ovs's background `stack.sh up ovs`, and the processes under it, and remove its
-# FIFO and output file. Children first, then the subshell that launched them, and the FIFO's writing end last:
+# up_bg_stack_stop -- stop up_ovs's background `stack.sh up ovs`, and the processes of its own process group under it, and
+# remove its FIFO and output file. Children first, then the subshell that launched them, and the FIFO's writing end last:
 # the end of that FIFO is what stack.sh reads as the answer to its prompt, so closing it first would let a
-# stack.sh that is still alive go on and start the kernel. Whatever stack.sh had already started while it lives
-# (Ryu, its supervisor: `setsid ... &` in a script without job control does not fork, so they are its
-# descendants) is stopped with it; what is registered and still running afterwards is the rollback's to stop.
-# Only a pid that is this process's child is touched.
+# stack.sh that is still alive go on and start the kernel. What stack.sh started with `setsid` (Ryu, its supervisor, a
+# kernel: `setsid ... &` in a script without job control does not fork, so they are its descendants, in sessions of their
+# own) is NOT signalled: it is registered, and the rollback's stack stage stops it by name and says it did, which it could
+# not if it were already gone. Only a pid that is this process's child is touched.
+# [Co-developed with claude code -- Adam]
 up_bg_stack_stop() {
-    local pid="$UP_BG_PID" line rest k
+    local pid="$UP_BG_PID" line rest k kl pg ppid
     if [[ "$pid" =~ ^[0-9]+$ ]] && read -r line 2>/dev/null < "/proc/$pid/stat" && [[ "$line" == *") "* ]]; then
-        rest="${line##*) }"; rest="${rest#* }"; rest="${rest%% *}"
-        if [[ "$rest" == "$$" ]]; then
+        read -r _ ppid pg _ <<<"${line##*) }"
+        if [[ "$ppid" == "$$" ]]; then
             proc_descendants "$pid"
-            for k in ${PROC_KIDS[@]+"${PROC_KIDS[@]}"} "$pid"; do kill -TERM "$k" 2>/dev/null; done
+            for k in ${PROC_KIDS[@]+"${PROC_KIDS[@]}"} "$pid"; do
+                if [[ "$k" != "$pid" ]]; then
+                    read -r kl 2>/dev/null < "/proc/$k/stat" && [[ "$kl" == *") "* ]] || continue
+                    read -r _ _ rest _ <<<"${kl##*) }"
+                    [[ "$rest" == "$pg" ]] || continue
+                fi
+                kill -TERM "$k" 2>/dev/null
+            done
             info "stopped the background 'stack.sh up ovs' (pid $pid)"
         fi
     fi
@@ -6863,10 +7007,23 @@ up_abandon_rollback() {
     fi
     for (( j = (UP_RB_AT < n ? UP_RB_AT : n) - 1; j >= 0; j-- )); do left+="${left:+, }${UP_STARTED[$j]}"; done
     err "rollback ABANDONED at $at; not undone: ${left:-nothing more -- the checks after its stages did not run}"
-    err "  the machine is as that rollback left it. finish it by hand:  ndt down"
+    local note="ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} interrupted; rollback abandoned at $at -- run 'ndt down'"
+    if (( UP_FOREIGN_SESSION )); then
+        # [Co-developed with claude code -- Adam] 'ndt down' would end the topology session this run said is not its own. The stack is
+        # open when the stage the rollback was at, or one below it, is the stack (an abandon after its stages leaves none).
+        local k open=0 cmd
+        for (( k = 0; k < n && k <= UP_RB_AT; k++ )); do [[ "${UP_STARTED[$k]}" == stack ]] && open=1; done
+        err "  the machine is as that rollback left it; the topology session that is there is not this run's."
+        cmd="$(up_foreign_stack_cmd)"
+        (( open )) && [[ -n "$cmd" ]] && err "  to stop only what is left of this run's:  $cmd"
+        err "  'ndt down' would also stop the topology session that is not this run's."
+        note="ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} interrupted; rollback abandoned at $at; the topology session that is there is not this run's"
+    else
+        err "  the machine is as that rollback left it. finish it by hand:  ndt down"
+    fi
     # [Co-developed with claude code -- Adam] Before the marker is released: what this run left was never verified.
     up_unfinished_record
-    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} interrupted; rollback abandoned at $at -- run 'ndt down'" || true
+    up_note_rewrite "$note" || true
     UP_EXIT_DECIDED=1
     exit "$2"
 }
@@ -14107,14 +14264,19 @@ usage: ndt <command>
                 verified it, so the same record is written by a bring-up that ends with a
                 fabric nobody verified: one killed where it stood, one whose rollback was
                 abandoned or ended INCOMPLETE, one interrupted at its last step, and one
-                whose verify ran and failed ('up, but not verified'). 'ndt status' shows
+                whose verify ran and failed ('up, but not verified'); not one that was
+                refused over a topo session that is not its own, which built no fabric.
+                'ndt status' shows
                 the record; the next 'ndt up p4' does not reuse the running fabric while
                 it is there, it rebuilds it and says why. A bring-up that verified removes
                 the record, and so does an 'ndt down' whose 'verify clean' finds none of
                 the fabric. 'ndt apps <name>' and 'ndt ntg cli|custom_command'
                 are refused at once (rc 1) while an 'ndt up' or 'ndt down' is running. The
                 markers belong to this checkout: a verb from another checkout is not seen
-                (doc/KNOWN-ISSUES.md).
+                (doc/KNOWN-ISSUES.md). Separately, an 'ndt up' does not stop a topo session
+                it did not start and did not see when it decided to build (one it had
+                already seen then, a fabric of another size say, is still replaced): see
+                rc 5, below.
                 INTERRUPTING A BRING-UP: INT (Ctrl-C), TERM or HUP to an 'ndt up' rolls back
                 what it started, the way a failed bring-up does, and exits 130, 143 or 129.
                 At its last step ([3/3] on P4, [4/4] on OVS) it rolls nothing back: the lab is
@@ -14123,7 +14285,9 @@ usage: ndt <command>
                 OVS bring-up refuses to build over a running fabric). A
                 second signal during the rollback is noted and the rollback goes on; the
                 third abandons it and says what is not undone ('ndt down' finishes that), and
-                leaves the same record as a killed bring-up. A
+                leaves the same record as a killed bring-up. Over a topology session that is
+                not this run's it names the stack command instead, when there is one ('ndt
+                down' would end that session), and writes no record. A
                 signal to the process group (Ctrl-C, 'kill -TERM -- -PGID') also ends the
                 command ndt is running, so the rollback starts at once; a signal to the pid
                 alone is held until that command returns, which can take minutes. INT is
@@ -14219,7 +14383,29 @@ usage: ndt <command>
                   (the 'ndtwin-lab status' call failed), or, under one, whether an
                   OVS fabric is (ovs-vsctl did not answer): 'topo-stop' would destroy
                   whatever is there, so it stops before it touches the fabric, and
-                  puts back any file it had already written.
+                  puts back any file it had already written. And so is an 'ndt up'
+                  that finds a topo session it did not start and did not see when it
+                  decided to build (a helper call run by hand, a script that calls the
+                  helper, an older ndt): one that is there at [1/3], or one that makes
+                  its own topo-start (P4) or ovs-topo-start / ovs-topo-4host (OVS) fail
+                  with 'topo session already running'. That session is not this run's to
+                  stop, so the run refuses: on P4 it puts back what it had written (over
+                  a fabric it had already taken down to build its own, up.target is
+                  cleared instead and the claim note says the fabric was replaced and not
+                  restored); on OVS it also rolls back the Ryu it had started (if that
+                  rollback cannot finish the exit is 1, and the run names what is left
+                  and the command that stops only that, when there is one; 'ndt down'
+                  would end the other session too, and no unfinished record is written),
+                  and the session is left running. A fabric this run had already taken down to
+                  build its own stays down and is named. The refusal is recognised by
+                  the sentence the installed helper dies with; a helper installed from an
+                  older tree that words it differently is not recognised, and the
+                  bring-up rolls back as it did before (which stops that session). A
+                  session that this run's own topo-stop failed to end is this run's: the
+                  bring-up exits 1 and rolls back. 'ndt status' shows that a session is there
+                  (it names no owner); end it where it was started ('sudo ndtwin-lab
+                  topo-stop' for one started by hand). A session that appears after
+                  the check at [1/3] and before the helper runs is the second case.
                   2 is a usage error. 130 interrupted by SIGINT, 143 interrupted by
                   SIGTERM, 129 interrupted by SIGHUP: the bring-up rolled back what it
                   started (or, at its last step, left the lab up and said NOT verified).

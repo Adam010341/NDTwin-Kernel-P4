@@ -261,8 +261,10 @@ report "M6: a failed 'ndt up ovs4' returns without rolling back" "$m" \
 # is not wiring: rollback_up can be present, correct and never given a stage.
 m=$(mutant m7 "$NDT" \
     '    up_started fabric
-    sudo -n "$LAB" "$ovs_verb" >/dev/null || {' \
-    '    sudo -n "$LAB" "$ovs_verb" >/dev/null || {')
+    # [Co-developed with claude code -- Adam]
+    # What the helper says on stderr is read as well as shown:' \
+    '    # [Co-developed with claude code -- Adam]
+    # What the helper says on stderr is read as well as shown:')
 report "M7: up_ovs never records that it built a fabric" "$m" \
        "  stops the topo session"
 
@@ -3400,9 +3402,9 @@ report "M279: the OVS plane's background stack.sh is not stopped" "$m" \
 
 # The subshell that launched stack.sh dies and stack.sh, its child, does not.
 m=$(mutant m280 "$NDT" \
-    '            for k in ${PROC_KIDS[@]+"${PROC_KIDS[@]}"} "$pid"; do kill -TERM "$k" 2>/dev/null; done
+    '            for k in ${PROC_KIDS[@]+"${PROC_KIDS[@]}"} "$pid"; do
 ' \
-    '            for k in "$pid"; do kill -TERM "$k" 2>/dev/null; done
+    '            for k in "$pid"; do
 ')
 report "M280: only the subshell is stopped, not what runs under it" "$m" \
        "🔴 32f and it did not go on to start a kernel when its prompt ended"
@@ -3436,7 +3438,7 @@ report "M283: the third signal does not abandon the rollback" "$m" \
 
 # The note goes on saying the lab is in use, with no word of the abandoned rollback.
 m=$(mutant m284 "$NDT" \
-    '    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?} at ${CLAIM_NOTE_UP_AT:-?} interrupted; rollback abandoned at $at -- run '"'"'ndt down'"'"'" || true
+    '    up_note_rewrite "$note" || true
 ' \
     '    :
 ')
@@ -3548,12 +3550,16 @@ m=$(mutant m296 "$NDT" \
         # [Co-developed with claude code -- Adam] A fabric that was running is taken down here and
         # is not rebuilt if this run fails: the rollback says so by name and does not call the
         # machine back as it was (up_replaced is recorded before the call, like every stage).
-        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+        # [Co-developed with claude code -- Adam] stop_rc is what that topo-stop answered: 0 when nothing was stopped at all.
+        local stop_rc=0
+        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1 || stop_rc=$?; }
 ' \
     '        # [Co-developed with claude code -- Adam] A fabric that was running is taken down here and
         # is not rebuilt if this run fails: the rollback says so by name and does not call the
         # machine back as it was (up_replaced is recorded before the call, like every stage).
-        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
+        # [Co-developed with claude code -- Adam] stop_rc is what that topo-stop answered: 0 when nothing was stopped at all.
+        local stop_rc=0
+        (( sess_rc == 0 )) && { up_replaced_fabric "${live_hosts:-?}"; info "stopping the existing topo session"; heartbeat_stop_step "before the running topology is replaced" || true; sudo -n "$LAB" topo-stop >/dev/null 2>&1 || stop_rc=$?; }
         up_started fabric
 ')
 report "M296: the fabric stage is recorded after the replace, not before" "$m" \
@@ -3561,9 +3567,9 @@ report "M296: the fabric stage is recorded after the replace, not before" "$m" \
 
 # The prompt's FIFO is closed before the background stack.sh is stopped: its prompt is answered and it goes on.
 m=$(mutant m297 "$NDT" \
-    '    local pid="$UP_BG_PID" line rest k
+    '    local pid="$UP_BG_PID" line rest k kl pg ppid
 ' \
-    '    local pid="$UP_BG_PID" line rest k
+    '    local pid="$UP_BG_PID" line rest k kl pg ppid
     exec 3>&-
 ')
 report "M297: the prompt's FIFO is closed before the background stack.sh is stopped" "$m" \
@@ -3770,8 +3776,8 @@ report "M307: a teardown removes the record over a fabric it did not take down" 
 # A bring-up that abandoned its rollback leaves no record.
 m=$(mutant m308 "$NDT" \
     '    up_unfinished_record
-    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?}' \
-    '    up_note_rewrite "ndt up ${CLAIM_NOTE_UP_WHAT:-?}')
+    up_note_rewrite "$note" || true' \
+    '    up_note_rewrite "$note" || true')
 report "M308: an abandoned rollback leaves no record" "$m" \
        "🔴 36e the record is there, written by the bring-up that abandoned it"
 
@@ -4104,6 +4110,129 @@ m=$(mutant n159 "$NDT" \
 report "N159: a shell error before anything was started leaves a record" "$m" \
        "  36j (control) a shell error before anything was started leaves no record"
 
+# A topo session that appeared after the decision to build is stopped like one the decision saw: the new check removed.
+m=$(mutant m326 "$NDT" \
+    '        if (( sess_rc == 0 && dec_sess_rc != 0 )); then
+' \
+    '        if (( 0 )); then
+')
+report "M326: a session that appeared after the decision to build is stopped (the check removed)" "$m" \
+       "🔴 31k a session that appeared after the decision to build refuses the bring-up with 5"
+
+# A decision that could not tell (rc 2) counts as having seen the session.
+m=$(mutant m328 "$NDT" \
+    '        if (( sess_rc == 0 && dec_sess_rc != 0 )); then
+' \
+    '        if (( sess_rc == 0 && dec_sess_rc == 1 )); then
+')
+report "M328: a decision that could not tell counts as having seen the session" "$m" \
+       "🔴 31k a decision that could not tell, then a session at [1/3]: refused with 5"
+
+# The check ignores what the decision saw: every session found at [1/3] is refused.
+m=$(mutant n160 "$NDT" \
+    '        if (( sess_rc == 0 && dec_sess_rc != 0 )); then
+' \
+    '        if (( sess_rc == 0 )); then
+')
+report "N160: a session the decision saw is refused too" "$m" \
+       "🔴 31k control: it is stopped, once"
+
+# The already-running topo-start keeps `fabric` in the record: the rollback stops and sweeps the session that is there.
+m=$(mutant m329 "$NDT" \
+    '                up_unstarted fabric; UP_FOREIGN_SESSION=1
+                up_foreign_session_lines
+' \
+    '                UP_FOREIGN_SESSION=1
+                up_foreign_session_lines
+')
+report "M329: P4: the already-running topo-start rolls the fabric back again" "$m" \
+       "🔴 31l the session that is there is not stopped"
+
+# The already-running ovs verb keeps `fabric` in the record: the rollback stops and sweeps the session that is there.
+m=$(mutant m330 "$NDT" \
+    'then busy=1; up_unstarted fabric; UP_FOREIGN_SESSION=1; fi
+' \
+    'then busy=1; UP_FOREIGN_SESSION=1; fi
+')
+report "M330: OVS: the already-running verb rolls the fabric back again" "$m" \
+       "🔴 31m the session that is there is not stopped"
+
+# Any topo-start failure is read as the already-running one.
+m=$(mutant m331 "$NDT" \
+    '            if (( stop_rc == 0 )) && topo_busy_said "$tsout"; then
+' \
+    '            if (( stop_rc == 0 )) && true; then
+')
+report "M331: P4: any topo-start failure is treated as already-running" "$m" \
+       "🔴 31l control: and it rolls back the fabric stage (topo-stop)"
+
+# Any failure of the OVS fabric verb is read as the already-running one.
+m=$(mutant m332 "$NDT" \
+    '        if topo_busy_said "$ovs_err"; then busy=1;' \
+    '        if true; then busy=1;')
+report "M332: OVS: any fabric-verb failure is treated as already-running" "$m" \
+       "🔴 31m control: and its rollback stops the topo session it may have left"
+
+# A run that stopped a fabric of its own to build is refused as if it had stopped nothing: the fabric that is gone is not named.
+m=$(mutant m333 "$NDT" \
+    '                if (( ${#UP_STARTED[@]} == 0 && ${#UP_REPLACED[@]} == 0 )); then
+' \
+    '                if (( ${#UP_STARTED[@]} == 0 )); then
+')
+report "M333: P4: a replaced fabric is refused as if nothing had been replaced" "$m" \
+       "🔴 31l the fabric that was taken down stays down, and is named"
+
+# A decision that could not read the lab (rc 2) reuses the fabric whose counts match.
+m=$(mutant m334 "$NDT" \
+    '    (( dec_sess_rc == 0 )) && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]] && reuse=1
+' \
+    '    (( dec_sess_rc != 1 )) && [[ "$n" -eq "$SWITCHES" && "$live_hosts" -eq "$hosts" ]] && reuse=1
+')
+report "M334: a decision that could not read the lab reuses the fabric" "$m" \
+       "🔴 31k a decision that could not read the lab does not reuse the fabric whose counts match"
+
+# ndt's copy of the helper's sentence is reworded: the refusal is never recognised.
+m=$(mutant m335 "$NDT" \
+    'LAB_TOPO_BUSY_TEXT="topo session already running (topo-stop first)"
+' \
+    'LAB_TOPO_BUSY_TEXT="a topo session is already running (topo-stop first)"
+')
+report "M335: ndt's copy of the helper's already-running sentence is reworded" "$m" \
+       "31n ndt carries the sentence it matches"
+
+# The OVS refusal exits 1 after its rollback.
+m=$(mutant m336 "$NDT" \
+    '            up_foreign_session_lines
+            rollback_up "a topo session this bring-up did not start was there when $ovs_verb ran; it is left running" || return 1
+            return 5
+' \
+    '            up_foreign_session_lines
+            rollback_up "a topo session this bring-up did not start was there when $ovs_verb ran; it is left running" || return 1
+            return 1
+')
+report "M336: OVS: the refusal over a session that is not this run's exits 1" "$m" \
+       "🔴 31m an OVS bring-up whose fabric verb finds a session is refused with 5"
+
+# The P4 refusal after a replace exits 1.
+m=$(mutant m337 "$NDT" \
+    '                rollback_up "a topo session this bring-up did not start was there when it ran topo-start; it is left running" || return 1
+                return 5
+' \
+    '                rollback_up "a topo session this bring-up did not start was there when it ran topo-start; it is left running" || return 1
+                return 1
+')
+report "M337: P4: the refusal after a replace exits 1" "$m" \
+       "🔴 31l after a replace, a topo-start that finds another session is refused with 5"
+
+# The already-running sentence is matched by any helper output that mentions the topo.
+m=$(mutant n161 "$NDT" \
+    'topo_busy_said() { [[ "$1" == *"$LAB_TOPO_BUSY_TEXT"* ]]; }
+' \
+    'topo_busy_said() { [[ "$1" == *topo* ]]; }
+')
+report "N161: any helper output that mentions the topo counts as already-running" "$m" \
+       "31l control: another topo-start failure is rc 1"
+
 # The exit trap records from a subshell too.
 m=$(mutant w36 "$NDT" \
     '    [[ "${BASHPID:-$$}" == "$$" ]] || return 0
@@ -4111,6 +4240,385 @@ m=$(mutant w36 "$NDT" \
     '    (( ${UP_EXIT_DECIDED:-0} )) && return 0')
 report_green "W36 (behaviour-preserving): the exit trap without its subshell guard" "$m" \
        "a subshell never runs the parent's EXIT trap"
+
+# The decision's reading kept with a separate assignment.
+m=$(mutant w37 "$NDT" \
+    '    topo_session || dec_sess_rc=$?
+' \
+    '    topo_session; dec_sess_rc=$?
+')
+report_green "W37 (behaviour-preserving): the decision's session reading kept by a separate assignment" "$m" \
+       "the same rc is kept"
+
+# The sentence is matched with grep instead of a pattern test.
+m=$(mutant w38 "$NDT" \
+    'topo_busy_said() { [[ "$1" == *"$LAB_TOPO_BUSY_TEXT"* ]]; }
+' \
+    'topo_busy_said() { grep -qF -- "$LAB_TOPO_BUSY_TEXT" <<<"$1"; }
+')
+report_green "W38 (behaviour-preserving): the already-running sentence matched with grep" "$m" \
+       "the same fixed-string test"
+
+# The helper's stderr is shown with an if instead of an && list.
+m=$(mutant w40 "$NDT" \
+    '    [[ -n "$ovs_err" ]] && printf '"'"'%s\n'"'"' "$ovs_err" >&2
+' \
+    '    if [[ -n "$ovs_err" ]]; then printf '"'"'%s\n'"'"' "$ovs_err" >&2; fi
+')
+report_green "W40 (behaviour-preserving): the helper's stderr shown with an if" "$m" \
+       "the same print"
+
+# [Co-developed with claude code -- Adam]
+# The topo-stop this run asked for answered non-zero: the session is still there and is this run's. The sentence is taken at its word anyway.
+m=$(mutant m344 "$NDT" \
+    '            if (( stop_rc == 0 )) && topo_busy_said "$tsout"; then
+' \
+    '            if topo_busy_said "$tsout"; then
+')
+report "M344: P4: the already-running sentence is believed after a topo-stop that failed" "$m" \
+       "🔴 31l a topo-stop that failed leaves the session this run's: the ordinary rollback, rc 1"
+
+# The OVS refusal exits 5 although the rollback of the stack could not finish.
+m=$(mutant m345 "$NDT" \
+    '            rollback_up "a topo session this bring-up did not start was there when $ovs_verb ran; it is left running" || return 1
+            return 5
+' \
+    '            rollback_up "a topo session this bring-up did not start was there when $ovs_verb ran; it is left running"
+            return 5
+')
+report "M345: OVS: the refusal exits 5 over a rollback that did not finish" "$m" \
+       "🔴 31m a rollback that cannot finish over a session that is not this run's is rc 1"
+
+# The P4 refusal exits 5 although putting the files back failed.
+m=$(mutant m346 "$NDT" \
+    '                    refusal_unwind "a topo session this bring-up did not start was there when it ran topo-start; nothing was built" || return 1
+' \
+    '                    refusal_unwind "a topo session this bring-up did not start was there when it ran topo-start; nothing was built"
+')
+report "M346: P4: the refusal exits 5 although putting the files back failed" "$m" \
+       "🔴 31l a refusal that could not put the claim note back is rc 1, not 5"
+
+# The P4 refusal after a replace exits 5 although its rollback did not finish.
+m=$(mutant m347 "$NDT" \
+    '                rollback_up "a topo session this bring-up did not start was there when it ran topo-start; it is left running" || return 1
+' \
+    '                rollback_up "a topo session this bring-up did not start was there when it ran topo-start; it is left running"
+')
+report "M347: P4: the refusal after a replace exits 5 over a rollback that did not finish" "$m" \
+       "🔴 31l after a replace, a rollback that could not put the claim note back is rc 1, not 5"
+
+# The three lines are printed before the fabric is taken out of the record (P4).
+m=$(mutant m348 "$NDT" \
+    '                up_unstarted fabric; UP_FOREIGN_SESSION=1
+                up_foreign_session_lines
+' \
+    '                up_foreign_session_lines
+                up_unstarted fabric; UP_FOREIGN_SESSION=1
+')
+report "M348: P4: the three lines are printed before the fabric leaves the record" "$m" \
+       "🔴 31l the session is known not to be this run's before the first of the three lines"
+
+# The same, OVS.
+m=$(mutant m349 "$NDT" \
+    '        if topo_busy_said "$ovs_err"; then busy=1; up_unstarted fabric; UP_FOREIGN_SESSION=1; fi
+        err "$ovs_verb failed"; up_bg_stack_stop
+        if (( busy )); then
+            up_foreign_session_lines
+' \
+    '        if topo_busy_said "$ovs_err"; then busy=1; fi
+        err "$ovs_verb failed"; up_bg_stack_stop
+        if (( busy )); then
+            up_foreign_session_lines
+            up_unstarted fabric; UP_FOREIGN_SESSION=1
+')
+report "M349: OVS: the three lines are printed before the fabric leaves the record" "$m" \
+       "🔴 31m the session is known not to be this run's before the first of the three lines"
+
+# What the helper says on stderr is not read by the P4 bring-up: the sentence never reaches the match.
+m=$(mutant m350 "$NDT" \
+    '        tsout="$(sudo -n "$LAB" topo-start 2>&1)"; tsrc=$?
+' \
+    '        tsout="$(sudo -n "$LAB" topo-start 2>/dev/null)"; tsrc=$?
+')
+report "M350: P4: the helper's stderr is not captured with its stdout" "$m" \
+       "🔴 31l a topo-start that finds a session is refused with 5"
+
+# An incomplete rollback over a session that is not this run's sends the operator to 'ndt down --deep'.
+m=$(mutant m351 "$NDT" \
+    '    elif (( UP_FOREIGN_SESSION )); then
+' \
+    '    elif false; then
+')
+report "M351: an incomplete rollback over a foreign session advises 'ndt down --deep'" "$m" \
+       "🔴 31m it does not tell the operator to end the session with 'ndt down --deep'"
+
+# ...and writes an unfinished-fabric record for a fabric this run never started.
+m=$(mutant m352 "$NDT" \
+    '        err "  '"'"'ndt down'"'"' would also stop the topology session that is not this run'"'"'s."
+        rc=1
+' \
+    '        err "  '"'"'ndt down'"'"' would also stop the topology session that is not this run'"'"'s."
+        up_unfinished_write
+        rc=1
+')
+report "M352: an incomplete rollback over a foreign session records an unfinished fabric" "$m" \
+       "🔴 31m no unfinished record: this run started no fabric"
+
+# A rollback that finished over a session that is not this run's says the machine is back to what it was.
+m=$(mutant m353 "$NDT" \
+    '    elif (( rc == 0 && left == 0 && UP_FOREIGN_SESSION )); then
+' \
+    '    elif false; then
+')
+report "M353: a finished rollback over a foreign session says the machine is as it was" "$m" \
+       "🔴 31m and it does not say the machine is back to what it was"
+
+# The rollback does not say that the session that is there is left running.
+m=$(mutant m354 "$NDT" \
+    '    (( UP_FOREIGN_SESSION )) && info "the topology session that is there is not this run'"'"'s: it is left running"
+' \
+    '')
+report "M354: the rollback does not say the foreign session is left running" "$m" \
+       "🔴 31m the rollback says the session that is there is left running"
+
+# With nothing of this run's left to take down, the rollback says nothing of it.
+m=$(mutant m355 "$NDT" \
+    '            info "nothing of this run'"'"'s is left to take down: the topology session that is there is not this run'"'"'s, and it is left running"
+' \
+    '')
+report "M355: the empty rollback over a foreign session does not say so" "$m" \
+       "🔴 31l and the rollback says nothing of this run's is left to take down"
+
+# ...nor names the fabric this run had taken down and cannot put back.
+m=$(mutant m356 "$NDT" \
+    '            (( ${#UP_REPLACED[@]} )) && warn "replaced and not restored: $(join_list "${UP_REPLACED[@]}")"
+        else
+' \
+    '        else
+')
+report "M356: the empty rollback over a foreign session does not name the fabric it replaced" "$m" \
+       "🔴 31l and names the fabric it took down and cannot put back"
+
+# A topo-stop that failed (rc 1) is still taken as 'nothing wrong': the busy sentence is believed up to rc 1.
+m=$(mutant n162 "$NDT" \
+    '            if (( stop_rc == 0 )) && topo_busy_said "$tsout"; then
+' \
+    '            if (( stop_rc <= 1 )) && topo_busy_said "$tsout"; then
+')
+report "N162: P4: a topo-stop that exited 1 is not held against the sentence" "$m" \
+       "🔴 31l a topo-stop that failed leaves the session this run's: the ordinary rollback, rc 1"
+
+# Every incomplete rollback is worded as one over a foreign session.
+m=$(mutant n163 "$NDT" \
+    '    elif (( UP_FOREIGN_SESSION )); then
+' \
+    '    elif true; then
+')
+report "N163: every incomplete rollback is worded as one over a foreign session" "$m" \
+       "  and the advice is the usual one"
+
+# The command named to stop this run's stack is always 'stack.sh down', which stops what was up before the run too.
+m=$(mutant m357 "$NDT" \
+    '    if (( ${#STACK_BEFORE[@]} == 0 )); then
+        printf '"'"'%s'"'"' "bash tools/test_workflow/stack.sh down"
+' \
+    '    if true; then
+        printf '"'"'%s'"'"' "bash tools/test_workflow/stack.sh down"
+')
+report "M357: the advice names 'stack.sh down' although part of the stack was up before the run" "$m" \
+       "🔴 33p the advice does not name 'stack.sh down' (it would stop the kernel that was up before)"
+
+# The line that says what is left of this run's is not printed.
+m=$(mutant m358 "$NDT" \
+    '            err "  what is left of this run'"'"'s: $what."
+' \
+    '')
+report "M358: the incomplete rollback over a foreign session does not say what is left of this run's" "$m" \
+       "🔴 33p and says what is left of this run's"
+
+# Something of this run's is said to be left whatever the rollback did.
+m=$(mutant m359 "$NDT" \
+    '        if (( stack_left )); then
+            local what="stack" cmd' \
+    '        if true; then
+            local what="stack" cmd')
+report "M359: the incomplete rollback over a foreign session always says something of this run's is left" "$m" \
+       "🔴 33p it does not say something of this run's is left"
+
+# The unfinished-fabric record is written for a run that built no fabric, by whichever path asks.
+m=$(mutant m362 "$NDT" \
+    '    if (( UP_FOREIGN_SESSION )) && ! up_did_start fabric; then
+        info "not recorded: this run built no fabric"' \
+    '    if false; then
+        info "not recorded: this run built no fabric"')
+report "M362: the record is written over a foreign session that built no fabric" "$m" \
+       "🔴 32e4 no unfinished record: this run built no fabric"
+
+# An abandoned rollback over a foreign session sends the operator to 'ndt down'.
+m=$(mutant m363 "$NDT" \
+    '    if (( UP_FOREIGN_SESSION )); then
+        # [Co-developed with claude code -- Adam] '"'"'ndt down'"'"' would end the topology session this run said is not its own.' \
+    '    if false; then
+        # [Co-developed with claude code -- Adam] '"'"'ndt down'"'"' would end the topology session this run said is not its own.')
+report "M363: an abandoned rollback over a foreign session advises 'ndt down'" "$m" \
+       "🔴 32e4 it does not send the operator to 'ndt down' to finish it"
+
+# A refusal (rc 5) does not release the run marker.
+m=$(mutant m364 "$NDT" \
+    '    run_leave up "$prev"
+    return "$rc"' \
+    '    (( rc == 5 )) || run_leave up "$prev"
+    return "$rc"')
+report "M364: a bring-up that ends rc 5 keeps its run marker" "$m" \
+       "🔴 31m and the run marker is released"
+
+# The advice after an abandoned rollback names `stack.sh stop` with no name when nothing of the stack is known to be this run's.
+m=$(mutant m365 "$NDT" \
+    '    elif (( ${#STACK_STOPSET[@]} )); then
+        printf '"'"'%s'"'"' "bash tools/test_workflow/stack.sh stop ${STACK_STOPSET[*]}"' \
+    '    elif true; then
+        printf '"'"'%s'"'"' "bash tools/test_workflow/stack.sh stop ${STACK_STOPSET[*]}"')
+report "M365: an abandoned rollback over a foreign session names 'stack.sh stop' with no component" "$m" \
+       "🔴 32e5 it names no 'stack.sh stop' (no part of the stack is known to be this run's)"
+
+# The abandoned rollback's advice is 'stack.sh down' whatever was up before.
+m=$(mutant m366 "$NDT" \
+    '        cmd="$(up_foreign_stack_cmd)"
+        (( open )) &&' \
+    '        cmd="bash tools/test_workflow/stack.sh down"
+        (( open )) &&')
+report "M366: an abandoned rollback over a foreign session names 'stack.sh down' although the kernel was up before" "$m" \
+       "🔴 32e6 and not 'stack.sh down' (the kernel from before would go with it)"
+
+# A port of the stack this run stopped that cannot be read does not count as something of this run's left.
+m=$(mutant m367 "$NDT" \
+    '            left=1; stack_left=1
+        fi
+        if [[ -n "$held" ]]; then' \
+    '            left=1
+        fi
+        if [[ -n "$held" ]]; then')
+report "M367: a port that cannot be re-read is not something of this run's left" "$m" \
+       "🔴 33r unreadable: it says what is left of this run's"
+
+# A port of the stack this run stopped that is still held does not count as something of this run's left.
+m=$(mutant m368 "$NDT" \
+    '            done
+            left=1; stack_left=1
+' \
+    '            done
+            left=1
+')
+report "M368: a port still held is not something of this run's left" "$m" \
+       "🔴 33r held: it says what is left of this run's"
+
+# The fabric verb fails and the background stack.sh is only left without its FIFO.
+m=$(mutant m369 "$NDT" \
+    '        err "$ovs_verb failed"; up_bg_stack_stop
+' \
+    '        err "$ovs_verb failed"; exec 3>&-; rm -f "$fifo" "$out"
+')
+report "M369: a failed fabric verb leaves the background stack.sh running" "$m" \
+       "🔴 33q busy refusal and it never went past its prompt (it did not go on to start a kernel)"
+
+# The fabric has too few hosts and the background stack.sh is only signalled by pid.
+m=$(mutant m370 "$NDT" \
+    '        err "fabric has $live_hosts hosts, expected $ovs_hosts"
+        up_bg_stack_stop
+' \
+    '        err "fabric has $live_hosts hosts, expected $ovs_hosts"
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+')
+report "M370: a fabric with too few hosts leaves the background stack.sh running" "$m" \
+       "🔴 33q host count and it never went past its prompt (it did not go on to start a kernel)"
+
+# Too few host/switch processes, same.
+m=$(mutant m371 "$NDT" \
+    '        err "fabric did not build: $n host/switch processes"
+        up_bg_stack_stop
+' \
+    '        err "fabric did not build: $n host/switch processes"
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+')
+report "M371: a fabric with too few processes leaves the background stack.sh running" "$m" \
+       "🔴 33q process count and it never went past its prompt (it did not go on to start a kernel)"
+
+# stack.sh never reaches its prompt, same.
+m=$(mutant m372 "$NDT" \
+    '        up_bg_stack_stop
+        rollback_up "Ryu never reached the Mininet prompt"' \
+    '        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+        rollback_up "Ryu never reached the Mininet prompt"')
+report "M372: a stack.sh that never reaches its prompt is left running" "$m" \
+       "🔴 33q no prompt and it never went past its prompt (it did not go on to start a kernel)"
+
+# `ndt help` does not say what the third signal does over a session that is not this run's.
+m=$(mutant m373 "$NDT" \
+    '                leaves the same record as a killed bring-up. Over a topology session that is
+                not this run'"'"'s it names the stack command instead, when there is one ('"'"'ndt
+                down'"'"' would end that session), and writes no record. A
+' \
+    '                leaves the same record as a killed bring-up. A
+')
+report "M373: ndt help does not name the abandoned rollback's exception" "$m" \
+       "🔴 33s ndt help: over a session that is not this run's it names the stack command instead"
+
+# Stopping the background stack.sh signals every process under it, including the components it started in sessions of their own.
+m=$(mutant m374 "$NDT" \
+    '                    [[ "$rest" == "$pg" ]] || continue
+' \
+    '                    true
+')
+report "M374: stopping the background stack.sh also stops Ryu, which the rollback then reports as not taken down" "$m" \
+       "🔴 33t busy: the closing line says Ryu was taken down, and the kernel was left"
+
+# `ndt help` says the stack command is named without condition.
+m=$(mutant m375 "$NDT" \
+    '                not this run'"'"'s it names the stack command instead, when there is one ('"'"'ndt
+                down'"'"' would end that session), and writes no record. A
+' \
+    '                not this run'"'"'s it names the stack command instead ('"'"'ndt
+                down'"'"' would end that session), and writes no record. A
+')
+report "M375: ndt help says the abandoned rollback always names the stack command" "$m" \
+       "🔴 33s ndt help: the command is named only when there is one"
+
+# The busy decision is made after the background stack.sh is stopped (a signal during the stop rolls back with the fabric still recorded).
+m=$(mutant m376 "$NDT" \
+    '        if topo_busy_said "$ovs_err"; then busy=1; up_unstarted fabric; UP_FOREIGN_SESSION=1; fi
+        err "$ovs_verb failed"; up_bg_stack_stop
+' \
+    '        if topo_busy_said "$ovs_err"; then busy=1; fi
+        err "$ovs_verb failed"; up_bg_stack_stop
+        (( busy )) && { up_unstarted fabric; UP_FOREIGN_SESSION=1; }
+')
+report "M376: OVS: the busy decision is made after the background stack.sh is stopped" "$m" \
+       "🔴 31m the session is known not to be this run's before the background stack.sh is stopped"
+
+# The stop's answer kept by a separate assignment.
+m=$(mutant w41 "$NDT" \
+    'sudo -n "$LAB" topo-stop >/dev/null 2>&1 || stop_rc=$?; }' \
+    'sudo -n "$LAB" topo-stop >/dev/null 2>&1; stop_rc=$?; }')
+report_green "W41 (behaviour-preserving): the topo-stop's answer kept by a separate assignment" "$m" \
+       "the same rc is kept"
+
+# The two operands of the condition in the other order.
+m=$(mutant w42 "$NDT" \
+    '            if (( stop_rc == 0 )) && topo_busy_said "$tsout"; then
+' \
+    '            if topo_busy_said "$tsout" && (( stop_rc == 0 )); then
+')
+report_green "W42 (behaviour-preserving): the sentence and the stop's answer tested in the other order" "$m" \
+       "neither test has a side effect"
+
+# The stack advice written as an if.
+m=$(mutant w43 "$NDT" \
+    '            [[ -n "$cmd" ]] && err "  to stop only that:  $cmd"
+' \
+    '            if [[ -n "$cmd" ]]; then err "  to stop only that:  $cmd"; fi
+')
+report_green "W43 (behaviour-preserving): the stack advice written as an if" "$m" \
+       "the same condition"
 
 # --- rewordings and reorderings that must stay green ----------------------------------------------------
 
