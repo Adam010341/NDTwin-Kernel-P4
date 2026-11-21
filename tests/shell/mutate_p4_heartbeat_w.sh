@@ -1529,8 +1529,8 @@ m=$(nmutant n37 "$NDT" \
                 # Some stack component was running before this run asked stack.sh for one: only what')
 nreport "N37: a rollback does not stop the stack first" "$m" "  and after the stack"
 m=$(nmutant n38 "$NDT" \
-    '|| true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }' \
-    '|| true; sudo -n "$LAB" topo-stop >/dev/null 2>&1; heartbeat_up_step "$app_pipe" "$app_mode"; }')
+    '|| true; sudo -n "$LAB" topo-stop >/dev/null 2>&1 || stop_rc=$?; }' \
+    '|| true; sudo -n "$LAB" topo-stop >/dev/null 2>&1 || stop_rc=$?; heartbeat_up_step "$app_pipe" "$app_mode"; }')
 nreport "N38: the heartbeat starts before the new fabric is up" "$m" "  and a new one started after the new topology"
 # --- every ndt check, seen red ---------------------------------------------------------------------
 never=$(sort -u "$NDT_RED_LOG" | comm -23 "$NDT_CHECKS" - | /usr/bin/grep -vxF -f <(printf '%s\n' "$NDT_CONTROLS") || true)

@@ -193,7 +193,7 @@ RC_TABLE = {
         2: ("usage", "usage error"),
         5: ("refused", "a GUARD REFUSED and nothing was built (claimed by somebody else, a "
                        "measurement in flight, an 'ndt up', 'ndt down' or 'ndt clean' of this checkout still running, "
-                       "a model of another network, an "
+                       "a topo session it did not start, a model of another network, an "
                        "NTG config NTG would refuse, or a lab state it could not read)"),
         # [Co-developed with claude code -- Adam] A signal to `ndt up`: it rolled back what it had started (or, at
         # its last step, left the lab up and said NOT verified). Read the output.

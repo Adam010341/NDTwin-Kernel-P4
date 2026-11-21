@@ -430,14 +430,25 @@ ndt up p4 --app <dir>   # bmv2 on a P4 app package or tutorials exercise (2026-1
   refuse at once, and `ndt apps` and `ndt ntg` never wait. A marker whose process is gone is removed,
   and `ndt` says so; for a bring-up it also says how far it got, because what it started may still be up,
   and it moves the marker to `.test_run/up.unfinished` instead of dropping it. The markers belong to one checkout: a verb run
-  from another checkout of the repository is not seen (see `KNOWN-ISSUES.md`).
+  from another checkout of the repository is not seen (see `KNOWN-ISSUES.md`). Separately, an `ndt up` does not stop a
+  topology session it did not start (one started by a helper call run by hand, by a script that calls the
+  helper, or by an older `ndt`). If one is there at `[1/3]` and the bring-up's decision did not see it, or if
+  one makes the bring-up's own `topo-start` (P4) or `ovs-topo-start` / `ovs-topo-4host` (OVS) fail with `topo
+  session already running`, the bring-up refuses with rc 5 and leaves that session running. On P4 it puts back
+  what it had written (over a fabric it had already taken down to build its own, `.test_run/up.target` is
+  cleared instead and the claim note says the fabric was replaced and not restored); on OVS it also rolls
+  back the Ryu it had started (if that rollback cannot finish it exits 1, names what is left and the one
+  command that stops only that, when there is one, and writes no unfinished record; `ndt down` would stop
+  the other session too); a fabric it had already taken down to build its own stays down and is named. A session it
+  already saw when it decided (a fabric of another size, say) is still replaced.
 - A P4 fabric is reused only when the last `ndt up` of this checkout verified it. A bring-up that ends with
   a fabric nobody verified leaves a record, `.test_run/up.unfinished`: a killed `ndt up` (SIGKILL, the
   out-of-memory killer; its stale marker is moved there by the next verb that takes the lock), one that
   stopped by a path nothing in `ndt` handles after it had started something (a shell error, or the reader of
   its output going away, as in `ndt up p4 | less`), one whose rollback was abandoned (the third signal,
   below) or ended INCOMPLETE, one interrupted at its last step, and one whose `verify` ran and failed (`up,
-  but not verified`). A rollback that finished leaves none, and neither does a refusal. `ndt status` shows
+  but not verified`). A rollback that finished leaves none, and neither does a refusal, nor one over a
+  topology session that is not this run's, which built no fabric. `ndt status` shows
   the record in the `run` row (`an 'ndt up' (pid N) was not verified (it stopped at [2/3]) -- what it started
   may still be up; 'ndt down'`), naming the newest one, and `ndt status --check` counts it as a problem.
   While it is there the next `ndt up p4` does not reuse the running fabric, whatever it was built from: it
@@ -452,7 +463,9 @@ ndt up p4 --app <dir>   # bmv2 on a P4 app package or tutorials exercise (2026-1
   was started and the step only reads it, so the lab is left up and the run says `up, NOT verified --
   interrupted during [3/3]`, the claim note says the same, and the record above is left so that the next `ndt up p4` rebuilds. A second signal while the rollback runs is
   noted and the rollback goes on (the step it was in is reported as not done); the third abandons it and
-  says what it did not undo, and `ndt down` finishes that; it also leaves the record described above. A signal to the process group (Ctrl-C, or
+  says what it did not undo, and `ndt down` finishes that; it also leaves the record described above. Over a topology
+  session that is not this run's (the refusal described above) it names the stack command instead, when there is one,
+  since `ndt down` would end that session, and writes no record. A signal to the process group (Ctrl-C, or
   `kill -TERM -- -<pgid>`) also ends the command `ndt` is running, so the rollback starts at once; a signal
   to the pid alone is held until that command returns, which for `stack.sh up` can take minutes. An `ndt up`
   started as a background job of a script ignores INT, and no signal handler can be set for a signal that was
@@ -1028,6 +1041,7 @@ Logs are in `.test_run/logs/` of the checkout: `kernel.log`, `p4_proxy.log`, `ry
 | `an OVS fabric is running (N bridges) under the topo session` | `ndt up p4` will not tear an OVS fabric down for you: `ndt down` first |
 | `pgrep -c simple_switch_grpc` returns 0 though switches run | the process name is cut to 15 characters in `/proc`; use `pgrep -cx simple_switch_g` or `ps -eo comm= \| grep -c '^simple_switch'` |
 | `ndt status` shows `an 'ndt up' (pid N) was not verified ...`, or `ndt up` says `the lab has not been verified since: that fabric is rebuilt, not reused` | an earlier `ndt up` was killed, interrupted, stopped by a shell error or by the reader of its output going away, abandoned or could not finish its rollback, or came up and did not verify, so the lab has not been verified since (4.3). `ndt down` takes it down and removes the record; or run `ndt up p4` again, which rebuilds the fabric and, once it verifies, removes the record |
+| `ndt up` says `a topo session is running that this bring-up did not see when it decided to build` (rc 5) | a topology session that this `ndt up` did not start is there: one started by a helper call run by hand, by a script that calls the helper, or by an older `ndt`. It is not this run's to stop, so it was left running. The files the bring-up had written are put back (on P4, over a fabric it had already taken down to build its own, `up.target` is cleared instead and the claim note says the fabric was replaced and not restored), and on OVS the Ryu it had started is stopped; the sweep of leftover processes that ran before `[1/3]` is not undone (`KNOWN-ISSUES.md`, G-65). `ndt status` shows that a session is there (it names no owner); end it where it was started (`sudo ndtwin-lab topo-stop` for one started by hand), then run `ndt up` again (4.3) |
 | `ndt down` returns 5 | read the lines it prints: another claim, a declared measurement, a measurement in flight or another teardown. They name the owner and the command to retry |
 | `ndt down` returns 1 and the fabric is gone | see the note on earlier sessions in 4.10 |
 | `ndt apps ...` says `viz is a JavaFX GUI and there is no display` | `viz` needs `DISPLAY` or `WAYLAND_DISPLAY` |
