@@ -152,14 +152,13 @@ run until you reinstall it.
 
 ### 3.2 sudo grants
 
-`ndt` calls `sudo -n` (never a password prompt) for three programs, and a missing grant would make
-other lines of its output wrong rather than failing loudly, so `ndt status` tests all three:
+`ndt` calls `sudo -n` (never a password prompt) for two programs, and a missing grant would make
+other lines of its output wrong rather than failing loudly, so `ndt status` tests both:
 
 | Program | What happens without it |
 |---|---|
-| `/usr/local/sbin/ndtwin-lab` | the `ndtwin-lab status` call fails, so `ndt` cannot tell whether a topology session is running: `ndt up p4` stops before it touches the fabric (rc 5), `ndt status` shows the topo session as unknown and lists it under `--check`, and `ndt clean` and `ndt down` say they cannot tell and end non-zero (`ndt down`'s stop and sweep are refused too, and it says they did not run and keeps the `ndt up` record) |
+| `/usr/local/sbin/ndtwin-lab` | the `ndtwin-lab status` call fails, so `ndt` cannot tell whether a topology session is running: `ndt up p4` stops before it touches the fabric (rc 5), `ndt status` shows the topo session as unknown and lists it under `--check`, and `ndt clean` and `ndt down` say they cannot tell and end non-zero (`ndt down`'s stop and sweep are refused too, and it says they did not run and keeps the `ndt up` record); the forwarding check at the end of `ndt up` and `ndt ping` cannot run either (`forwarding NOT tested`, with the line that grants it) |
 | `/usr/bin/ovs-vsctl` | with a topology session present and Open vSwitch running, `ndt up p4` cannot tell whether an OVS fabric is running, so it stops with `cannot tell whether an OVS fabric is running under the topo session` (rc 5, nothing built) rather than risk destroying one, unless the session is a running P4 fabric of the size asked for that was built from the inputs this run would build it from (4.3), which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane and its up-target block (once a record exists) shows `cannot tell (ovs-vsctl refused; see the sudo grants block)` |
-| `/usr/bin/mnexec` | the forwarding check at the end of `ndt up` cannot send its ping |
 
 The kernel itself also runs programs through `sudo`. It starts without a terminal, so sudo cannot ask
 for a password, and a missing grant makes the feature below fail:
@@ -171,7 +170,7 @@ for a password, and a missing grant makes the feature below fail:
 | `/usr/sbin/tc` | only the link-fault API (`sudo -n tc qdisc show\|add\|del`) | the injection is refused |
 | `/usr/local/sbin/ndtwin-p4-power` | only P4 power control: powering a bmv2 switch on or off; install it as "P4 power control" below says | P4 power control fails |
 
-Grant only what you use. The default file below holds the three `ndt` grants. Add the optional lines
+Grant only what you use. The default file below holds the two `ndt` grants. Add the optional lines
 that follow it only for the feature they name; they are scoped to what the kernel actually runs, so
 do not widen them to the bare programs.
 
@@ -183,15 +182,19 @@ tmp=$(mktemp)
 cat > "$tmp" <<EOF
 $USER ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab
 $USER ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
-$USER ALL=(root) NOPASSWD: /usr/bin/mnexec
 EOF
 sudo visudo -cf "$tmp" && sudo install -o root -g root -m 440 "$tmp" /etc/sudoers.d/ndtwin-lab
 rm -f "$tmp"
 ```
 
-These three grants make the user root on that machine: `mnexec` runs any command, and the helper runs
-the NTG Python interpreter on a topology script from trees you can write, as root. Give them only on a
-lab machine, to users who may be root there.
+The helper grant makes the user root on that machine, whatever the verbs look like. `topo-cmd` types
+into the topology pane, and at a `mininet>` prompt (every OVS topology; a P4 one when NTG is set to
+`cli`, 4.7) `sh <command>` runs any command as root. `topo-start`, `ovs-topo-start` and
+`ovs-topo-4host` run the NTG Python interpreter on topology scripts from trees you can write, as root,
+and `energy-start` and `sim-start` run the programs you built in `ENERGY_DIR` and `SIM_DIR`, as root.
+`ovs-vsctl` is granted without restriction as well. `mnexec` is not in the default file: `ndt` does not
+call it, because the forwarding check and `ndt ping` use the helper's `host-ping` verb. Give these
+grants only on a lab machine, to users who may be root there.
 
 Optional lines, added inside the same heredoc (before `EOF`) and checked by the same `visudo -cf`:
 
@@ -239,12 +242,12 @@ it does not create the export: it logs `Per-app export line for <dir> is not act
 directory if root has configured one. Its `sudo exportfs` and `sudo sed` calls exist only to clean up
 a line that a root-run kernel left behind. Do not grant either one.
 
-A sudoers rule must name the path the program really has; check it with `command -v ovs-vsctl mnexec`
-(and `ifconfig`, `tc` if you use them), remembering that sudo looks programs up in its own
+A sudoers rule must name the path the program really has; check it with `command -v ovs-vsctl`
+(and `ifconfig`, `tc`, `mnexec` if you use them), remembering that sudo looks programs up in its own
 `secure_path`, which can differ from your `PATH`. `ovs-ofctl` is not needed. To read a switch's flow
 table without sudo, ask Ryu: `curl localhost:8080/stats/flow/1`.
 
-`ndt status` shows the result in its `sudo grants` row: `all 3 granted`, `refused -- readings below
+`ndt status` shows the result in its `sudo grants` row: `all 2 granted`, `refused -- readings below
 them are not measurements`, or `could not be tested`. For every refused grant it prints what that
 costs and the line to add, indented under the row (the last line names a document where the grant is
 also described; the line above it is what you need):
@@ -256,35 +259,48 @@ also described; the line above it is what you need):
                     taught in:  ...
 ```
 
-With `--check`, a refused or untestable grant counts as a problem. Only the three `ndt` grants are
+With `--check`, a refused or untestable grant counts as a problem. Only the two `ndt` grants are
 tested; the kernel's own grants are not.
 
-`mnexec` is also the way to run a command inside a Mininet host without the Mininet CLI:
+Pings between hosts need no grant beyond the helper's. `ndt ping h1:h3 --for 60s` (4.12) starts them in
+the background and reads each stream's loss afterwards, and `ndt ping h1:10.0.0.2 --for 2s --wait` is
+one short ping you read at once.
+
+`mnexec` is only for commands you type yourself inside a Mininet host without the Mininet CLI, and it
+is not in the default file above. Mininet's host names do not resolve outside its CLI, so give an
+address:
 
 ```bash
 sudo -n mnexec -a <host-pid> ping -c 2 10.0.0.2
 ```
 
-`<host-pid>` is the pid of the host's shell, the process whose last argument is `mininet:<host>`
-(the same test `ndt up` uses for its own ping):
+`<host-pid>` is the pid of the host's shell, the process whose last argument is `mininet:<host>`:
 
 ```bash
 ps -eo pid=,args= | awk '$NF == "mininet:h1" {print $1; exit}'
 ```
 
-Mininet's host names do not resolve outside its CLI, so give the address. To keep pings running in
-the background while an application works, and read their loss afterwards (here from `h1`, of the
-tutorials' `basic` exercise, to `h3` at `10.0.3.3`, five a second for a minute):
+To grant that, read your sudo's version first with `sudo -V | head -n 1`. From 1.9.10 on, a sudoers
+rule may pin the arguments with an anchored `^...$` regular expression; add these two lines to the
+rule file (inside the same heredoc, before `EOF`), which allow `ping` with these options and an IPv4
+address and no other program:
 
-```bash
-pid=$(ps -eo pid=,args= | awk '$NF == "mininet:h1" {print $1; exit}')
-setsid -f sudo -n mnexec -a "$pid" ping -q -c 300 -i 0.2 10.0.3.3 > ~/h1-h3.txt 2>&1 < /dev/null
-# ... run the application ...
-tail -n 2 ~/h1-h3.txt      # after the minute: "300 packets transmitted, ... % packet loss"
+```
+$USER ALL=(root) NOPASSWD: /usr/bin/mnexec ^-a [0-9]+ ping -c [0-9]+ [0-9]+[.][0-9]+[.][0-9]+[.][0-9]+$
+$USER ALL=(root) NOPASSWD: /usr/bin/mnexec ^-a [0-9]+ ping -q -c [0-9]+ -i [0-9]+[.][0-9]+ [0-9]+[.][0-9]+[.][0-9]+[.][0-9]+$
 ```
 
-The same can be typed at the `mininet>` prompt (4.7). `ndt ping h1:h3 --for 60s` (4.12) does it
-without the `mnexec` grant: the helper finds the host's shell itself.
+Even so, the caller picks the pid, and `mnexec -a` also joins that process's mount namespace and root
+directory, so on a machine where a user can create a user namespace the user may still be able to make
+root run a file of their own as `ping`. Below sudo 1.9.10 add no `mnexec` line at all: it reads `^` and
+`$` as ordinary characters, so these lines would never match, and a `*` form is no narrowing, since a
+`*` also matches spaces and would allow `-a 1 sh -c id ping -c 2 ...`.
+
+The maintainers' tools that run other commands inside a host (`tools/p4_health/`, `tools/twin_audit/`,
+and the `FAULTS_TC` and `FAULTS_KILL` forms in `tools/test_workflow/faults.sh`) need forms these lines
+do not cover. For them the line is the bare one, `$USER ALL=(root) NOPASSWD: /usr/bin/mnexec`, and it
+is root-equivalent: `mnexec -a <pid> <any command>` runs any command as root. Give it only on a lab
+machine, to a user who may be root there.
 
 ### 3.3 The helper's config file `/etc/ndtwin-lab.conf` (optional)
 
@@ -492,11 +508,12 @@ Before it builds anything `ndt up` checks the claim, a running `ndt down`, that 
 this checkout, that the kernel binary, proxy environment and compiled pipeline exist, and that the
 ports it needs are free. A port held by something that is not part of this checkout's stack is
 refused (`refusing to build: a port this bring-up needs is held by a process that is not part of
-this checkout's stack`). The last step, `verify`, sends a real ping between two hosts with `mnexec`,
+this checkout's stack`). The last step, `verify`, sends a real ping between two hosts through the helper's `host-ping` verb (3.1),
 because a topology view that is all green over a network that forwards nothing has happened. It ends
 with `ok  data plane: <host> -> <ip> forwards`, or with `data plane: ... cannot reach ... -- fabric is
 up but not forwarding` (a failure), or with `data plane: forwarding NOT tested -- <reason>` (neither
-a pass nor a failure; the usual reason is a missing `mnexec` grant, with the line that fixes it).
+a pass nor a failure; the usual reason is that sudo refused the helper, with the line that fixes it, or that
+the installed helper is older than this checkout and has no `host-ping` verb, which reinstalling it fixes, 3.1).
 
 The kernel's API is on `:8000`, the P4 proxy on `:8081` and Ryu's REST on `:8080`.
 
@@ -744,8 +761,8 @@ tail -n 2 /tmp/h1-h3.txt      # after the minute: "300 packets transmitted, ... 
 ```
 
 The hosts share the machine's file system, so the file is in the machine's `/tmp`. Without a
-`mininet>` prompt (under NTG's prompt), the `mnexec` form of 3.2 does the same. `ndt ping` (4.12)
-does it at either prompt, with no `mnexec` grant, and reads each stream's loss for you.
+`mininet>` prompt (under NTG's prompt) there is nothing to type at. `ndt ping` (4.12) starts the same
+pings at either prompt, with no grant beyond the helper's, and reads each stream's loss for you.
 
 ### 4.8 Applications: `ndt apps`
 
@@ -1032,7 +1049,7 @@ Logs are in `.test_run/logs/` of the checkout: `kernel.log`, `p4_proxy.log`, `ry
 | `NDT_TOPO names a model of a different network` | unset `NDT_TOPO` or set the host count to the model's (rc 5) |
 | `refusing to build: NTG does not know mode ...` or `refusing to build: the hosts file ... is not a file NTG can load` (rc 5) | NTG's config would stop the fabric after it came up (4.7): `ndt ntg custom_command` (or `cli`), or create the hosts file, then the same `ndt up` again |
 | `--app is a P4 flag` / `--telemetry is a P4 flag` | you named the OVS plane (rc 2) |
-| `ndt up` ends `forwarding NOT tested` | the `mnexec` grant is missing (3.2) |
+| `ndt up` ends `forwarding NOT tested` | the line under it says why: sudo refused the helper (3.2), the installed helper has no `host-ping` verb (reinstall it, 3.1), or the helper refused the host |
 | a power command on a bmv2 switch answers `500` | read the line above the kernel's `command failed` line in `kernel.log`; "P4 power control" in 3.2 says what each line means (program missing, grant missing, or the helper's own reason) |
 | `[2/4]` or the topology never converges, and no log mentions a port | Ryu was not listening when Mininet started: start through `ndt up`, which starts Ryu first and waits for it. `ndt up` starts Ryu with its default listeners, 6653 and 6633. If you run your own Ryu, let it listen on both 6653 and 6633 (Ryu's default when `--ofp-tcp-listen-port` is not given): the 4-host layout connects to 6653 explicitly, only the 128-host layout probes 6653 then 6633, and OVS power-on reattaches a rebuilt bridge to `tcp:127.0.0.1:6633` |
 | hosts cannot reach each other although everything looks right | Ryu loaded a model of another size (4.4); use `ndt up ovs4` (or `ndt up ovs`), which sets Ryu's model, instead of starting Ryu yourself |

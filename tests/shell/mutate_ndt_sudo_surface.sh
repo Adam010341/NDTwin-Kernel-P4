@@ -144,9 +144,11 @@ m=$(mutant m3 "$NDT" \
 report "M3: the guard reads 'could not tell' as 'nothing there'" "$m" \
        "refused: the guard stops the bring-up, rc 5"
 
+# [Co-developed with claude code -- Adam] Repointed: the forwarding check asks the helper now, and a sudo
+# refusal of it is the branch that answers "sudo refused the helper" (rc 2).
 m=$(mutant m4 "$NDT" \
-    '            NDT_DATAPLANE_WHY="sudo refused mnexec"' \
-    '            return 1')
+    '        NDT_DATAPLANE_WHY="$NDT_DATAPLANE_SUDO_WHY"' \
+    '        return 1')
 report "M4: a refusal is reported as 'does not forward' again" "$m" \
        "refused: dataplane_ok returns 2 (not tested), and says why"
 
@@ -164,10 +166,12 @@ report "M6: the exit status is kept but the message is dropped" "$m" \
 
 # --- the table: the part that stops the NEXT sudo call from repeating this -----------------------
 
+# [Co-developed with claude code -- Adam] Repointed: the mnexec row is gone with the call; the row that can
+# leave now is ovs-vsctl's, and ovs_bridge_count's call is then one with no row.
 m=$(mutant m7 "$SURFACE" \
-    'mnexec|mnexec -a 1 true' \
-    'NOPE-mnexec|mnexec -a 1 true')
-report "M7: the mnexec row leaves the table (a call with no row again)" "$m" \
+    'ovs-vsctl|ovs-vsctl list-br' \
+    'NOPE-ovs-vsctl|ovs-vsctl list-br')
+report "M7: the ovs-vsctl row leaves the table (a call with no row again)" "$m" \
        "every privileged command ndt names has a row (nothing new can go unlisted)"
 
 m=$(mutant m8 "$SURFACE" \
@@ -319,8 +323,10 @@ report "N3 (control): no unprivileged early-out, so a P4-only machine cannot sta
        "control, no ovs-vswitchd: a definite 0, answered without sudo"
 
 m=$(mutant n4 "$NDT" \
-    '    sudo -n mnexec -a "$pid" ping -c 2 -W 2 -q "$2" >/dev/null 2>&1 || return 1' \
-    '    return 2')
+    '            (( recv > 0 )) && return 0
+            return 1' \
+    '            (( recv > 0 )) && return 0
+            return 2')
 report "N4 (control): dataplane_ok never tests, so a real outage is never seen" "$m" \
        "control, permitted and the ping really fails: 'not forwarding' is still said"
 
@@ -452,6 +458,166 @@ t=$(tmutant t2 "$TEST" \
     'if false; then')
 report_test "T2: the suite's fake sudo runs any ndtwin-lab it is given" "$t" \
        "injection took effect: the fake sudo refuses an ndtwin-lab outside the fixture"
+
+# --- [Co-developed with claude code -- Adam] the forwarding check on the helper's host-ping verb --------------------------
+# Each part of dataplane_ok's reading taken out once; each must turn the cell that holds it red, by name.
+# The "decide by rc" and "the helper's line is dropped" mutants are the two this check exists to catch.
+m=$(mutant h1 "$NDT" \
+    '    line="$(grep -m 1 -E '"'"'^[0-9]+ packets transmitted, [0-9]+ received'"'"' <<<"$out")"' \
+    '    line="$(grep -m 1 -E '"'"'^[0-9]+ packets transmitted, [0-9]+ received'"'"' <<<"$out")"
+    (( rc == 0 )) && return 0; return 1')
+report_all "H1: the verdict is decided by the exit status (a refusal reads as not forwarding)" "$m" \
+       "refused: dataplane_ok returns 2 (not tested), and says why" \
+       "the helper refused (rc 65): 2, carrying the helper's own line" \
+       "garbage: an answer that is no ping summary is 2, and says what it said"
+
+m=$(mutant h2 "$NDT" \
+    '        NDT_DATAPLANE_WHY="$first"
+    elif ndt_sudo_refused; then' \
+    '        NDT_DATAPLANE_WHY="the helper refused"
+    elif ndt_sudo_refused; then')
+report_all "H2: the helper's own refusal line is dropped" "$m" \
+       "the helper refused (rc 65): 2, carrying the helper's own line" \
+       "the helper refused: the message says NOT tested and quotes the line"
+
+m=$(mutant h3 "$NDT" \
+    '    if [[ "$rc" =~ ^6[4-7]$ && -n "$first" ]]; then' \
+    '    if [[ "$rc" =~ ^6[4-6]$ && -n "$first" ]]; then')
+report "H3: the helper's rc 67 is no longer one of its refusals" "$m" \
+       "the helper refused (rc 67): 2, carrying the helper's own line"
+
+m=$(mutant h4 "$NDT" \
+    '            (( recv > 0 )) && return 0' \
+    '            (( recv == sent )) && return 0')
+report "H4 (control): every ping must be answered, so a fabric that spent one on ARP does not forward" "$m" \
+       "control: some replies in the summary (ping's exit 1) is still 0"
+
+m=$(mutant h5 "$NDT" \
+    '        if (( sent > 0 )); then' \
+    '        if true; then')
+report "H5: a summary with nothing sent reads as a verdict" "$m" \
+       "a summary with nothing sent is 2, not a verdict"
+
+m=$(mutant h6 "$NDT" \
+    '        NDT_DATAPLANE_WHY="host-ping answered no ping summary (exit $rc): ${first:-no message}"' \
+    '        return 0')
+report "H6: an answer that is no ping summary reads as forwarding" "$m" \
+       "garbage: an answer that is no ping summary is 2, and says what it said"
+
+m=$(mutant h7 "$NDT" \
+    '    elif [[ "$NDT_SUDO_STDERR" == *"ndtwin-lab: usage:"* && "$NDT_SUDO_STDERR" != *host-ping* ]]; then
+        NDT_DATAPLANE_WHY="the installed helper' \
+    '    elif false; then
+        NDT_DATAPLANE_WHY="the installed helper')
+report "H7: a helper with no host-ping verb is no longer told to be reinstalled" "$m" \
+       "a helper with no host-ping verb is 2, and says to reinstall it"
+
+m=$(mutant h8 "$NDT" \
+    '    ndt_sudo_capture "$LAB" host-ping "$1" "$2" 2 0.2 >"$ofile"; rc=$?' \
+    '    ndt_sudo_capture mnexec -a 1 /usr/bin/ping -q -c 2 -W 2 "$2" >"$ofile"; rc=$?')
+report_all "H8: the check calls mnexec again instead of the helper" "$m" \
+       "verify's whole sudo footprint: one host-ping per check, and nothing else" \
+       "no mnexec call reached sudo" \
+       "every privileged command ndt names has a row (nothing new can go unlisted)"
+
+m=$(mutant h9 "$NDT" \
+    '           [[ "$NDT_DATAPLANE_WHY" == "$NDT_DATAPLANE_SUDO_WHY" ]] && ndt_sudo_explain lab ;;
+        *) err "data plane: $1 cannot reach $2 -- fabric is up but not forwarding"' \
+    '           : ;;
+        *) err "data plane: $1 cannot reach $2 -- fabric is up but not forwarding"')
+report "H9: verify_dataplane no longer prints the helper's sudoers line" "$m" \
+       "refused: and prints the helper's sudoers line"
+
+m=$(mutant h10 "$NDT" \
+    '           [[ "$NDT_DATAPLANE_WHY" == "$NDT_DATAPLANE_SUDO_WHY" ]] && ndt_sudo_explain lab ;;
+        *) warn "data plane: $1 cannot reach $2 -- a READING, not a verdict: under the package'"'"'s"' \
+    '           : ;;
+        *) warn "data plane: $1 cannot reach $2 -- a READING, not a verdict: under the package'"'"'s"')
+report "H10: verify_dataplane_reading no longer prints the helper's sudoers line" "$m" \
+       "refused, under a package's own program: also NOT tested, with the helper's line"
+
+m=$(mutant h11 "$NDT" \
+    'NDT_DATAPLANE_SUDO_WHY="sudo refused the helper"' \
+    'NDT_DATAPLANE_SUDO_WHY="sudo refused mnexec"')
+report "H11: the reason names mnexec again" "$m" \
+       "refused: dataplane_ok returns 2 (not tested), and says why"
+
+# [Co-developed with claude code -- Adam] a ping that ran and could not send is a 1 again, and the exit status
+# does not decide once a summary exists.
+m=$(mutant h12 "$NDT" \
+    '            (( recv > 0 )) && return 0' \
+    '            (( rc == 0 )) && return 0')
+report "H12: the exit status decides once a summary exists (ping's exit 1 with replies reads as not forwarding)" "$m" \
+       "control: some replies in the summary (ping's exit 1) is still 0"
+
+m=$(mutant h13 "$NDT" \
+    '    elif [[ "$rc" == 2 && -n "$pingline" ]]; then' \
+    '    elif false; then')
+report_all "H13: a ping that ran and could not send is no longer a verdict" "$m" \
+       "a ping that ran and could not send (its own error, exit 2) is 1, with ping's line kept" \
+       "a ping error: verify_dataplane says not forwarding, as before"
+
+m=$(mutant h14 "$NDT" \
+    '    elif [[ "$rc" == 2 && -n "$pingline" ]]; then' \
+    '    elif [[ "$rc" != 0 && -n "$NDT_SUDO_STDERR" ]]; then
+        NDT_DATAPLANE_WHY="$NDT_SUDO_STDERR"; return 1
+    elif [[ "$rc" == 2 && -n "$pingline" ]]; then')
+report "H14 (control): any stderr after a failed call reads as a verdict (nsenter's failure becomes not forwarding)" "$m" \
+       "control: nsenter's failure (exit 1, no summary) is 2, not a verdict about the network"
+
+m=$(mutant h15 "$NDT" \
+    '           [[ -n "$NDT_DATAPLANE_WHY" ]] && err "   ping said: $NDT_DATAPLANE_WHY"' \
+    '           :')
+report "H15: verify_dataplane drops ping's own line from the not-forwarding verdict" "$m" \
+       "a ping error: and keeps ping's own line under it"
+
+# [Co-developed with claude code -- Adam] ping's error line carries the path ping was run by, each half of the condition
+# is needed on its own, and the reading arm keeps ping's line.
+m=$(mutant h16 "$NDT" \
+    '    pingline="$(grep -m 1 -E '"'"'^(/[^ :]*/)?ping: '"'"' <<<"$NDT_SUDO_STDERR")"' \
+    '    pingline="$(grep -m 1 -E '"'"'^ping: '"'"' <<<"$NDT_SUDO_STDERR")"')
+report_all "H16: ping's error line is matched without the path the helper runs ping by" "$m" \
+       "a ping that ran and could not send (its own error, exit 2) is 1, with ping's line kept" \
+       "a ping error: and keeps ping's own line under it"
+
+m=$(mutant h17 "$NDT" \
+    '    elif [[ "$rc" == 2 && -n "$pingline" ]]; then' \
+    '    elif [[ "$rc" == 2 ]]; then')
+report "H17 (control): exit 2 alone, with no ping line, reads as not forwarding" "$m" \
+       "control: exit 2 with no ping line (the helper's own bash error) is 2, not a verdict"
+
+m=$(mutant h18 "$NDT" \
+    '    elif [[ "$rc" == 2 && -n "$pingline" ]]; then' \
+    '    elif [[ -n "$pingline" ]]; then')
+report "H18 (control): a ping line alone, with another exit status, reads as not forwarding" "$m" \
+       "control: a ping line with exit 1 and no summary is 2, not a verdict"
+
+m=$(mutant h19 "$NDT" \
+    '           [[ -n "$NDT_DATAPLANE_WHY" ]] && warn "  ping said: $NDT_DATAPLANE_WHY" ;;' \
+    '           : ;;')
+report "H19: the reading arm drops ping's own line" "$m" \
+       "a ping error, reading arm: with ping's own line"
+
+m=$(mutant h20 "$NDT" \
+    '            (( recv > 0 )) && return 0
+            return 1' \
+    '            (( recv > 0 )) && return 0
+            NDT_DATAPLANE_WHY="$line"; return 1')
+report_all "H20: a total loss carries a line for the caller to print as ping's" "$m" \
+       "total loss: no 'ping said:' line is printed" \
+       "total loss, reading arm: no 'ping said:' line is printed"
+
+t=$(tmutant t3 "$TEST" \
+    '[[ -n "${FAKE_SUDO_LOG:-}" ]] && printf '"'"'%s\n'"'"' "$*" >> "$FAKE_SUDO_LOG"' \
+    ': the fake no longer logs')
+report_test "T3: the suite's fake sudo stops logging the calls it is given" "$t" \
+       "verify's whole sudo footprint: one host-ping per check, and nothing else"
+
+t=$(tmutant t4 "$TEST" \
+    '"30 packets transmitted, 0 received, 100% packet loss, time 6006ms"; exit 1 ;;' \
+    '"30 packets transmitted, 0 received, 100% packet loss, time 6006ms"; exit 0 ;;')
+report_test "T4: the suite's fake helper answers a lost ping with rc 0, not the refusal's rc" "$t" \
+       "injection took effect: the fake helper answers a lost ping with rc 1, the same rc as a refusal"
 
 echo
 [[ "$(sha256sum "$SURFACE" | cut -d' ' -f1)" == "$BASE_SURFACE" ]] || { echo "🔴 baseline CHANGED -- sudo_surface.sh was written during the gate"; exit 3; }

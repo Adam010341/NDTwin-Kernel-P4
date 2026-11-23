@@ -7,16 +7,18 @@
 # Why this file exists
 #
 # `ndt` calls `sudo -n` from many places. Every call goes through /usr/local/sbin/ndtwin-lab,
-# which the manual teaches the reader to grant (`ndt ping`'s host-ping verb among them, which
-# pings from inside a Mininet host without an mnexec grant), except those for two programs:
+# which the manual teaches the reader to grant, except the one for ovs-vsctl:
 #
 #   ovs_bridge_count   sudo -n ovs-vsctl list-br
-#   dataplane_ok       sudo -n mnexec -a <pid> ping ...
+#
+# The forwarding check (dataplane_ok) and `ndt ping` use the helper's host-ping verb, which pings
+# from inside a Mininet host with no grant of its own: `ndt` makes no `sudo mnexec` call, and the
+# table below has no row for it.
 #
 # The website's User Manual -> NDTwin Kernel -> Operate an Emulated (Software) Network ->
 # "Native-Linux Excution Environment" teaches exactly one sudoers line, for ndtwin-lab. No
-# page of the Installation or User Manual mentions ovs-vsctl, mnexec, ifconfig or tc.
-# doc/2026-11-05_user-guide.md section 3.2 teaches the three grants `ndt` needs; the website's
+# page of the Installation or User Manual mentions ovs-vsctl, ifconfig or tc.
+# doc/2026-11-05_user-guide.md section 3.2 teaches the two grants `ndt` needs; the website's
 # manual does not, and a new reader who only walks the manual never meets that section.
 #
 # So a reader who followed the manual exactly ended up with the one permission set that armed the
@@ -32,8 +34,9 @@
 # replaces sudo's exit status with grep's, and `|| true` drops what is left. The function
 # returns 0 -- the same answer as a machine with no OVS bridges -- so `ndt up p4`'s "refuse to
 # run over a live OVS fabric" guard never fires and the fabric is torn down silently. The
-# other call site turned the same refusal into a specific, false assertion:
-# `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`.
+# other call site turned the same kind of refusal into a specific, false assertion:
+# `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`. (It no longer needs a grant of its
+# own; its verdict comes from what ping printed, and an exit status alone never decides it, see dataplane_ok.)
 #
 # 🔴 How NOT to ask the question: `sudo -n -l -- <cmd>`
 #
@@ -56,7 +59,7 @@
 # `sudo -n` exits non-zero when it refuses, and the wrapped command's exit status when it runs.
 # So a caller that keeps the exit status can always tell "I got an answer" from "I did not",
 # without parsing anything. That half is locale-proof and sudo-version-proof, and the callers that
-# need only that half -- ovs_bridge_count, dataplane_ok, sflow_query/sflow_why in ndt, and
+# need only that half -- ovs_bridge_count, sflow_query/sflow_why in ndt, and
 # guard_no_live_ovs's message -- take their verdict from the exit status and use the stderr
 # classifier below (ndt_sudo_refused) only to word the message ("add this sudoers line" versus
 # "the command itself failed"). For them a wrong guess makes the message wrong, never the verdict.
@@ -99,9 +102,8 @@
 # consequence  what the CALLER answers when the grant is missing. This is the column the code
 #              did not have: every one of these refusals used to arrive as a plausible value.
 NDT_SUDO_TABLE="$(cat <<'TABLE'
-lab|/usr/local/sbin/ndtwin-lab status|/usr/local/sbin/ndtwin-lab|NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3, and doc/2026-11-05_user-guide.md section 3.2|lab_session() answers 2, "cannot tell", when `ndtwin-lab status` fails, so `ndt up p4` stops before it touches the fabric (rc 5), `ndt status` prints the topo session as unknown and lists it under --check, `ndt clean` and the rollback say they cannot tell and end non-zero, and `ndt down` still calls topo-stop and cleanup (the missing grant refuses those too, so it says they did not run), counts the unchecked session as part of what it tears down, ends non-zero and keeps the 'ndt up' record
+lab|/usr/local/sbin/ndtwin-lab status|/usr/local/sbin/ndtwin-lab|NDTwin User Manual > NDTwin Kernel > Operate an Emulated (Software) Network > Native-Linux Excution Environment, step 3, and doc/2026-11-05_user-guide.md section 3.2|lab_session() answers 2, "cannot tell", when `ndtwin-lab status` fails, so `ndt up p4` stops before it touches the fabric (rc 5), `ndt status` prints the topo session as unknown and lists it under --check, `ndt clean` and the rollback say they cannot tell and end non-zero, and `ndt down` still calls topo-stop and cleanup (the missing grant refuses those too, so it says they did not run), counts the unchecked session as part of what it tears down, ends non-zero and keeps the 'ndt up' record, and the forwarding check at the end of `ndt up` and `ndt ping` say they could not run
 ovs-vsctl|ovs-vsctl list-br|/usr/bin/ovs-vsctl|NOWHERE in the website's Installation or User Manual -- doc/2026-11-05_user-guide.md section 3.2 teaches it|with a topo session present and Open vSwitch running, ovs_bridge_count() answers 2, "cannot tell" (it used to answer 0, which is also the answer for "there is no OVS here"), so `ndt up p4` stops with "cannot tell whether an OVS fabric is running under the topo session" (rc 5) before it touches the fabric, unless the session is a running P4 fabric of the size asked for, which it reuses without asking; with Open vSwitch running and no bmv2 switch up, `ndt status` cannot tell the data plane
-mnexec|mnexec -a 1 true|/usr/bin/mnexec|NOWHERE in the website's Installation or User Manual -- doc/2026-11-05_user-guide.md section 3.2 teaches it|dataplane_ok() used to answer "does not forward", which verify_dataplane printed as `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the network, made from a permission error
 TABLE
 )"
 
@@ -188,7 +190,7 @@ NDT_SUDO_UNREAD=""
 # ndt_sudo_unread -- did the last ndt_sudo_capture's sudo say something ON ITS OWN ACCOUNT -- a
 # stderr line that starts with "sudo:" and is not one of NDT_SUDO_WARNINGS -- that
 # ndt_sudo_refused does not know? Sets NDT_SUDO_UNREAD to the first such line. Examples:
-# "sudo: PAM account management error: ...", "sudo: mnexec: command not found" (secure_path),
+# "sudo: PAM account management error: ...", "sudo: ovs-vsctl: command not found" (secure_path),
 # and the gates' own nolab shim, "sudo: refused by the nolab shim (a lab command)". A command
 # that ran and failed speaks in its own name ("ovs-vsctl: ... database connection failed"), not
 # in sudo's, so it is not caught here.

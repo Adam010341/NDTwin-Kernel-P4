@@ -46,7 +46,7 @@ export NO_COLOR=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 SURFACE="$REPO/tools/test_workflow/sudo_surface.sh"
-README="$REPO/tools/test_workflow/README.md"
+README="${README_UNDER_TEST:-$REPO/tools/test_workflow/README.md}"
 GUIDE="$REPO/doc/2026-11-05_user-guide.md"
 
 PASS=0
@@ -139,6 +139,18 @@ done
 # And the file the reader is sent to for the rule, so the README's paragraphs and the table
 # cannot drift into describing different privileges.
 mentions "sudo_surface.sh"; check "README names the surface it is about" $? "tools/test_workflow/sudo_surface.sh"
+
+# [Co-developed with claude code -- Adam]
+# --- the README does not offer narrowing mnexec as a way out of being root -------------------------------
+# The helper grant of the guide's default block is root-equivalent, so an account that has it is root whether
+# or not a mnexec rule is narrowed. The paragraph says that; it must not go back to offering the narrowing
+# as the alternative to treating the account as root.
+! grep -qF -- 'Either narrow the `mnexec` rule' "$README"
+check "README does not offer narrowing the mnexec rule as an alternative to being root" $? "the old 'Either narrow' sentence"
+grep -qF -- 'the helper grant is root-equivalent' "$README"
+check "README says the helper grant is root-equivalent" $? "user guide 3.2's statement, carried to the README"
+grep -qF -- 'no boundary where a user can create a user namespace' "$README"
+check "README says the anchored mnexec forms are no boundary where a user can make a user namespace" $? "the guide's caveat"
 
 # --- 🔴 the control: this gate can go red -------------------------------------------------------
 # Every check above is a grep for something that IS there, and a grep that matches everything

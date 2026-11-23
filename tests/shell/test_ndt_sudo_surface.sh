@@ -4,14 +4,19 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# The defect: `ndt` calls `sudo -n` in thirteen places; eleven go through ndtwin-lab, which the
-# manual teaches the reader to grant, and two -- `ovs-vsctl list-br` and `mnexec` -- are in no
-# page of the Installation or User Manual. A refusal of either arrived as a plausible value:
+# The defect: `ndt` calls `sudo -n` in many places; all but one go through ndtwin-lab, which the
+# manual teaches the reader to grant, and `ovs-vsctl list-br` is in no page of the Installation or
+# User Manual. (The forwarding check used to call `mnexec`, which was the second such program; it
+# now asks the helper's host-ping verb, and `ndt` makes no `sudo mnexec` call at all.) A refusal
+# of either arrived as a plausible value:
 #
 #   ovs_bridge_count()  answered 0, which is also "there is no OVS here", so `ndt up p4`'s
 #                       refusal to build over a live OVS fabric never fired.
 #   dataplane_ok()      answered "does not forward", printed as the specific and false
-#                       `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`.
+#                       `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`. sudo's
+#                       refusal and ping's no-reply are both exit 1, so the verdict comes from
+#                       what ping printed (its summary, or its own error line with exit 2) and
+#                       never from the exit status alone.
 #
 # 🔴 Both directions are tested. A version that answers "cannot tell" to everything would
 # satisfy every refusal case below and make `ndt up p4` impossible to run, so each refusal case
@@ -20,9 +25,11 @@
 #
 # No lab contact, no real sudo. A fake `sudo` on PATH reproduces the refusal verbatim as
 # measured from sudo 1.9.15p5 on 2026-09-03 (`sudo -n ovs-ofctl --version` with no matching
-# NOPASSWD rule: rc 1, "sudo: a password is required"), and fake ovs-vsctl / mnexec / ping
-# stand in for the privileged commands. Nothing here starts a topology, binds a port, or
-# touches a claim -- another session may be measuring.
+# NOPASSWD rule: rc 1, "sudo: a password is required"), a fake ovs-vsctl and a fake
+# ndtwin-lab that answers `host-ping` in simplified shapes of what the real helper gives (a ping summary
+# whose counts are made up, ping's error line with the absolute-path prefix measured on the real ping,
+# the helper's own refusal, or nothing readable) stand in for the privileged commands. Nothing here starts a
+# topology, binds a port, or touches a claim -- another session may be measuring.
 #
 # Run:  bash tests/shell/test_ndt_sudo_surface.sh
 # Env:  SURFACE_UNDER_TEST=<path>  NDT_UNDER_TEST=<path>   (the mutation gate sets both)
@@ -57,6 +64,8 @@ cat >"$BIN/sudo" <<'FAKE'
 #!/usr/bin/env bash
 [[ "${1:-}" == "-n" ]] && shift
 base="${1##*/}"
+# [Co-developed with claude code -- Adam] FAKE_SUDO_LOG: every call, as sudo would have been given it.
+[[ -n "${FAKE_SUDO_LOG:-}" ]] && printf '%s\n' "$*" >> "$FAKE_SUDO_LOG"
 [[ -n "${FAKE_SUDO_WARN:-}" ]] && printf '%s\n' "$FAKE_SUDO_WARN" >&2
 # [Co-developed with claude code -- Adam] Only the ndtwin-lab that sits beside this fake may run. The table's own
 # probe names /usr/local/sbin/ndtwin-lab, and this fake runs whatever it does not refuse, so without this a
@@ -77,8 +86,32 @@ FAKE
 # [Co-developed with claude code -- Adam] A fake ndtwin-lab for the cases that run the real lab_session: it
 # prints FAKE_LAB_STATUS for `status` and "ran:<verb>" for any other verb. LAB is pointed at it by the case, and the
 # sudo above refuses every other ndtwin-lab path, so the helper installed on this machine cannot run from here.
+# [Co-developed with claude code -- Adam] `host-ping <host> <ip> <count> <interval>` answers as FAKE_HP says:
+#   clean    ping's summary, 0% loss, exit 0          half     some replies: the summary and exit 1, as ping
+#   lost     ping's summary, total loss, exit 1                -w 6 gives when the deadline ends the run early
+#   nothing  a summary with nothing sent, exit 1      pingerr  `/usr/bin/ping: connect: ...` on stderr, exit 2, no summary
+#   nsenterr nsenter's failure on stderr, exit 1      pingerr1 the same ping line with exit 1, no summary
+#   bashrc2  a bash error of the helper itself on stderr, exit 2
+#   refuse   the helper's own refusal line on stderr, exit FAKE_HP_RC (65 unless set)
+#   garbage  a line that is no summary, exit 1        oldhelper  the usage line of a helper with no such verb
 cat >"$BIN/ndtwin-lab" <<'FAKE'
 #!/usr/bin/env bash
+if [[ "${1:-}" == host-ping ]]; then
+    case "${FAKE_HP:-clean}" in
+        clean)     printf '%s\n' "--- $3 ping statistics ---" "2 packets transmitted, 2 received, 0% packet loss, time 201ms"; exit 0 ;;
+        half)      printf '%s\n' "--- $3 ping statistics ---" "3 packets transmitted, 1 received, 66% packet loss, time 401ms"; exit 1 ;;
+        lost)      printf '%s\n' "--- $3 ping statistics ---" "30 packets transmitted, 0 received, 100% packet loss, time 6006ms"; exit 1 ;;
+        pingerr)   echo "/usr/bin/ping: connect: Network is unreachable" >&2; exit 2 ;;
+        pingerr1)  echo "/usr/bin/ping: connect: Network is unreachable" >&2; exit 1 ;;
+        bashrc2)   echo "/usr/local/sbin/ndtwin-lab: line 1: syntax error near unexpected token" >&2; exit 2 ;;
+        nsenterr)  echo "nsenter: reassociate to namespace 'ns/net' failed: Operation not permitted" >&2; exit 1 ;;
+        nothing)   printf '%s\n' "--- $3 ping statistics ---" "0 packets transmitted, 0 received, 0% packet loss, time 0ms"; exit 1 ;;
+        refuse)    echo "ndtwin-lab host-ping: no Mininet host $2: no process's last argument is its tag (is a topology running, and does it have $2?)" >&2
+                   exit "${FAKE_HP_RC:-65}" ;;
+        garbage)   echo "something nobody expected" ; exit 1 ;;
+        oldhelper) echo "ndtwin-lab: usage: ndtwin-lab {topo-start|topo-cmd <text>|topo-out [n]|status|config}" >&2; exit 1 ;;
+    esac
+fi
 [[ "${1:-}" == status ]] || { echo "ran:${1:-}"; exit 0; }
 printf '%s\n' "${FAKE_LAB_STATUS:-no lab sessions}"
 FAKE
@@ -96,19 +129,7 @@ for b in ${FAKE_BRIDGES:-}; do echo "$b"; done
 exit 0
 FAKE
 
-cat >"$BIN/mnexec" <<'FAKE'
-#!/usr/bin/env bash
-# mnexec -a <pid> <command...>
-shift 2
-exec "$@"
-FAKE
-
-cat >"$BIN/ping" <<'FAKE'
-#!/usr/bin/env bash
-exit "${FAKE_PING_RC:-0}"
-FAKE
-
-chmod +x "$BIN"/sudo "$BIN"/ndtwin-lab "$BIN"/ovs-vsctl "$BIN"/mnexec "$BIN"/ping
+chmod +x "$BIN"/sudo "$BIN"/ndtwin-lab "$BIN"/ovs-vsctl
 PATH="$BIN:$PATH"; export PATH
 
 # --- helpers ---------------------------------------------------------------------------------
@@ -133,9 +154,12 @@ rows="$(ndt_sudo_rows all)"
 grep -q '^ovs-vsctl|' <<<"$rows" \
     && t_ok "ovs-vsctl has a row (ovs_bridge_count, in no page of the manual)" \
     || t_bad "ovs-vsctl has a row (ovs_bridge_count, in no page of the manual)" "$rows"
+# The forwarding check asks the helper, so there is no grant of its own to declare: no row for mnexec.
 grep -q '^mnexec|' <<<"$rows" \
-    && t_ok "mnexec has a row (dataplane_ok, in no page of the manual)" \
-    || t_bad "mnexec has a row (dataplane_ok, in no page of the manual)" "$rows"
+    && t_bad "mnexec has no row (ndt makes no mnexec call; the forwarding check asks the helper)" "$rows" \
+    || t_ok  "mnexec has no row (ndt makes no mnexec call; the forwarding check asks the helper)"
+check "the table declares exactly the two grants ndt tests: the helper and ovs-vsctl" \
+      "lab ovs-vsctl" "$(cut -d'|' -f1 <<<"$rows" | paste -sd' ' -)"
 
 bad=0
 while IFS='|' read -r key probe target taught consequence; do
@@ -149,9 +173,11 @@ check "every row declares a probe, an absolute target, where it is taught, and t
 has "the rule for a key is a complete sudoers line naming the absolute path" \
     "ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl" "$(ndt_sudo_rule ovs-vsctl)"
 has "explain() prints the sudoers line that fixes it" \
-    "NOPASSWD: /usr/bin/mnexec" "$(ndt_sudo_explain mnexec)"
+    "NOPASSWD: /usr/bin/ovs-vsctl" "$(ndt_sudo_explain ovs-vsctl)"
 has "explain() prints what the refusal costs" \
-    "not forwarding" "$(ndt_sudo_explain mnexec)"
+    "stops with" "$(ndt_sudo_explain ovs-vsctl)"
+has "the helper's row says the forwarding check cannot run without it" \
+    "forwarding check at the end of \`ndt up\` and \`ndt ping\` say they could not run" "$(ndt_sudo_explain lab)"
 
 # 🔴 Completeness, so the NEXT sudo call cannot repeat this. Every privileged command `ndt`
 # names must map to a row; an unlisted one is the state this whole change exists to end.
@@ -321,32 +347,138 @@ in_ndt_rc "$STUBS export FAKE_SUDO_DENY=ovs-vsctl; guard_no_live_ovs" \
 
 echo "the other call site: a permission error is not a routing failure"
 
-DP='host_pid() { echo 4242; };'
-out="$(in_ndt "$DP export FAKE_SUDO_DENY=mnexec; dataplane_ok h1 10.0.0.2; echo \"rc=\$? why=[\$NDT_DATAPLANE_WHY]\"")"
-check "refused: dataplane_ok returns 2 (not tested), and says why" \
-      "rc=2 why=[sudo refused mnexec]" "$out"
+# [Co-developed with claude code -- Adam]
+# dataplane_ok asks the helper's host-ping verb and reads the verdict from the OUTPUT: sudo's refusal and
+# ping's no-reply are both exit 1, so the exit status cannot tell them apart. Each answer the fake helper can
+# give is one cell, and the refusal is paired with controls in which the ping really ran.
+# LAB points at the fake helper that sits beside the fake sudo; the fake sudo refuses any other path.
+HP='LAB="'"$BIN"'/ndtwin-lab";'
+hp() {   # hp VAR=value... -- dataplane_ok h1 10.0.0.2 under that fake, "rc=N why=[...]"
+    local envs="$*"
+    in_ndt "$HP ${envs:+export $envs;} dataplane_ok h1 10.0.0.2; echo \"rc=\$? why=[\$NDT_DATAPLANE_WHY]\""
+}
 
-out="$(in_ndt "$DP export FAKE_SUDO_DENY=mnexec; verify_dataplane h1 10.0.0.2 hint; echo rc=\$?")"
+# Assert the injections before the responses to them. A dataplane_ok that answers "not tested" against a sudo
+# that never refused, or "forwards" against a helper that never answered, proves nothing.
+inj="$(FAKE_SUDO_DENY=ndtwin-lab:host-ping sudo -n "$BIN/ndtwin-lab" host-ping h1 10.0.0.2 2 0.2 2>&1)"; irc=$?
+if [[ "$irc" -eq 1 ]] && grep -q 'password is required' <<<"$inj"; then
+    t_ok "injection took effect: sudo really refuses host-ping (rc $irc, sudo's own wording)"
+else
+    t_bad "injection took effect: sudo really refuses host-ping (rc $irc, sudo's own wording)" "$inj"
+fi
+inj="$(FAKE_HP=lost sudo -n "$BIN/ndtwin-lab" host-ping h1 10.0.0.2 2 0.2 2>&1)"; irc=$?
+if [[ "$irc" -eq 1 ]] && grep -q '100% packet loss' <<<"$inj"; then
+    t_ok "injection took effect: the fake helper answers a lost ping with rc 1, the same rc as a refusal"
+else
+    t_bad "injection took effect: the fake helper answers a lost ping with rc 1, the same rc as a refusal" "rc=$irc $inj"
+fi
+inj="$(FAKE_HP=pingerr sudo -n "$BIN/ndtwin-lab" host-ping h1 10.0.0.2 2 0.2 2>&1 >/dev/null)"; irc=$?
+if [[ "$irc" -eq 2 ]] && grep -q '^/usr/bin/ping: ' <<<"$inj"; then
+    t_ok "injection took effect: the fake helper answers a ping error with rc 2 and ping's line, named by its path, on stderr"
+else
+    t_bad "injection took effect: the fake helper answers a ping error with rc 2 and ping's line, named by its path, on stderr" "rc=$irc $inj"
+fi
+inj="$(FAKE_HP=half sudo -n "$BIN/ndtwin-lab" host-ping h1 10.0.0.2 2 0.2 2>&1)"; irc=$?
+if [[ "$irc" -eq 1 ]] && grep -q ' 1 received' <<<"$inj"; then
+    t_ok "injection took effect: the fake helper answers some replies with a summary and exit 1, as ping does"
+else
+    t_bad "injection took effect: the fake helper answers some replies with a summary and exit 1, as ping does" "rc=$irc $inj"
+fi
+inj="$(FAKE_HP=refuse FAKE_HP_RC=66 sudo -n "$BIN/ndtwin-lab" host-ping h9 10.0.0.2 2 0.2 2>&1 >/dev/null)"; irc=$?
+if [[ "$irc" -eq 66 ]] && grep -q '^ndtwin-lab host-ping: no Mininet host h9' <<<"$inj"; then
+    t_ok "injection took effect: the fake helper refuses in its own words, with the rc it is given"
+else
+    t_bad "injection took effect: the fake helper refuses in its own words, with the rc it is given" "rc=$irc $inj"
+fi
+
+check "forwards: a ping summary with no loss is 0, nothing to say" "rc=0 why=[]" "$(hp FAKE_HP=clean)"
+# 🔴 control -- a reply is forwarding, and the exit status is not what says so. ping run with a deadline exits 1
+# when it was cut short even though some packets were answered; a check that wanted every reply, or that read the
+# exit status once a summary exists, would fail a fabric whose first packet was spent on ARP.
+check "control: some replies in the summary (ping's exit 1) is still 0" "rc=0 why=[]" "$(hp FAKE_HP=half)"
+check "control: a ping that really got no reply is 1 -- the outage is still said" "rc=1 why=[]" "$(hp FAKE_HP=lost)"
+# A ping that ran in the host and could not send is a verdict about the data plane, as it was before the helper
+# (`ping ... || return 1`): exit 2 and ping's own line. Anything that is not ping's line never becomes a 1.
+check "a ping that ran and could not send (its own error, exit 2) is 1, with ping's line kept" \
+      "rc=1 why=[/usr/bin/ping: connect: Network is unreachable]" "$(hp FAKE_HP=pingerr)"
+# 🔴 each half of that condition alone is not enough: exit 2 with no ping line is not a verdict about the network
+# (here a bash error of the helper), and neither is a ping line with another exit status.
+check "control: exit 2 with no ping line (the helper's own bash error) is 2, not a verdict" \
+      "rc=2 why=[host-ping answered no ping summary (exit 2): /usr/local/sbin/ndtwin-lab: line 1: syntax error near unexpected token]" \
+      "$(hp FAKE_HP=bashrc2)"
+check "control: a ping line with exit 1 and no summary is 2, not a verdict" \
+      "rc=2 why=[host-ping answered no ping summary (exit 1): /usr/bin/ping: connect: Network is unreachable]" \
+      "$(hp FAKE_HP=pingerr1)"
+check "control: nsenter's failure (exit 1, no summary) is 2, not a verdict about the network" \
+      "rc=2 why=[host-ping answered no ping summary (exit 1): nsenter: reassociate to namespace 'ns/net' failed: Operation not permitted]" \
+      "$(hp FAKE_HP=nsenterr)"
+out="$(in_ndt "$HP export FAKE_HP=pingerr; verify_dataplane h1 10.0.0.2 'the hint'; echo rc=\$?")"
+has   "a ping error: verify_dataplane says not forwarding, as before" "not forwarding" "$out"
+has   "a ping error: and keeps ping's own line under it"            "ping said: /usr/bin/ping: connect: Network is unreachable" "$out"
+has   "a ping error: and returns 1"                                  "rc=1" "$out"
+hasnt "a ping error: and is not reported as NOT tested"              "NOT tested" "$out"
+# the reading arm (under a package's own program): a verdict is never failed there, but ping's line is kept
+out="$(in_ndt "$HP export FAKE_HP=pingerr; verify_dataplane_reading h1 10.0.0.2 sha; echo rc=\$?")"
+has   "a ping error, reading arm: said as a READING"                 "a READING" "$out"
+has   "a ping error, reading arm: with ping's own line"              "ping said: /usr/bin/ping: connect: Network is unreachable" "$out"
+has   "a ping error, reading arm: and returns 0"                     "rc=0" "$out"
+# a total loss is a verdict about the network and carries no ping line
+out="$(in_ndt "$HP export FAKE_HP=lost; verify_dataplane h1 10.0.0.2 'the hint'; echo rc=\$?")"
+hasnt "total loss: no 'ping said:' line is printed"                  "ping said:" "$out"
+out="$(in_ndt "$HP export FAKE_HP=lost; verify_dataplane_reading h1 10.0.0.2 sha; echo rc=\$?")"
+hasnt "total loss, reading arm: no 'ping said:' line is printed"     "ping said:" "$out"
+check "refused: dataplane_ok returns 2 (not tested), and says why" \
+      "rc=2 why=[sudo refused the helper]" "$(hp FAKE_SUDO_DENY=ndtwin-lab:host-ping)"
+# The other wording sudo has for the same refusal, and the whole helper refused rather than one verb.
+check "refused (a terminal is required): still 2, the helper" \
+      "rc=2 why=[sudo refused the helper]" \
+      "$(hp FAKE_SUDO_DENY=ndtwin-lab "FAKE_SUDO_SAY='sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper'")"
+
+out="$(in_ndt "$HP export FAKE_SUDO_DENY=ndtwin-lab:host-ping; verify_dataplane h1 10.0.0.2 hint; echo rc=\$?")"
 has   "refused: the message says NOT tested"                "NOT tested"                   "$out"
 # The claim itself is an err() line, which prints an XX marker; the row's consequence column
 # quotes the old sentence, so the absence has to be asserted on the marker rather than on the
 # words -- matching the words would be satisfied by the quotation and prove nothing.
 hasnt "refused: no XX line claiming the host cannot be reached" "XX  data plane"           "$out"
 has   "refused: returns 0 -- not tested is not a routing failure" "rc=0"                    "$out"
-has   "refused: and prints the mnexec sudoers line"         "NOPASSWD: /usr/bin/mnexec"    "$out"
+has   "refused: and prints the helper's sudoers line"       "NOPASSWD: /usr/local/sbin/ndtwin-lab" "$out"
+hasnt "refused: and does not send the reader to mnexec"     "mnexec"                       "$out"
+out="$(in_ndt "$HP export FAKE_SUDO_DENY=ndtwin-lab:host-ping; verify_dataplane_reading h1 10.0.0.2 sha; echo rc=\$?")"
+has   "refused, under a package's own program: also NOT tested, with the helper's line" "NOPASSWD: /usr/local/sbin/ndtwin-lab" "$out"
+hasnt "refused, under a package's own program: no 'reading' sentence about the network" "a READING" "$out"
 
 # 🔴 control -- the true version of that sentence must survive. If a refusal and a lost ping
 # were folded together in the other direction, this is the case that goes red.
-out="$(in_ndt "$DP export FAKE_PING_RC=1; verify_dataplane h1 10.0.0.2 'the hint'; echo rc=\$?")"
+out="$(in_ndt "$HP export FAKE_HP=lost; verify_dataplane h1 10.0.0.2 'the hint'; echo rc=\$?")"
 has "control, permitted and the ping really fails: 'not forwarding' is still said" "not forwarding" "$out"
 has "control, permitted and the ping really fails: verify_dataplane returns 1"     "rc=1"           "$out"
+out="$(in_ndt "$HP export FAKE_HP=clean; verify_dataplane h1 10.0.0.2 'the hint'; echo rc=\$?")"
+has "control, permitted and forwarding: verify_dataplane says so" "forwards" "$out"
 
-out="$(in_ndt "$DP export FAKE_PING_RC=0; dataplane_ok h1 10.0.0.2; echo rc=\$?")"
-check "control, permitted and forwarding: dataplane_ok returns 0" "rc=0" "$out"
+# The helper's own refusals, 64 to 67: its line is what the reader gets, and the exit code alone is not read as a verdict.
+for hrc in 64 65 66 67; do
+    check "the helper refused (rc $hrc): 2, carrying the helper's own line" \
+          "rc=2 why=[ndtwin-lab host-ping: no Mininet host h1: no process's last argument is its tag (is a topology running, and does it have h1?)]" \
+          "$(hp FAKE_HP=refuse FAKE_HP_RC=$hrc)"
+done
+out="$(in_ndt "$HP export FAKE_HP=refuse; verify_dataplane h1 10.0.0.2 hint; echo rc=\$?")"
+has   "the helper refused: the message says NOT tested and quotes the line" "forwarding NOT tested -- ndtwin-lab host-ping: no Mininet host h1" "$out"
+hasnt "the helper refused: no XX line claiming the host cannot be reached" "XX  data plane" "$out"
+hasnt "the helper refused: and it is not blamed on sudo"                    "NOPASSWD"        "$out"
 
-out="$(in_ndt "host_pid() { return 1; }; dataplane_ok h1 10.0.0.2; echo \"rc=\$? why=[\$NDT_DATAPLANE_WHY]\"")"
-check "no namespace is still its own reason, not folded into the sudo one" \
-      "rc=2 why=[no namespace for h1]" "$out"
+check "garbage: an answer that is no ping summary is 2, and says what it said" \
+      "rc=2 why=[host-ping answered no ping summary (exit 1): something nobody expected]" "$(hp FAKE_HP=garbage)"
+check "a helper with no host-ping verb is 2, and says to reinstall it" \
+      "rc=2 why=[the installed helper has no host-ping verb: reinstall it from this checkout (user guide 3.1)]" "$(hp FAKE_HP=oldhelper)"
+check "a summary with nothing sent is 2, not a verdict" "rc=2 why=[ping sent nothing: no message]" "$(hp FAKE_HP=nothing)"
+
+# 🔴 the call itself: exactly one helper verb, and no mnexec from ndt's own verify.
+LOG="$UPFIX/sudo.log"; : >"$LOG"
+in_ndt "$HP export FAKE_SUDO_LOG='$LOG' FAKE_HP=clean; verify_dataplane h1 10.0.0.2 hint; verify_dataplane_reading h1 10.0.0.2 sha" >/dev/null
+check "verify's whole sudo footprint: one host-ping per check, and nothing else" \
+      "$BIN/ndtwin-lab host-ping h1 10.0.0.2 2 0.2
+$BIN/ndtwin-lab host-ping h1 10.0.0.2 2 0.2" "$(cat "$LOG")"
+check "no mnexec call reached sudo" "0" "$(grep -c mnexec "$LOG")"
 
 echo "the probe: what sudo's own words decide (ndt_sudo_probe -> the 'sudo grants' line of ndt status)"
 
