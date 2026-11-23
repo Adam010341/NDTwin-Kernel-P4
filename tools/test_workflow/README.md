@@ -339,8 +339,9 @@ STOP_WAIT_TICKS=40 ./stack.sh down      # wait up to 20 s
 
 The root privileges `ndt` needs are declared in `sudo_surface.sh`; `ndt status` prints, one by
 one, whether each is available. Section 3.2 of `doc/2026-11-05_user-guide.md` teaches how to
-grant them. On a machine set up from the website's manuals, two of them are **not** taught
-there and have to be added by hand: `mnexec` and `ovs-vsctl`.
+grant them. On a machine set up from the website's manuals, one of them is **not** taught
+there and has to be added by hand: `ovs-vsctl`. (`ndt` makes no `sudo mnexec` call: the forwarding
+check and `ndt ping` go through the helper's `host-ping` verb.)
 
 ### `mnexec` makes any narrower `tc` rule moot
 
@@ -348,10 +349,11 @@ there and have to be added by hand: `mnexec` and `ovs-vsctl`.
 namespaces. So whatever narrow `tc` rules the sudoers file carries (for example only the
 `netem` forms of `tc qdisc add|del|show`), every `tc` form they exclude can be run through
 `mnexec` unchanged. A `tc` allowlist is a convenience ("no password for the common actions"),
-not a boundary, and a `NOPASSWD` `mnexec` rule makes the account root for practical purposes
-inside the lab. Either narrow the `mnexec` rule to specific commands or treat that account as
-root; do not keep both and describe the `tc` list as protection. (`ndt` itself does not use
-`mnexec` to get around anything; its two `mnexec` call sites are declared in `sudo_surface.sh`.)
+not a boundary. With the default grants of user guide 3.2 the account is root anyway:
+the helper grant is root-equivalent, and a `NOPASSWD` `mnexec` rule is root as well. The anchored
+`mnexec` forms the guide gives are no boundary where a user can create a user namespace. Do not describe
+the `tc` list as protection. `ndt` itself needs no `mnexec` rule, so the default sudoers block of
+the guide does not carry one.
 
 ### `ovs-vsctl`: a grant the website's manuals do not teach, whose refusal looks like a reading
 

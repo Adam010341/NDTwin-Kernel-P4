@@ -69,10 +69,10 @@ source "$HERE/ports.sh"
 
 # The root privileges this script needs, what each refusal costs, and the sudoers line that
 # fixes it -- one declarative table, next to the code that acts on it. Every `sudo -n` call here
-# goes through $LAB, which the manual teaches the reader to grant, except those for two programs,
-# ovs-vsctl and mnexec; they are the reason the file exists. Read its header before adding another
-# of either kind. NDT_SUDO_SURFACE is a seam for the tests, which point the real code at a
-# mutated copy rather than writing this checkout. [Co-developed with claude code -- Adam]
+# goes through $LAB, which the manual teaches the reader to grant, except the one for ovs-vsctl,
+# which is the reason the file exists. Read its header before adding another of that kind.
+# NDT_SUDO_SURFACE is a seam for the tests, which point the real code at a mutated copy rather
+# than writing this checkout. [Co-developed with claude code -- Adam]
 SUDO_SURFACE="${NDT_SUDO_SURFACE:-$HERE/sudo_surface.sh}"
 if [[ -r "$SUDO_SURFACE" ]]; then
     # shellcheck source=/dev/null
@@ -4409,7 +4409,7 @@ rollback_record_back() {
 lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t topo\n'; }
 
 # [Co-developed with claude code -- Adam]
-# The attach needs root: the session belongs to root's tmux, and none of the three sudo grants
+# The attach needs root: the session belongs to root's tmux, and none of the sudo grants
 # ndt needs covers tmux. Those grants do cover the helper, whose topo-out prints the pane and
 # whose topo-cmd types one line into it, so the footer names both under the attach command.
 lab_pane_without_root() {
@@ -8586,39 +8586,74 @@ host_pid() {
 # every host pair was 100% loss, because Ryu had computed its routes for a different number
 # of hosts. Topology views agreeing is not forwarding working.
 #
-# `mnexec -a <pid>` rather than `mn` or `ip netns exec`: the hosts belong to a Mininet started
-# in a root tmux session. It needs a NOPASSWD sudoers rule for mnexec, which a machine set up
-# from the install manual does not have: the manual sets up ndtwin-lab and nothing else, and
-# without the mnexec rule this check reports a refusal, not a fabric fault.
+# One call of the helper's host-ping verb: `sudo -n $LAB host-ping <hN> <dst-ip> 2 0.2`. The hosts
+# belong to a Mininet started in a root tmux session, and the helper finds the host's shell itself,
+# checks that root started it and runs ping in that host's network namespace, so this check needs
+# the helper's grant (the one every `ndt` command needs) and no other.
 # [Co-developed with claude code -- Adam]
 #
-# 🔴 The permission question is asked SEPARATELY from the forwarding question, and first.
-# `ping` exits non-zero when the packets are lost, and `sudo` exits non-zero when it refuses --
-# the old body could not tell those apart, so a machine without the mnexec grant was told
-# `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`: a specific claim about the
-# network, manufactured from a permission error, and the one the manual's own instructions
-# produce (sudo_surface.sh explains why mnexec is not in them).
-#
-# `mnexec -a <pid> true` enters the namespace and moves no packets, so its failure is about
-# sudo or about the namespace and never about the data plane. Once it has succeeded, a failing
-# ping is the data plane, and rc 1 means what it says.
-# NDT_DATAPLANE_WHY carries the reason for a 2 so the caller can print which kind it was.
+# 🔴 THE EXIT CODE ALONE NEVER DECIDES. The verdict comes from what ping printed. `ping` exits non-zero
+# when the packets are lost, and `sudo` exits non-zero when it refuses -- both are 1 -- so a check that
+# read the code would tell a machine without the helper's grant `h1 cannot reach 10.0.0.2 -- fabric is
+# up but not forwarding`: a specific claim about the network, manufactured from a permission error.
+# The one place the exit code is read is exit 2 together with ping's own error line (below).
+# The answers, in the order they are looked at:
+#   a ping summary line         it can only have come from a ping that ran; some reply = forwards (0),
+#                               none = does not (1); a summary with nothing sent is 2
+#   the helper's own refusal    exit 64-67 with a `ndtwin-lab host-ping:` line: 2, and that line
+#   sudo's refusal              2, "sudo refused the helper"
+#   an installed helper that has no host-ping verb yet: 2, and to reinstall it (user guide 3.1)
+#   a ping that ran and could not send: exit 2 and ping's own error line (for example
+#                               `/usr/bin/ping: connect: Network is unreachable`): 1, as `ping ... || return 1`
+#                               was before the helper; the line is left in NDT_DATAPLANE_WHY for the caller
+#                               to print. The helper runs ping by absolute path, so ping names itself by that
+#                               path (measured: `/usr/bin/ping: usage error: ...`), and the match allows a
+#                               path before `ping: `. Nothing else can match it: sudo's lines start `sudo: `,
+#                               the helper's `ndtwin-lab`, nsenter's `nsenter: `, and a bash error starts with
+#                               the path of the script and then `: line N:`, which is not `ping: `.
+#   anything else               2, with what it said
+# NDT_DATAPLANE_WHY carries the reason for a 2 so the caller can print which kind it was, and ping's own
+# error line for the 1 that comes from it.
 NDT_DATAPLANE_WHY=""
+NDT_DATAPLANE_SUDO_WHY="sudo refused the helper"
 dataplane_ok() {
-    NDT_DATAPLANE_WHY="no namespace for $1"
-    local pid; pid="$(host_pid "$1")" || return 2
-    [[ -n "$pid" ]] || return 2
-    if ! ndt_sudo_capture mnexec -a "$pid" true >/dev/null; then
-        if ndt_sudo_refused; then
-            NDT_DATAPLANE_WHY="sudo refused mnexec"
-        else
-            NDT_DATAPLANE_WHY="mnexec could not enter $1's namespace (pid $pid): ${NDT_SUDO_STDERR:-no message}"
+    NDT_DATAPLANE_WHY=""
+    local ofile out rc line sent recv first pingline
+    if ! ofile="$(mktemp "${TMPDIR:-/tmp}/ndt-hostping-XXXXXX")"; then
+        NDT_DATAPLANE_WHY="could not make a temporary file for the helper's answer"; return 2
+    fi
+    ndt_sudo_capture "$LAB" host-ping "$1" "$2" 2 0.2 >"$ofile"; rc=$?
+    out="$(cat "$ofile" 2>/dev/null)"; rm -f "$ofile"
+    line="$(grep -m 1 -E '^[0-9]+ packets transmitted, [0-9]+ received' <<<"$out")"
+    if [[ -n "$line" ]]; then
+        sent="${line%% *}"
+        recv="${line#*transmitted, }"; recv="${recv%% *}"
+        if (( sent > 0 )); then
+            (( recv > 0 )) && return 0
+            return 1
         fi
+        first="$(grep -m 1 . <<<"$NDT_SUDO_STDERR")"
+        NDT_DATAPLANE_WHY="ping sent nothing: ${first:-no message}"
         return 2
     fi
-    NDT_DATAPLANE_WHY=""
-    sudo -n mnexec -a "$pid" ping -c 2 -W 2 -q "$2" >/dev/null 2>&1 || return 1
-    return 0
+    first="$(grep '^ndtwin-lab host-ping: ' <<<"$NDT_SUDO_STDERR" | tail -n 1)"
+    pingline="$(grep -m 1 -E '^(/[^ :]*/)?ping: ' <<<"$NDT_SUDO_STDERR")"
+    if [[ "$rc" =~ ^6[4-7]$ && -n "$first" ]]; then
+        NDT_DATAPLANE_WHY="$first"
+    elif ndt_sudo_refused; then
+        NDT_DATAPLANE_WHY="$NDT_DATAPLANE_SUDO_WHY"
+    elif [[ "$NDT_SUDO_STDERR" == *"ndtwin-lab: usage:"* && "$NDT_SUDO_STDERR" != *host-ping* ]]; then
+        NDT_DATAPLANE_WHY="the installed helper has no host-ping verb: reinstall it from this checkout (user guide 3.1)"
+    elif [[ "$rc" == 2 && -n "$pingline" ]]; then
+        NDT_DATAPLANE_WHY="$pingline"
+        return 1
+    else
+        first="$(grep -E '^(ndtwin-lab|sudo):' <<<"$NDT_SUDO_STDERR" | tail -n 1)"
+        [[ -n "$first" ]] || first="$(grep -m 1 . <<<"$NDT_SUDO_STDERR")"
+        [[ -n "$first" ]] || first="$(grep -m 1 . <<<"$out")"
+        NDT_DATAPLANE_WHY="host-ping answered no ping summary (exit $rc): ${first:-no message}"
+    fi
+    return 2
 }
 
 # verify_dataplane <hN> <dst-ip> <hint> -- shared reporting for the check above.
@@ -8631,8 +8666,9 @@ verify_dataplane() {
     case $? in
         0) ok "data plane: $1 -> $2 forwards" ;;
         2) warn "data plane: forwarding NOT tested -- ${NDT_DATAPLANE_WHY:-reason unrecorded}"
-           [[ "$NDT_DATAPLANE_WHY" == "sudo refused mnexec" ]] && ndt_sudo_explain mnexec ;;
+           [[ "$NDT_DATAPLANE_WHY" == "$NDT_DATAPLANE_SUDO_WHY" ]] && ndt_sudo_explain lab ;;
         *) err "data plane: $1 cannot reach $2 -- fabric is up but not forwarding"
+           [[ -n "$NDT_DATAPLANE_WHY" ]] && err "   ping said: $NDT_DATAPLANE_WHY"
            err "   $3"
            return 1 ;;
     esac
@@ -8661,11 +8697,12 @@ verify_dataplane_reading() {
     case $? in
         0) ok "data plane: $1 -> $2 forwards" ;;
         2) warn "data plane: forwarding NOT tested -- ${NDT_DATAPLANE_WHY:-reason unrecorded}"
-           [[ "$NDT_DATAPLANE_WHY" == "sudo refused mnexec" ]] && ndt_sudo_explain mnexec ;;
+           [[ "$NDT_DATAPLANE_WHY" == "$NDT_DATAPLANE_SUDO_WHY" ]] && ndt_sudo_explain lab ;;
         *) warn "data plane: $1 cannot reach $2 -- a READING, not a verdict: under the package's"
            warn "  own program ($3) whether plain IPv4 forwards is the package's claim, not"
            warn "  NDTwin's (a skeleton does not forward; source_routing needs its header)."
-           warn "  The exercise's driver judges it." ;;
+           warn "  The exercise's driver judges it."
+           [[ -n "$NDT_DATAPLANE_WHY" ]] && warn "  ping said: $NDT_DATAPLANE_WHY" ;;
     esac
     return 0
 }
@@ -9484,7 +9521,7 @@ cmd_status() {
     fi
     # A missing sudo grant leaves other lines on this page unreadable, so it belongs in --check:
     # without ovs-vsctl `ndt up p4` stops with "cannot tell" (unless it reuses a P4 fabric) and the plane
-    # can read unknown; without mnexec the forwarding check says it was NOT tested. The table
+    # can read unknown; without the helper's grant the forwarding check says it was NOT tested. The table
     # decides which grants matter; this loop only reports them. [Co-developed with claude code -- Adam]
     local sudo_report; sudo_report="$(ndt_sudo_report)"; local src=$?
     case $src in

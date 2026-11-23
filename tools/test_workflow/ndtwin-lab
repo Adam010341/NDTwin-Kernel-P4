@@ -4,17 +4,16 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Install (both commands need sudo, run once):
+# Install (needs sudo, run once):
 #   sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
-#   echo 'adam ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab' | sudo tee /etc/sudoers.d/ndtwin-lab
+# then grant it to the account that runs ndt, as doc/2026-11-05_user-guide.md section 3.2
+# describes (it writes the sudoers file through visudo).
 #
-# Security shape, stated plainly: after install, anything running as adam can perform
-# exactly the operations below as root -- start/stop the bmv2+NTG topology, type into the
-# NTG CLI, read its screen, and start/stop the two app binaries. That is the whole surface:
-# the script is root-owned (a non-root write cannot change what sudo runs), takes fixed
-# subcommands only, and send-keys uses literal mode, so text lands in NTG's stdin rather
-# than in any root shell. This replaces handing out NOPASSWD on adam-writable scripts,
-# which would have been root-for-anyone-who-can-write-a-file.
+# Security shape: the script is root-owned, so a non-root write cannot change it (what it starts is
+# another matter, see below), and it takes fixed subcommands only, which replaces handing out
+# NOPASSWD on scripts the user can write. That does not make the grant a bounded surface: what it
+# amounts to (root on the machine, through the topology pane, the topology scripts and NTG's
+# interpreter, and the app binaries) is stated in doc/2026-11-05_user-guide.md section 3.2.
 #
 # Everything runs inside root tmux sessions on a dedicated socket (-L ndtwinlab), so an
 # operator can also `sudo tmux -L ndtwinlab attach -t topo` and watch or type by hand.
@@ -57,14 +56,14 @@ TMUX="tmux -L ndtwinlab"
 # Why an ENV OVERRIDE is still not the fix, kept here so it is not re-litigated: this file is
 # installed root-owned at /usr/local/sbin/ndtwin-lab and invoked through a NOPASSWD sudoers
 # rule, and BRIDGE below is executed as root. Letting the environment choose KERNEL_DIR would
-# let anything running as adam point root at an arbitrary adam-writable .py. sudo's env_reset
+# let any user holding the sudo grant point root at an arbitrary user-writable .py. sudo's env_reset
 # drops the variable in the normal path anyway, so the "override" would be silently ineffective
 # where it is safe and a privilege escalation where it worked. Both halves are bad.
 #
 # What IS the fix (G-7, 2026-09-02): an INSTALL-TIME CONFIG FILE at a fixed path that only root
 # can write. The distinction that makes it safe is not the file format, it is WHO CHOOSES:
 #
-#   env var        the caller chooses, at call time            -> anyone running as adam
+#   env var        the caller chooses, at call time            -> any user holding the grant
 #   config file    the machine's administrator chooses, once   -> only someone who is already root
 #
 # 🔑 Stated plainly so nobody reads more safety into this than it has: the DEFAULT KERNEL_DIR is
