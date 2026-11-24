@@ -29,6 +29,10 @@ class NDTwinError(Exception):
     lab_claim = None
     written = ()        # P4.modify_all: the entries answered before the write that failed
     plan = None         # Kernel.move_routes_off: the RoutePlan whose write failed
+    # OF.write, after the kernel queued the entry [Co-developed with claude code -- Adam]:
+    request_id = None   # the kernel's request id of the write
+    failures = ()       # the failure records of its dispatch status, as the kernel gives them
+    remedy = None       # the first `remedy` a failure record carries, or None
 
     def __init__(self, message, *, method=None, path=None, status=None, origin=None, body=None,
                  nothing_written=_DEFAULT):
