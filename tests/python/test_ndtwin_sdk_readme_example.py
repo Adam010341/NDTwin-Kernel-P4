@@ -11,6 +11,7 @@ an example that moved only one of them would strand the other. The fake kernel
 walks the tables the way examples/p4_energy_saving/route_walk.py does.
 
 The example is taken from the README's first ```python block; only its kernel URL is replaced.
+The examples of "Cutting a link" run against tests/python/link_fake_kernel.py.
 README_UNDER_TEST points at another copy of the README.
 
     python3 tests/python/test_ndtwin_sdk_readme_example.py -v
@@ -28,6 +29,7 @@ SDK_DIR = os.path.join(REPO_DIR, "sdk", "python")
 README = os.environ.get("README_UNDER_TEST") or os.path.join(SDK_DIR, "README.md")
 sys.path.insert(0, HERE)
 from p4_fake_kernel import FIELD, FakeKernel, calls, serve  # noqa: E402
+import link_fake_kernel as lfk  # noqa: E402  [Co-developed with claude code -- Adam]
 
 sys.path.insert(0, SDK_DIR)
 import ndtwin  # noqa: E402
@@ -105,6 +107,81 @@ class ReadmeExampleTest(unittest.TestCase):
         power = [c for c in seq if c.startswith("POST power")]
         self.assertEqual(power, ["POST power 192.168.123.14 off", "POST power 192.168.123.14 on"])
         self.assertLess(seq.index("POST renew_lock"), seq.index(power[0]))
+
+
+class LinkExamplesTest(unittest.TestCase):
+    """The examples of the README's "Cutting a link", run as written with `k` and `ndtwin` against
+    the fake of the link routes (tests/python/link_fake_kernel.py).
+    [Co-developed with claude code -- Adam]"""
+
+    def setUp(self):
+        self.fake = lfk.LinkFakeKernel()
+        self.server = lfk.serve(self.fake)
+        self.k = ndtwin.Kernel("http://127.0.0.1:%d" % self.server.server_address[1], timeout=5,
+                               retry_wait=0)
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def run_block(self, marker):
+        with open(README) as fh:
+            blocks = re.findall(r"^```python\n(.*?)^```", fh.read(), re.M | re.S)
+        code = [b for b in blocks if marker in b][0]
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            exec(compile(code, README, "exec"), {"k": self.k, "ndtwin": ndtwin})
+        return out.getvalue().splitlines()
+
+    def recoveries(self):
+        return self.fake.posts(lfk.RECOVER)
+
+    def test_the_with_example_cuts_the_link_and_puts_it_back(self):
+        lines = self.run_block("k.link_down(")
+        self.assertEqual(lines, ["on the wire: True ('s1-eth1', 's2-eth1')",
+                                 "restored: ('s1-eth1', 's2-eth1')"])
+        self.assertEqual([p for m, p, b in self.fake.requests if m == "POST"],
+                         [lfk.INJECT, lfk.RECOVER])
+        self.assertEqual((self.fake.netem, self.fake.declared), ({}, set()))
+
+    def test_the_with_example_says_what_was_not_restored(self):
+        self.fake.script("POST", lfk.RECOVER, (500, lfk.INTERNAL))   # HS.cpp:609-616
+        lines = self.run_block("k.link_down(")
+        self.assertEqual(lines[-1], "not restored: ('s1-eth1', 's2-eth1') "
+                                    "k.restore_link(((1, 1), (2, 1)))")
+
+    def test_the_cleanup_example_restores_what_a_killed_app_left(self):
+        body = {"src_dpid": 2, "src_interface": 2, "dst_dpid": 3, "dst_interface": 1}
+        self.fake.handle("POST", lfk.INJECT, body)     # the injection of an app that was killed
+        self.fake.requests.clear()
+        lines = self.run_block("k.restore_link(link)")
+        self.assertEqual(lines, ["s2-s3 restored: ('s2-eth2', 's3-eth1')"])
+        self.assertEqual(self.recoveries(), [body])
+        self.assertEqual((self.fake.netem, self.fake.declared), ({}, set()))
+
+    def test_the_cleanup_example_goes_on_past_a_link_it_cannot_restore(self):
+        for body in ({"src_dpid": 1, "src_interface": 1, "dst_dpid": 2, "dst_interface": 1},
+                     {"src_dpid": 2, "src_interface": 2, "dst_dpid": 3, "dst_interface": 1}):
+            self.fake.handle("POST", lfk.INJECT, body)     # two injections an app left
+        self.fake.netem["s1-eth1"] = "replaced"            # somebody replaced one netem
+        lines = self.run_block("k.restore_link(link)")
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(lines[0].startswith("s1-s2 not restored: ('s1-eth1',) s1-eth1: "))
+        self.assertEqual(lines[1], "s2-s3 restored: ('s2-eth2', 's3-eth1')")
+
+    def test_the_cleanup_example_skips_a_link_it_cannot_address_and_goes_on(self):
+        self.fake.cables.append((1, 2, 2, 3))                # a second link between s1 and s2
+        for body in ({"src_dpid": 1, "src_interface": 1, "dst_dpid": 2, "dst_interface": 1},
+                     {"src_dpid": 2, "src_interface": 2, "dst_dpid": 3, "dst_interface": 1}):
+            self.fake.handle("POST", lfk.INJECT, body)
+        self.fake.requests.clear()
+        lines = self.run_block("k.restore_link(link)")
+        self.assertEqual(sorted(ln.split(":")[0] for ln in lines),
+                         ["s1-s2 skipped", "s1-s2 skipped", "s2-s3 restored"])
+        self.assertIn("have another link between them", lines[0])
+        body = {"src_dpid": 2, "src_interface": 2, "dst_dpid": 3, "dst_interface": 1}
+        self.assertEqual(self.recoveries(), [body])
+        self.assertEqual(self.fake.declared, {frozenset((1, 2))})
 
 
 if __name__ == "__main__":
