@@ -125,6 +125,43 @@ apply_exact "$RUNLAYERS" \
 report "M5: prefix only, so mininet:host counts as a host" "$c" \
        "fabric_hosts_in counts host namespaces only (3 of 9 lines)"
 
+# --- [Co-developed with claude code -- Adam] M6-M10: the refusal's advice names a derive source of the running size ---
+c="$(fresh_copy m6)"
+apply_exact "$RUNLAYERS" \
+  '            echo "      setting/$src \\" >&2' \
+  '            echo "      setting/StaticNetworkTopologyMininet_10Switches.json \\" >&2' "$c"
+report "M6: the derive source is the 128-host model for every size" "$c" \
+       "the refusal for 8 running hosts derives from the OVS model of 8 hosts, not the 128-host one"
+
+c="$(fresh_copy m7)"
+apply_exact "$RUNLAYERS" \
+  '        if [[ -f "$SETTING_DIR/$src" ]]; then' \
+  '        if true; then' "$c"
+report "M7: a derive command is printed for a size with no OVS model" "$c" \
+       "a size with no OVS model: no derive command, and the sizes that ship are listed"
+
+c="$(fresh_copy m8)"
+apply_exact "$RUNLAYERS" \
+  '    if [[ "$mode" == p4 ]]; then' \
+  '    if true; then' "$c"
+report "M8: an OVS run is given the P4 advice" "$c" \
+       "an OVS run with no model of the running size is not sent to the P4 deriver"
+
+c="$(fresh_copy m9)"
+apply_exact "$RUNLAYERS" \
+  '            echo "  hosts in the P4 models in setting/:  $(model_sizes p4)" >&2
+' \
+  '' "$c"
+report "M9: the sizes that ship are not listed" "$c" \
+       "a size with no OVS model: no derive command, and the sizes that ship are listed"
+
+c="$(fresh_copy m10)"
+apply_exact "$RUNLAYERS" \
+  '    echo "or name a model that describes the network that is running:" >&2' \
+  '    echo "or name it explicitly:" >&2' "$c"
+report "M10: NDT_TOPO is offered without saying it must describe the running network" "$c" \
+       "and names NDT_TOPO only as a model of the network that is running"
+
 echo
 if [[ "$(sha256sum "$RUNLAYERS" | cut -d' ' -f1)" == "$BASE_SHA" ]]; then
     echo "baseline byte-identical: yes"

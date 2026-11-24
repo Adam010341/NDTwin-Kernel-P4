@@ -13,12 +13,21 @@ StaticNetworkTopologyMininet_10Switches.json: the only differing key on a switch
 
 Usage:  python derive_p4_topology_json.py <ovs.json> <out-p4.json>
 
+`ndt up p4 <n>` finds a model by the number of hosts it declares, not by its name, so a file
+named `..._<n>Hosts.json` that declares another count is never found for <n> and would be
+mistaken for a model of <n> hosts by anyone reading the name. When the output name carries
+`_<n>Hosts` and the model declares a different number, nothing is written and the exit status
+is not 0.
+
 [Co-developed with claude code -- Adam]
 """
 import json
+import os
+import re
 import sys
 
 SWITCH = 0  # vertex_type for a switch
+HOST = 1    # vertex_type for a host; the count `ndt` and the topology reader use
 
 
 def derive(src, dst):
@@ -38,6 +47,17 @@ def derive(src, dst):
 
     if not switches:
         raise SystemExit(f"refusing: no switch nodes (vertex_type={SWITCH}) found in {src}")
+
+    # The size the output's name claims, against the size the model declares. Checked before
+    # anything is written, so a wrong source cannot leave a mislabelled file behind.
+    declared = sum(1 for node in model["nodes"] if node.get("vertex_type") == HOST)
+    for named in re.findall(r"_(\d+)Hosts", os.path.basename(dst)):
+        if int(named) != declared:
+            raise SystemExit(
+                f"refusing: {os.path.basename(dst)} is named for {named} hosts but {src} declares "
+                f"{declared}; nothing was written. Derive from an OVS model that declares {named} "
+                f"hosts, or name the output for {declared}."
+            )
 
     with open(dst, "w") as fh:
         json.dump(model, fh, indent=4)

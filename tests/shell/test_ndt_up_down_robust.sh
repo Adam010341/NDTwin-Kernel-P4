@@ -907,7 +907,29 @@ refused_shape "a model for a size setting/ has no P4 model of" "$OUTSIDE/m_ovs8.
 reset_fix
 OUT="$(drive 'up_p4 8')"
 check "  and without NDT_TOPO the same size is the 'no model' refusal, as before" "1" "$(rc_of_out "$OUT")"
-has   "  ...which prints the derive command"                 "derive_p4_topology_json.py" "$OUT"
+hasnt "  ...and with no OVS model of 8 hosts it prints NO derive command" "derive_p4_topology_json.py" "$OUT"
+
+# [Co-developed with claude code -- Adam]
+# 🔴 The derive command's source is the OVS model OF THE SAME SIZE. It used to be the 128-host Mininet model for every
+# size: following it wrote a 128-host model named ..._8Hosts.json, which is never found for 8, and the same refusal
+# came back. With the OVS model of 8 hosts in setting/, the advice names it, and its output is named for 8.
+mk_topo StaticNetworkTopologyOVS_10Switches_8Hosts.json 8 56
+reset_fix
+OUT="$(drive 'up_p4 8')"
+check "  🔴 with an OVS model of 8 hosts: 'ndt up p4 8' is still the 'no model' refusal, rc 1" "1" "$(rc_of_out "$OUT")"
+has   "  🔴 the advice derives from that model"              "setting/StaticNetworkTopologyOVS_10Switches_8Hosts.json" "$OUT"
+has   "  into a P4 model named for 8 hosts"                  "setting/StaticNetworkTopologyP4_10Switches_8Hosts.json" "$OUT"
+hasnt "  🔴 and never from the 128-host Mininet model"       "StaticNetworkTopologyMininet_10Switches.json" "$OUT"
+check "  the refusal built nothing"                          "" "$(cat "$FIX/sudo.log")"
+# A size with no OVS model either: nothing to run, and the sizes that do ship are listed.
+reset_fix
+OUT="$(drive 'up_p4 12')"
+check "  🔴 a size no OVS model has: refused, rc 1"          "1" "$(rc_of_out "$OUT")"
+has   "  and says so"                                        "no model of 12 hosts ships in" "$OUT"
+hasnt "  🔴 and prints no derive command"                    "derive_p4_topology_json.py" "$OUT"
+has   "  it lists the P4 sizes that ship"                    "hosts in the P4 models in setting/:  4, 128" "$OUT"
+has   "  and the OVS sizes"                                  "hosts in the OVS models in setting/: 4, 8" "$OUT"
+rm -f "$FIX/setting/StaticNetworkTopologyOVS_10Switches_8Hosts.json"
 
 # 🔴 THE CONTROLS: refusing every NDT_TOPO other than setting/'s own file would satisfy every cell above and
 # remove what NDT_TOPO is for -- naming a copy, or a file with other metadata, of the network the fabric builds.
@@ -1748,7 +1770,7 @@ knob_put '4
 KNOB_BEFORE="$(knob_hex)"
 OUT="$(drive 'up_p4 12')"
 check "  a size no model has is still refused"             "1" "$(rc_of_out "$OUT")"
-has   "  by the message that names the deriver"            "no P4 topology model in setting/ has 12 hosts" "$OUT"
+has   "  by the message that says which sizes have a model" "no P4 topology model in setting/ has 12 hosts" "$OUT"
 check "🔴 and that refusal leaves the knob alone as well"  "$KNOB_BEFORE" "$(knob_hex)"
 
 # -- a claim somebody else holds. This refusal is three checks further down than H4, so it is

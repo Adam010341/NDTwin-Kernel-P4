@@ -128,6 +128,57 @@ for pat in pats:
 PY
 }
 
+# [Co-developed with claude code -- Adam]
+# model_sizes <mode> -- the host counts the models of that family in $SETTING_DIR declare, ascending,
+# comma separated; the same file sets topo_for_hosts searches, counted the same way.
+model_sizes() {
+    local mode="${1:-p4}" pats
+    case "$mode" in
+        p4) pats="StaticNetworkTopologyP4_*.json" ;;
+        *)  pats="StaticNetworkTopologyOVS_*.json StaticNetworkTopologyMininet_*.json" ;;
+    esac
+    python3 - "$SETTING_DIR" $pats <<'PY' 2>/dev/null
+import glob, json, os, sys
+d, pats = sys.argv[1], sys.argv[2:]
+sizes = set()
+for pat in pats:
+    for p in glob.glob(os.path.join(d, pat)):
+        try:
+            t = json.load(open(p))
+            sizes.add(sum(1 for n in t["nodes"] if n.get("vertex_type") == 1))
+        except Exception:
+            continue
+print(", ".join(str(n) for n in sorted(sizes)))
+PY
+}
+
+# [Co-developed with claude code -- Adam]
+# no_model_advice <hosts> <mode> -- what to say when no model in $SETTING_DIR describes the running
+# fabric. The same advice `ndt up p4` gives: a P4 model can be derived only from the OVS model of THAT
+# size (the 128-host Mininet model derived into a file named for another size is never found for it), and
+# with no such model nothing is printed to run, only the sizes that ship. NDT_TOPO is named last, and
+# only as what it is here: the model this run compares the twin with, which has to describe the network
+# that is running -- a file of another network would report the difference as a product defect.
+no_model_advice() {
+    local n="$1" mode="$2" src="StaticNetworkTopologyOVS_10Switches_${1}Hosts.json"
+    if [[ "$mode" == p4 ]]; then
+        if [[ -f "$SETTING_DIR/$src" ]]; then
+            echo "derive one first:" >&2
+            echo "  python3 tools/test_workflow/derive_p4_topology_json.py \\" >&2
+            echo "      setting/$src \\" >&2
+            echo "      setting/StaticNetworkTopologyP4_10Switches_${n}Hosts.json" >&2
+        else
+            echo "no model of $n hosts ships in setting/ (P4 or OVS), so there is nothing to derive one from." >&2
+            echo "  hosts in the P4 models in setting/:  $(model_sizes p4)" >&2
+            echo "  hosts in the OVS models in setting/: $(model_sizes ovs)" >&2
+        fi
+    else
+        echo "  hosts in the OVS models in setting/: $(model_sizes ovs)" >&2
+    fi
+    echo "or name a model that describes the network that is running:" >&2
+    echo "  NDT_TOPO=/path/to/model $0 ..." >&2
+}
+
 # --- ask the kernel, rather than deriving behind its back --------------------------------
 #
 # [Co-developed with claude code -- Adam] -- FIXED-ISSUES G-15.
@@ -290,11 +341,7 @@ topo_for_mode() {
         echo "testing against ${configured#$KERNEL_DIR/} anyway would compare the twin to a" >&2
         echo "different network and report the difference as a product defect -- which is how" >&2
         echo "a BROKEN line ended up being read as evidence about A-8 (FIXED-ISSUES L-1)." >&2
-        echo "derive one first, or name it explicitly:" >&2
-        echo "  python3 tools/test_workflow/derive_p4_topology_json.py \\" >&2
-        echo "      setting/StaticNetworkTopologyMininet_10Switches.json \\" >&2
-        echo "      setting/StaticNetworkTopologyP4_10Switches_${live}Hosts.json" >&2
-        echo "  NDT_TOPO=/path/to/model $0 ..." >&2
+        no_model_advice "$live" "$mode"
         return 3
     fi
 
