@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for the "program run by hand from examples/" channel of `ndt apps orphans`,
-# `ndt down` and `ndt up` -- cells HR1-HR7 of tests/shell/test_ndt_app_orphans.sh and HR5 of
-# tests/shell/test_orphans_verdict.sh.
+# `ndt down` and `ndt up` -- cells HR1-HR7 and C1-C5 (what `ndt status` says about it) of
+# tests/shell/test_ndt_app_orphans.sh, and HR5 of tests/shell/test_orphans_verdict.sh.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -26,6 +26,15 @@
 #   M13 `ndt down` changes its exit status           -> HR6 down (same rc with and without)
 #   M14 `ndt up` does not call the scan              -> HR6 up (the up) arm calls it before the plan)
 #   M15 a script inside this checkout is not trusted -> HR1c (relative path, started from outside)
+#   M16 `ndt status` does not run the scan          -> C1 (no hand-run row)
+#   M17 `ndt status` prints no hand-run row         -> C1
+#   M18 the hand-run row goes to stderr             -> C1 (the page is read from stdout)
+#   M19 the apps row is not changed                 -> C1 (it still reads `none running`)
+#   M20 a hand-run program is a `--check` problem   -> C2 (rc and problem lines differ)
+#   M21 `ndt status` loses another tree's copy      -> C4 (no elsewhere row)
+#   M22 the clean page differs by a byte            -> C3 (the apps row is not exactly `none running`)
+#   M23 a tracked app is hidden behind `none started`   -> C1b (the apps row is not exactly the app)
+#   M24 an untracked app is hidden behind `none started` -> C1c (the apps row says none was started by ndt)
 #
 # and two rewordings that change no behaviour and must stay green (W1, W2): a gate that went red
 # for any edit to this code would prove nothing when it went red for a mutation.
@@ -312,6 +321,102 @@ cat > "$A/m15.new" <<'EOF'
 EOF
 check_fires "M15: a script inside this checkout is not taken as ours" m15 \
             "HR1c relative path from outside the checkout -> rc 1"
+
+# --- M16: `ndt status` does not run the scan --------------------------------------------------
+cat > "$A/m16.old" <<'EOF'
+    hand_run_scan
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+cat > "$A/m16.new" <<'EOF'
+    HAND_RUN=()
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+check_fires "M16: ndt status never scans for hand-run programs" m16 \
+            "C1 a live hand-run program -> a hand-run row names its pid"
+
+# --- M17: the row is not printed ------------------------------------------------------------
+cat > "$A/m17.old" <<'EOF'
+        printf '  %-14s %s\n' "hand-run" "${Y}pid $hrp  $hrargv${N}"
+EOF
+cat > "$A/m17.new" <<'EOF'
+        :
+EOF
+check_fires "M17: ndt status prints no hand-run row" m17 \
+            "C1 a live hand-run program -> a hand-run row names its pid"
+
+# --- M18: the row is printed to stderr --------------------------------------------------
+cat > "$A/m18.old" <<'EOF'
+        printf '  %-14s %s\n' "hand-run" "${Y}pid $hrp  $hrargv${N}"
+EOF
+cat > "$A/m18.new" <<'EOF'
+        printf '  %-14s %s\n' "hand-run" "${Y}pid $hrp  $hrargv${N}" >&2
+EOF
+check_fires "M18: the hand-run row goes to stderr" m18 \
+            "C1 a live hand-run program -> a hand-run row names its pid"
+
+# --- M19: the apps row still says `none running` ----------------------------------------
+cat > "$A/m19.old" <<'EOF'
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+cat > "$A/m19.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M19: the apps row is not changed over a hand-run program" m19 \
+            "  the apps row is not a bare 'none running'"
+
+# --- M20: a hand-run program is a --check problem ----------------------------------------
+cat > "$A/m20.old" <<'EOF'
+        printf '  %-14s %s\n' "" "started by hand from this checkout's examples/, tracked by nothing; ndt does not stop it (kill $hrp)$hrnote"
+EOF
+cat > "$A/m20.new" <<'EOF'
+        printf '  %-14s %s\n' "" "started by hand from this checkout's examples/, tracked by nothing; ndt does not stop it (kill $hrp)$hrnote"
+        problems+=("a program started by hand is running: pid $hrp")
+EOF
+check_fires "M20: a hand-run program is a --check problem" m20 \
+            "  🔴 --check ends with the same rc with and without it"
+
+# --- M21: another tree's copy is lost from the elsewhere row ------------------------------
+cat > "$A/m21.old" <<'EOF'
+    hand_run_scan
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+cat > "$A/m21.new" <<'EOF'
+    hand_run_scan
+    app_elsewhere_reset
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+check_fires "M21: ndt status drops another checkout's copy" m21 \
+            "C4 another checkout's copy -> an elsewhere row naming it"
+
+# --- M22: the clean page differs by a byte --------------------------------------------------
+cat > "$A/m22.old" <<'EOF'
+        printf '  %-14s %s\n' "apps" "${appson:-none running}"
+EOF
+cat > "$A/m22.new" <<'EOF'
+        printf '  %-14s %s\n' "apps" "${appson:-none running} "
+EOF
+check_fires "M22: the page with no hand-run program differs by a byte" m22 \
+            "  the apps row is exactly that, with no byte after it"
+
+# --- M23: an app ndt started and tracks is hidden behind "none started by ndt" ---------------------
+cat > "$A/m23.old" <<'EOF'
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+cat > "$A/m23.new" <<'EOF'
+    if [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+check_fires "M23: the apps row hides an app ndt started and tracks" m23 \
+            "C1b an app ndt started AND a hand-run one: the apps row is exactly the app"
+
+# --- M24: an app ndt started, pidfile gone, is hidden behind "none started by ndt" -------------------
+cat > "$A/m24.old" <<'EOF'
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+cat > "$A/m24.new" <<'EOF'
+    if [[ -z "$appson" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+EOF
+check_fires "M24: the apps row hides an app ndt started with no pidfile" m24 \
+            "C1c an app ndt started with no pidfile AND a hand-run one: the apps row does not say none was started by ndt"
 
 # --- W1, W2: rewordings that change no behaviour ---------------------------------------------------------
 cat > "$A/w1.old" <<'EOF'

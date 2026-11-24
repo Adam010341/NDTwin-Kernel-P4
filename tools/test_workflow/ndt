@@ -9651,7 +9651,18 @@ cmd_status() {
             pidfile-lost-but-alive) orphans="${orphans:+$orphans, }$a(${APP_LIVE_PIDS[*]})" ;;
         esac
     done
-    printf '  %-14s %s\n' "apps" "${appson:-none running}"
+    # [Co-developed with claude code -- Adam]
+    # A program started by hand from examples/ (hand_run_scan, the channel `ndt apps orphans`
+    # reads) is named here too, and only named: this page said `none running` over one while
+    # `ndt apps orphans` said NOT CLEAN. It is not a `problems+=` entry below, because `--check`
+    # decides whether the machine is clean for a measurement and `ndt apps orphans` is the
+    # verdict on this class; a reading does not change an exit status.
+    hand_run_scan
+    if [[ -z "$appson" ]] && [[ -z "$orphans" ]] && (( ${#HAND_RUN[@]} > 0 )); then
+        printf '  %-14s %s\n' "apps" "none started by ndt -- see the hand-run row(s) below"
+    else
+        printf '  %-14s %s\n' "apps" "${appson:-none running}"
+    fi
     case "$appson" in *energy*|*te*) problems+=("an app that changes the network is running: $appson") ;; esac
     if [[ -n "$orphans" ]]; then
         printf '  %-14s %s\n' "untracked" "${R}$orphans -- running, and no pidfile names them${N}"
@@ -9671,6 +9682,19 @@ cmd_status() {
         printf '  %-14s %s\n' "" "they keep polling the kernel: 'ndt apps stop <name>'"
         problems+=("untracked app process(es) with no pidfile: $orphans")
     fi
+    # [Co-developed with claude code -- Adam]
+    # One row per hand-run pid, yellow, and NOT a `problems+=` entry (see the apps row above).
+    # A pid whose owner could not be established is counted and says so, as apps_orphans does.
+    local hre hrp hrnote hrargv
+    for hre in ${HAND_RUN[@]+"${HAND_RUN[@]}"}; do
+        hrp="${hre%% *}"
+        hrnote=""
+        [[ "$APP_ATTRIB_BLIND" == *"hand-run pid $hrp: "* ]] &&
+            hrnote="; who owns it could not be established, so it is shown as this checkout's"
+        hrargv="${hre#* }"; hrargv="${hrargv//$'\n'/ }"   # one row per pid, whatever the argv holds
+        printf '  %-14s %s\n' "hand-run" "${Y}pid $hrp  $hrargv${N}"
+        printf '  %-14s %s\n' "" "started by hand from this checkout's examples/, tracked by nothing; ndt does not stop it (kill $hrp)$hrnote"
+    done
     # [Co-developed with claude code -- Adam]
     # 🔴 Its own row and NOT a `problems+=` entry: `--check` is the command a session
     # runs to decide whether the machine it is about to measure is clean, and another tree's

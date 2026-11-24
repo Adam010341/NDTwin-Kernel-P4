@@ -284,9 +284,13 @@ report "M18: '--check' stops looking at the network" "$m" \
 
 # The residue is printed but not counted -- exactly the state G-12 was measured in, where every
 # verb printed something and rc was 0.
+# [Co-developed with claude code -- Adam]
+# The finding goes into an array nothing reads, so the file still parses. The replacement was
+# `: (`, a syntax error: sourcing stopped there and dropped every function defined below it,
+# so the case only went red while cmd_status happened to call none of them.
 m=$(mutant m19 "$NDT" \
     '           STATUS_RESIDUE_PROBLEMS+=("rules-in-window:' \
-    '           : ("rules-in-window:')
+    '           M19_PRINTED_NOT_COUNTED+=("rules-in-window:')
 report "M19: --check prints residue and still exits 0" "$m" \
        "🔴 and --check exits 1 (it exited 0 over this on 09-05)" row
 
