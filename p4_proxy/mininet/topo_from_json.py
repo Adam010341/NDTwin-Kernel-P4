@@ -25,6 +25,7 @@ What it does not do, on purpose:
 import glob
 import json
 import os
+import sys
 
 SWITCH = 0  # VertexType::SWITCH in include/common_types/GraphTypes.hpp
 HOST = 1
@@ -322,3 +323,241 @@ def model_path(host_num, setting_dir=None, env=None):
         f"no P4 topology model in {setting_dir} has {host_num} hosts "
         f"(looked at {len(candidates)}){detail}. Derive one with "
         f"tools/test_workflow/derive_p4_topology_json.py before building this fabric")
+
+
+# --- are two models the same network ----------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# On the P4 plane the fabric is always built from the model in setting/ that has the asked-for
+# host count (model_path above, in a process that never sees the operator's environment), while
+# the kernel and the proxy's sFlow/LLDP view load whatever `NDT_TOPO` names. Comparing the two by
+# host count alone let a different wiring with the same number of hosts through, and the twin
+# then described a network that was not there. `network` reads out what the fabric would be built
+# from, in a shape two models can be compared in; `network_diff` says, by switch and port, where
+# two of them disagree.
+#
+# Compared: each switch's dpid, device_name, bridge name (the name switches() gives it: the fabric
+# names a switch by it and the kernel addresses Mininet by it), brand_name and ip (the kernel
+# attributes sFlow samples by that address); each cable as the pair of (dpid, port) ends, and
+# whether a cable is stored in both directions or in one only (the kernel then holds one directed
+# edge); each host's device_name, address, MAC and (dpid, port).
+# NOT compared: declared link bandwidths, nicknames, ecmp_groups, smart-plug fields and every other
+# field of a node or an edge that is not listed above -- the kernel reads some of them (ecmp_groups
+# among them), so two models that differ only there are the same network HERE, not necessarily the
+# same to the kernel.
+
+
+def _switch_facts(model):
+    """{dpid: (device_name, bridge name, brand_name, ip)} for the switch nodes.
+
+    The bridge name is the one switches() gives the switch (bridge_name, else device_name, else
+    s<dpid>); switches() also refuses a duplicate dpid or a switch without one, as the fabric does.
+    """
+    bridge = dict(switches(model))
+    out = {}
+    for node in model.get("nodes", []):
+        if not node or node.get("vertex_type") != SWITCH:
+            continue
+        out[int(node["dpid"])] = (node.get("device_name"), bridge[int(node["dpid"])],
+                                  node.get("brand_name"), _first_ip(node.get("ip")))
+    return out
+
+
+def _one_way_cables(model):
+    """{(dpid, port): (dpid, port)} for each inter-switch edge stored in ONE direction only.
+
+    A cable is stored as two edges, one per direction. The fabric builds the cable either way, but
+    the kernel holds one directed edge for a cable stored once, so it is not the same network.
+    """
+    dpids = {d for d, _ in switches(model)}
+    directed = set()
+    for edge in model.get("edges", []):
+        if not edge:
+            continue
+        s, d = edge.get("src_dpid"), edge.get("dst_dpid")
+        sp, dp = edge.get("src_interface"), edge.get("dst_interface")
+        if s in dpids and d in dpids and s and d and sp and dp:
+            directed.add(((int(s), int(sp)), (int(d), int(dp))))
+    return {src: dst for src, dst in directed if (dst, src) not in directed}
+
+
+def network(model):
+    """What a fabric built from `model` is made of, as plain comparable data.
+
+    {"switches": {dpid: (device_name, bridge name, brand_name, ip)},
+     "ends": {(dpid, port): (dpid, port)}                      every cable, from both of its ends,
+     "one_way": {(dpid, port): (dpid, port)}                   the cables stored in one direction only
+     "hosts": {address: (device_name, mac, (dpid, port))}}     (None where the host is not attached)
+
+    Raises TopologyModelError for a model the fabric itself would refuse (two cables on one port,
+    a host on a cabled port, no cables on a multi-switch model, ...): such a model describes no
+    network that can exist.
+    """
+    ends = {}
+    for a_dpid, a_port, b_dpid, b_port in switch_links(model):
+        ends[(a_dpid, a_port)] = (b_dpid, b_port)
+        ends[(b_dpid, b_port)] = (a_dpid, a_port)
+    ip_of = {name: ip for name, ip, _mac in hosts(model)}
+    attached = {ip_of[name]: (dpid, port) for name, dpid, port in host_links(model)}
+    out_hosts = {}
+    for node in model.get("nodes", []):
+        if not node or node.get("vertex_type") != HOST:
+            continue
+        ip = (node.get("ip") or [None])[0]
+        out_hosts[ip] = (node.get("device_name"), node.get("mac", 0), attached.get(ip))
+    return {"switches": _switch_facts(model), "ends": ends, "one_way": _one_way_cables(model),
+            "hosts": out_hosts}
+
+
+def _label(a, b):
+    """Short names for the two files a difference line is about: the base names, unless equal."""
+    la, lb = os.path.basename(a), os.path.basename(b)
+    return (a, b) if la == lb else (la, lb)
+
+
+def _sw(dpid):
+    return f"s{dpid}"
+
+
+def _end(end):
+    return "nothing" if end is None else f"{_sw(end[0])} port {end[1]}"
+
+
+def _runs(dpids):
+    """[1, 2, 3, 5] -> 's1..s3, s5'."""
+    out, ds = [], sorted(dpids)
+    i = 0
+    while i < len(ds):
+        j = i
+        while j + 1 < len(ds) and ds[j + 1] == ds[j] + 1:
+            j += 1
+        out.append(_sw(ds[i]) if i == j else f"{_sw(ds[i])}..{_sw(ds[j])}")
+        i = j + 1
+    return ", ".join(out)
+
+
+def _refused(path, exc):
+    return f"not a model the fabric could build: {path}: {exc}"
+
+
+def network_diff(a, b, limit=5):
+    """Where the two model files describe different networks, as lines naming switch and port.
+
+    Empty when they describe the same network (see the block comment above for what that
+    means). At most `limit` differences are returned, then one `(+N more)` line when there were
+    more. A file the fabric's own reader refuses is reported as `not a model the fabric could
+    build: <file>: <its message>` and nothing else is said about it.
+    """
+    nets, bad = [], []
+    for path in (a, b):
+        try:
+            nets.append(network(load(path)))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError) as exc:
+            bad.append(_refused(path, exc))
+    if bad:
+        return bad
+    na, nb = nets
+    la, lb = _label(a, b)
+    found = []
+
+    # Switches: one line per (field, value in a, value in b), the dpids that share it folded
+    # into a range, so ten switches that differ in brand are one line and not ten.
+    only = {"a": [], "b": []}
+    groups = {}
+    for dpid in sorted(set(na["switches"]) | set(nb["switches"])):
+        fa, fb = na["switches"].get(dpid), nb["switches"].get(dpid)
+        if fa is None or fb is None:
+            only["a" if fb is None else "b"].append(dpid)
+            continue
+        for i, field in enumerate(("name", "bridge name", "brand", "ip")):
+            if fa[i] != fb[i]:
+                groups.setdefault((field, fa[i], fb[i]), []).append(dpid)
+    for key, dpids in sorted(groups.items(), key=lambda kv: min(kv[1])):
+        field, va, vb = key
+        found.append((min(dpids), 0, f"{_runs(dpids)}: {field} {va} in {la}, {vb} in {lb}"))
+    for side, name in (("a", la), ("b", lb)):
+        if only[side]:
+            found.append((min(only[side]), 0, f"{_runs(only[side])}: only in {name}"))
+
+    # Cables, by the end that differs: sorted by switch and port, so the lowest switch is first.
+    for end in sorted(set(na["ends"]) | set(nb["ends"])):
+        pa, pb = na["ends"].get(end), nb["ends"].get(end)
+        if pa != pb:
+            found.append((end[0], end[1],
+                          f"{_sw(end[0])} port {end[1]}: {_end(pa)} in {la}, {_end(pb)} in {lb}"))
+
+    # A cable stored in one direction only, in either model: named by the end it is stored from.
+    for src in sorted(set(na["one_way"]) | set(nb["one_way"])):
+        wa, wb = na["one_way"].get(src), nb["one_way"].get(src)
+        if wa != wb:
+            side = la if wa is not None else lb
+            dst = wa if wa is not None else wb
+            found.append((src[0], src[1], f"{_sw(src[0])} port {src[1]} -> {_end(dst)}: "
+                                          f"stored in one direction only in {side}"))
+
+    # Hosts, by address.
+    for ip in sorted(set(na["hosts"]) | set(nb["hosts"]),
+                     key=lambda v: [int(x) if str(x).isdigit() else 0 for x in str(v).split(".")]):
+        ha, hb = na["hosts"].get(ip), nb["hosts"].get(ip)
+        if ha is None or hb is None:
+            found.append((1 << 30, 0, f"host {ip}: only in {la if hb is None else lb}"))
+            continue
+        if ha[0] != hb[0]:
+            found.append((1 << 30, 0, f"host {ip}: named {ha[0]} in {la}, {hb[0]} in {lb}"))
+        if _mac_value(ha[1]) != _mac_value(hb[1]):
+            found.append((1 << 30, 0, f"host {ip}: MAC {mac_str(ha[1], str(ha[0]))} in {la}, "
+                                      f"{mac_str(hb[1], str(hb[0]))} in {lb}"))
+        if ha[2] != hb[2]:
+            found.append((1 << 30, 0, f"host {ip}: on {_end(ha[2])} in {la}, {_end(hb[2])} in {lb}"))
+
+    found.sort(key=lambda t: (t[0], t[1]))
+    lines = [t[2] for t in found[:limit]]
+    if len(found) > limit:
+        lines.append(f"(+{len(found) - limit} more)")
+    return lines
+
+
+def _mac_value(mac):
+    try:
+        return int(mac)
+    except (TypeError, ValueError):
+        return mac
+
+
+# --- the same two questions, for `ndt` --------------------------------------------------------
+#
+# `ndt` has to ask which model the fabric will be built from and whether NDT_TOPO names the same
+# network, before it builds anything. It asks this module, so the answer is the fabric's own and
+# not a second copy of the rule in shell. Run as `python3 -I -B topo_from_json.py <command>`:
+#
+#   fabric-model <setting dir> <host count>   the model path on stdout, rc 0; nothing on stdout (still
+#                                             rc 0) when no model in the directory has that many
+#                                             hosts, and also when the one that does cannot be read
+#   diff <model a> <model b>                  the lines of network_diff on stdout; rc 0 when the two
+#                                             describe the same network, 1 when they do not -- and
+#                                             1 as well, with a traceback on stderr, when the
+#                                             comparison itself raises an exception nobody expected
+# Any other use is rc 2 with a sentence on stderr.
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else ""
+    if cmd == "fabric-model" and len(argv) == 4 and argv[3].isdigit():
+        try:
+            print(model_path(int(argv[3]), setting_dir=argv[2], env={}))
+        except TopologyModelError:
+            pass
+        return 0
+    if cmd == "diff" and len(argv) == 4:
+        lines = network_diff(argv[2], argv[3])
+        for line in lines:
+            print(line)
+        return 1 if lines else 0
+    print("usage: topo_from_json.py fabric-model <setting dir> <host count> | "
+          "diff <model a> <model b>", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

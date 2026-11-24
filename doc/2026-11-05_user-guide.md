@@ -574,7 +574,7 @@ Three layers decide what the lab looks like, and `ndt up` aligns them from the o
 | Layer | Decided by |
 |---|---|
 | how many hosts the fabric builds | P4: `p4_proxy/mininet/host_count_override`. OVS: the verb (128 or 4) |
-| the kernel's model | picked from `setting/` by host count; `NDT_TOPO=<file>` forces one |
+| the kernel's model | picked from `setting/` by host count. `NDT_TOPO=<file>` forces one on OVS; on P4 it may only name a copy of the network the fabric is built from (below) |
 | Ryu's model (OVS) | set by `ndt up` to the same file as the kernel's |
 
 Ryu's own default model is `setting/StaticNetworkTopologyMininet_10Switches.json` (the 128-host Mininet model) in the
@@ -598,10 +598,20 @@ Model files shipped in `setting/`:
 | 8, 16, 32, 64 | none | `StaticNetworkTopologyOVS_10Switches_{8,16,32,64}Hosts.json` (not built by `ndt up`) |
 | 128 | `StaticNetworkTopologyP4_10Switches_128Hosts.json` | `StaticNetworkTopologyMininet_10Switches.json` |
 
-For another P4 size derive a model first (`tools/test_workflow/derive_p4_topology_json.py`, its
-arguments are printed by the `no P4 topology model in setting/ has <n> hosts` refusal), or name one with
-`NDT_TOPO`. `NDT_TOPO` naming a model of a different network than the host count asks for is refused
-(rc 5).
+For another P4 size derive a model into `setting/` first (`tools/test_workflow/derive_p4_topology_json.py`,
+its arguments are printed by the `no P4 topology model in setting/ has <n> hosts` refusal): the P4 fabric is
+built only from a model in `setting/` that has the asked-for host count, whatever `NDT_TOPO` says.
+
+On P4, `NDT_TOPO` may name a file outside `setting/`, but only one that describes the same network as the
+model the fabric is built from: a copy, or a file that differs only in nicknames or declared link bandwidths.
+Before anything is built `ndt up p4` compares the two and refuses (rc 5), naming the differences, when a
+switch's name (device name or bridge name), brand or address differs, when a cable differs (each end is a switch
+and a port, and a cable stored in one direction only differs from one stored in both), when a host's name,
+address, MAC or attachment differs, when the file is a model the fabric itself would refuse (for example two
+cables on one port), or when no model in `setting/` has that many hosts. Link bandwidths, nicknames, ECMP
+groups and the other fields are not compared. With `--app` the fabric is built from the
+package's own model, so there is nothing to compare: `NDT_TOPO` must be unset or name that same file, and any
+other file, a byte copy included, is refused (rc 5) as two different files, with no differences named. On OVS the fabric is built by its own verb and `NDT_TOPO` is compared with the host count only.
 
 ### 4.5 Checking the lab: `ndt status`
 
@@ -899,7 +909,7 @@ qdisc tree came back unchanged.
   switches and proving them gone, and there never having been a lab, are different statements.
 - 5 means it did not look. The lab is claimed by somebody else, the claim declares `measuring=`, a
   measurement is running, an `ndt up`, `ndt down` or `ndt clean` from this checkout is still running, or
-  `NDT_TOPO` names a model of another network. Nothing was done. `ndt clean` also answers 5 while an
+  `NDT_TOPO` names a model of a different network (another host count, or on P4 another wiring, switch names or hosts than the model the fabric is built from, 4.4). Nothing was done. `ndt clean` also answers 5 while an
   `ndt down` of this checkout is running, because that teardown's own processes would otherwise be listed
   as residue. Read
   who refused and wait, or, when it names a missing sudo grant or NTG's config, fix what it names; 5 is
@@ -1046,7 +1056,7 @@ Logs are in `.test_run/logs/` of the checkout: `kernel.log`, `p4_proxy.log`, `ry
 | `refusing to build: a port this bring-up needs is held by a process that is not part of this checkout's stack` | something else owns the port. A stack started from another checkout counts as foreign here: take it down from that checkout with `ndt down`. For a stray nobody owns, `ndt down --deep` |
 | `no P4 topology model in setting/ has <n> hosts` | 4.4 |
 | `host count must be a multiple of 4 and at least 4` | `ndt up p4 <n>` constraint |
-| `NDT_TOPO names a model of a different network` | unset `NDT_TOPO` or set the host count to the model's (rc 5) |
+| `NDT_TOPO names a model of a different network` | unset `NDT_TOPO`, ask for the host count of a `setting/` model of the same network as `NDT_TOPO`'s, or (P4) make the file describe the network of the `setting/` model the refusal names (rc 5; 4.4) |
 | `refusing to build: NTG does not know mode ...` or `refusing to build: the hosts file ... is not a file NTG can load` (rc 5) | NTG's config would stop the fabric after it came up (4.7): `ndt ntg custom_command` (or `cli`), or create the hosts file, then the same `ndt up` again |
 | `--app is a P4 flag` / `--telemetry is a P4 flag` | you named the OVS plane (rc 2) |
 | `ndt up` ends `forwarding NOT tested` | the line under it says why: sudo refused the helper (3.2), the installed helper has no `host-ping` verb (reinstall it, 3.1), or the helper refused the host |

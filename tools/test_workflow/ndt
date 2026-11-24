@@ -56,6 +56,10 @@ REPO="$(cd "$HERE/../.." && pwd)"
 # `ndt ntg`). Taken here, at load, so a caller that later points REPO at a fixture tree still
 # reads the one module the bridge imports (see ntg_config for which tree that is).
 NTG_CONFIG_MODULE="$REPO/p4_proxy/mininet/ntg_config.py"
+# [Co-developed with claude code -- Adam] Which model the P4 fabric is built from, and whether another
+# model describes the same network (topo_for_hosts). The fabric reads its model through this module,
+# so ndt asks it rather than keeping a second copy of the rule; taken at load for the reason above.
+TOPO_MODEL_MODULE="$REPO/p4_proxy/mininet/topo_from_json.py"
 LAB=/usr/local/sbin/ndtwin-lab
 STACK="$HERE/stack.sh"
 MANIFEST=/tmp/ndtwin_p4_switches.json
@@ -2572,10 +2576,14 @@ rate_source() {
 #         no model in setting/ declares that host count. Both callers test the string and not
 #         the code, and that is left exactly as it was.
 #   rc 1  NDT_TOPO names a path that is not a file
-#   rc 3  NDT_TOPO names a real file for a DIFFERENT network. TOPO_REFUSAL says which numbers.
+#   rc 3  NDT_TOPO names a real file for a DIFFERENT network. TOPO_REFUSAL says which numbers --
+#         or, on the P4 plane, which switch ports, names or hosts: the fabric is built from the model
+#         in setting/ that has the asked-for host count, whatever NDT_TOPO says, so NDT_TOPO may
+#         only name that network (a copy, a file with other metadata), never another one. A refusal
+#         about the network is several lines: the first is the sentence, the rest its detail.
 #
 # 🔴 Silent, with the reason in TOPO_REFUSAL rather than printed here, because cmd_status calls
-# this too (ndt:3156, for the P4 knob row) and a refusal belongs in a bring-up, not in a report.
+# this too (cmd_status, for the P4 knob row) and a refusal belongs in a bring-up, not in a report.
 # Only the `up` builders print it.
 #
 # 🔴 Refuses only on a DEFINITE mismatch -- both counts read, and different. A model whose hosts
@@ -2584,8 +2592,11 @@ rate_source() {
 # The warning is there so that a comparison which did not happen cannot look like one that
 # passed.
 TOPO_REFUSAL=""
+# [Co-developed with claude code -- Adam]
+# $3 is `package` when NDT_TOPO is an app package's own model: the fabric is then built from that
+# very file, so there is nothing to compare it with.
 topo_for_hosts() {
-    local want="$1" mode="${2:-p4}"
+    local want="$1" mode="${2:-p4}" layout="${3:-}"
     TOPO_REFUSAL=""
     if [[ -n "${NDT_TOPO:-}" ]]; then
         [[ -f "$NDT_TOPO" ]] || return 1
@@ -2595,7 +2606,7 @@ topo_for_hosts() {
         local mh; mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"
         if [[ ! "$mh" =~ ^[0-9]+$ ]]; then
             # 🔴 >&2 on both, and not because stderr is tidier: warn() writes to STDOUT
-            # (ndt:102) and this function's stdout IS the model path -- `topo="$(topo_for_hosts
+            # (see warn()) and this function's stdout IS the model path -- `topo="$(topo_for_hosts
             # ...)"`. A warning printed the ordinary way would become part of the filename.
             warn "NDT_TOPO=$NDT_TOPO -- this script could not count the hosts it declares," >&2
             warn "  so '$want host(s) asked for' was NOT compared against it." >&2
@@ -2604,6 +2615,42 @@ topo_for_hosts() {
         if (( mh != want )); then
             TOPO_REFUSAL="NDT_TOPO names a model of a different network: $want host(s) asked for on the $mode plane, $mh declared by $NDT_TOPO"
             return 3
+        fi
+        # [Co-developed with claude code -- Adam]
+        # 🔴 The same host count is not the same network. The fabric is built by a root process that
+        # never sees this shell's environment, from the model in setting/ with the asked-for host
+        # count, so NDT_TOPO changes only what the kernel and the proxy's sFlow/LLDP view load. A
+        # file with the same number of hosts and another wiring ended `up. ready` with a twin that
+        # described a network that was not there. Compared on the P4 plane only (OVS is built by its
+        # own verb); an app package's model IS the fabric's, so it is not compared with anything.
+        if [[ "$mode" == p4 && "$layout" != package ]]; then
+            local fm fmrc nd ndrc
+            fm="$(python3 -I -B "$TOPO_MODEL_MODULE" fabric-model "$REPO/setting" "$want" 2>/dev/null)"; fmrc=$?
+            if (( fmrc != 0 )); then
+                # Said, not skipped: a comparison that did not happen must not look like one that passed.
+                warn "NDT_TOPO=$NDT_TOPO -- $TOPO_MODEL_MODULE did not say which model the fabric is built from," >&2
+                warn "  so NDT_TOPO was NOT compared with it." >&2
+                echo "$NDT_TOPO"; return 0
+            fi
+            fm="${fm%%$'\n'*}"
+            if [[ -z "$fm" ]]; then
+                TOPO_REFUSAL="NDT_TOPO names a model of a different network: the fabric is built only from a model in setting/, and none has $want host(s); NDT_TOPO cannot change that
+  the kernel would load $NDT_TOPO over a fabric no model describes
+derive one into setting/ (ndt up p4 $want, with NDT_TOPO unset, prints how), then ndt up p4 $want again"
+                return 3
+            fi
+            if [[ "$(readlink -f -- "$fm")" != "$(readlink -f -- "$NDT_TOPO")" ]]; then
+                nd="$(python3 -I -B "$TOPO_MODEL_MODULE" diff "$fm" "$NDT_TOPO" 2>/dev/null)"; ndrc=$?
+                if (( ndrc == 1 )); then
+                    TOPO_REFUSAL="NDT_TOPO names a model of a different network: the fabric is built from ${fm#$REPO/} whatever NDT_TOPO says, and they differ
+$(sed 's/^/  /' <<<"$nd")
+either drop NDT_TOPO, or make $NDT_TOPO describe the network in ${fm#$REPO/}"
+                    return 3
+                elif (( ndrc != 0 )); then
+                    warn "NDT_TOPO=$NDT_TOPO -- the comparison with ${fm#$REPO/} did not run," >&2
+                    warn "  so NDT_TOPO was NOT compared with it." >&2
+                fi
+            fi
         fi
         echo "$NDT_TOPO"; return 0
     fi
@@ -4580,7 +4627,7 @@ up_p4() {
     # here within a day of it being fixed there, and caught by section 8 of
     # tests/shell/test_ndt_up_down_robust.sh rather than by a reader.
     local trc both rest
-    both="$(topo_for_hosts "$hosts" p4; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
+    both="$(topo_for_hosts "$hosts" p4 ${app_dir:+package}; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
     # 🔴 `%%$'\n'*`, and it is not cosmetic. topo_for_hosts prints the path with `echo`, and a
     # command substitution strips only TRAILING newlines -- here the tab and the rc follow it, so
     # the newline is in the middle of the captured string and survives. Without this line `topo`
@@ -4605,9 +4652,19 @@ up_p4() {
     # "there is no model with this host count", and it needs a separate message: the file the
     # operator named is right there, and telling them to derive one would be wrong.
     if (( trc == 3 )); then
-        err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
+        local tr_first="${TOPO_REFUSAL%%$'\n'*}"
+        err "refusing to build: ${tr_first:-NDT_TOPO does not match the host count}"
+        # [Co-developed with claude code -- Adam]
+        # A refusal about the network itself (not the host count) carries its own detail, one line
+        # each, and its own way out as the last one; the count mismatch is a single line.
+        local -a tr_lines=(); local tr_i
+        if [[ "$TOPO_REFUSAL" == *$'\n'* ]]; then
+            mapfile -t tr_lines <<<"$TOPO_REFUSAL"
+            for (( tr_i = 1; tr_i < ${#tr_lines[@]} - 1; tr_i++ )); do err "  ${tr_lines[tr_i]#  }"; done
+        else
         err "  this run asked for a fabric of $hosts host(s), and the kernel would load the"
         err "  model NDT_TOPO names. Two networks, one bring-up."
+        fi
         # 🔴 The value the OPERATOR arrived with. This line used to read "the fabric is
         # built from p4_proxy/mininet/host_count_override ($hosts)" and $hosts was what this
         # very command had written into that file a tenth of a second earlier -- a refusal
@@ -4615,7 +4672,11 @@ up_p4() {
         # the sentence can say the true thing instead.
         err "  p4_proxy/mininet/host_count_override is UNCHANGED at $KNOB_ENTRY: the knob is"
         err "  written after this check, never before it, so this refusal moved nothing."
-        err "  either drop NDT_TOPO, or set the knob to the model's count:  ndt up p4 <n>"
+        if [[ "$TOPO_REFUSAL" == *$'\n'* ]]; then
+            err "  ${tr_lines[${#tr_lines[@]} - 1]}"
+        else
+        err "  either drop NDT_TOPO, or ask for the host count of a model setting/ holds of the same network as NDT_TOPO's:  ndt up p4 <n>"
+        fi
         # 🔴 rc 5: a refusal, not a dirty reading -- nothing on the machine was looked at.
         return 5
     fi
@@ -14331,7 +14392,16 @@ usage: ndt <command>
                 ignored by a bring-up started as a background job of a script; TERM always
                 reaches it. An interrupted 'ndt down' says where it stopped and exits with the
                 same code: it is idempotent, run it again.
-                NDT_TOPO=<file> forces a specific kernel model.
+                NDT_TOPO=<file> forces a specific kernel model. On P4 the fabric is built
+                from the model in setting/ with the asked-for host count, whatever NDT_TOPO
+                says, so NDT_TOPO may only name a copy of that network: a model whose
+                switches (name, bridge name, brand, address), cables (each end, stored in both directions) or hosts (name,
+                address, MAC, attachment) differ is refused (5) before anything is built,
+                with the differences named. Other fields (link bandwidths, nicknames,
+                ECMP groups) are not compared. With --app the fabric is built from the
+                package's model, and NDT_TOPO must be unset or name that same file
+                (compared by resolved path): any other file, a byte copy included, is
+                refused (5) as "two different files", and no differences are named.
                 A P4 fabric that is already running is reused only when it was built from
                 the inputs this run would build it from (the model, package.json, each
                 switch's program and entries, the shaped links, the telemetry source, the
@@ -14411,7 +14481,9 @@ usage: ndt <command>
                   the lab is claimed by somebody else, a measurement is in flight, an
                   'ndt up', 'ndt down' or 'ndt clean'
                   from this checkout is still running, or NDT_TOPO names a model of a
-                  different network. An --app package that did not
+                  different network (another host count; on P4 also another wiring, switch
+                  names or hosts than the model the fabric is built from). An --app
+                  package that did not
                   pass tools/p4_exercise/preflight.py is 5 for the same reason: the
                   table is printed and nothing is built. So is 'ndt up p4' when NTG's
                   config names a mode NTG does not know or a hosts file that does not

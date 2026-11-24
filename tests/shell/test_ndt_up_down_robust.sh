@@ -50,6 +50,7 @@
 #
 # Env:  NDT_UNDER_TEST=<path>   (the mutation gate points this at a copy)
 #       NTG_MODULE_UNDER_TEST=<path to ntg_config.py>   (the gate points this at its copy of the module)
+#       TOPO_MODULE_UNDER_TEST=<path to topo_from_json.py>   (the same, for the module that compares models)
 #       STACK_UNDER_TEST=<path to a stack.sh copy>   (only the cells that read stack.sh's own text; a red run uses it)
 # Run:  bash tests/shell/test_ndt_up_down_robust.sh
 set -uo pipefail
@@ -73,7 +74,7 @@ hasnt() { grep -qF -- "$2" <<<"$3" && t_bad "$1" "unexpected '$2' in the output"
 section() { printf '\n%s\n' "$1"; }
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-updown-XXXXXX")"
-trap 'chmod -R u+rwx "$FIX" 2>/dev/null; rm -rf "$FIX"; kill ${HB33_PIDS:-} ${SP33_PIDS:-} $(cat "$FIX/spawned.pids" 2>/dev/null) 2>/dev/null' EXIT
+trap 'chmod -R u+rwx "$FIX" 2>/dev/null; rm -rf "$FIX" "$FIX.outside"; kill ${HB33_PIDS:-} ${SP33_PIDS:-} $(cat "$FIX/spawned.pids" 2>/dev/null) 2>/dev/null' EXIT
 export FIX
 mkdir -p "$FIX/.test_run/pids" "$FIX/setting" "$FIX/p4_proxy/mininet" \
          "$FIX/p4_proxy/venv/bin" "$FIX/p4_proxy/p4_src/build" "$FIX/build/bin" "$FIX/tools/test_workflow"
@@ -90,13 +91,40 @@ mkdir -p "$FIX/ntg/setting"
 printf -- '---\ninventory:\n  plugin: SimpleInventory\n  options:\n    host_file: "./setting/Mininet.yaml"\n' > "$FIX/ntg/NTG.yaml"
 printf -- '---\nMininet_Testbed:\n  data:\n    mode: "cli" \n' > "$FIX/ntg/setting/Mininet.yaml"
 
+# [Co-developed with claude code -- Adam]
+# A fixture model the fabric's own reader accepts: ten switches with dpids and addresses, inter-switch
+# cables on distinct ports, and each host on a switch port of its own with its own address -- both
+# directions of every edge stored, as the shipped models do. `ndt` asks p4_proxy/mininet/topo_from_json.py which
+# model the fabric is built from and whether NDT_TOPO names the same network, and that reader skips a file it
+# cannot parse; a fixture that is not a model would be "no model has this many hosts". The counts a cell reads
+# (hosts, edges) are the two arguments, as before: edges = 2 * (cables + hosts).
 mk_topo() {   # <file> <hosts> <edges>
     python3 - "$FIX/setting/$1" "$2" "$3" <<'PY'
 import json, sys
 p, h, e = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-nodes = [{"vertex_type": 0, "id": i} for i in range(10)]
-nodes += [{"vertex_type": 1, "id": 1000 + i} for i in range(h)]
-edges = [{"src": i % 10, "dst": (i + 1) % 10} for i in range(e)]
+cables = e // 2 - h
+assert e % 2 == 0 and 0 <= cables <= 45 and h <= 250, (h, e)
+nodes = [{"vertex_type": 0, "dpid": i + 1, "device_name": "s%d" % (i + 1), "bridge_name": "s%d" % (i + 1),
+          "brand_name": "BMv2", "ip": ["192.168.123.%d" % (11 + i)], "mac": 0} for i in range(10)]
+nodes += [{"vertex_type": 1, "dpid": 0, "device_name": "h%d" % (j + 1), "ip": ["10.0.0.%d" % (j + 1)],
+           "mac": j + 1} for j in range(h)]
+edges, port = [], {d: 0 for d in range(1, 11)}
+def take(d):
+    port[d] += 1
+    return port[d]
+pairs = [(a, b) for a in range(1, 11) for b in range(a + 1, 11)][:cables]
+for a, b in pairs:
+    pa, pb = take(a), take(b)
+    edges.append({"src_dpid": a, "dst_dpid": b, "src_interface": pa, "dst_interface": pb})
+    edges.append({"src_dpid": b, "dst_dpid": a, "src_interface": pb, "dst_interface": pa})
+for j in range(h):
+    sw = j % 4 + 1
+    pt, ip = take(sw), ["10.0.0.%d" % (j + 1)]
+    edges.append({"src_dpid": 0, "src_interface": 1, "src_ip": ip, "dst_dpid": sw, "dst_interface": pt,
+                  "dst_ip": ["192.168.123.%d" % (10 + sw)]})
+    edges.append({"src_dpid": sw, "src_interface": pt, "src_ip": ["192.168.123.%d" % (10 + sw)],
+                  "dst_dpid": 0, "dst_interface": 1, "dst_ip": ip})
+assert len(edges) == e
 json.dump({"nodes": nodes, "edges": edges}, open(p, "w"))
 PY
 }
@@ -229,6 +257,9 @@ LAB_DEFAULT_NTG_DIR="'"$FIX"'/ntg"
 # (the same reason LABFILE below is the helper in this repo). Under that gate the module is the
 # copy it keeps beside its ndt copy (NTG_MODULE_UNDER_TEST), so a mutation of the module is measured.
 NTG_CONFIG_MODULE="'"${NTG_MODULE_UNDER_TEST:-$HERE/../../p4_proxy/mininet/ntg_config.py}"'"
+# [Co-developed with claude code -- Adam] ...and the module that says which model the fabric is built from and whether
+# another is the same network: this repo, or the copy the mutation gate keeps beside its ndt copy (TOPO_MODULE_UNDER_TEST).
+TOPO_MODEL_MODULE="'"${TOPO_MODULE_UNDER_TEST:-$HERE/../../p4_proxy/mininet/topo_from_json.py}"'"
 # [Co-developed with claude code -- Adam] The heartbeat pidfile and report are fixture paths (never
 # present), so a heartbeat running on this machine cannot add a `heartbeat stop` to a teardown cell
 # or a row to a status cell.
@@ -794,6 +825,155 @@ OUT="$(NDT_TOPO="$FIX/setting/unreadable.json" bash -c "source '$NDT' >/dev/null
 $STUBS
 topo_for_hosts 4 p4" 2>/dev/null)"
 check "  🔴 and the warning does not land in the model path" "$FIX/setting/unreadable.json" "$OUT"
+
+# ------------------------------------------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+# 🔴 THE SAME HOST COUNT IS NOT THE SAME NETWORK. On the P4 plane the fabric is built by a root process
+# that never sees the operator's environment, from the model in setting/ that has the asked-for host
+# count; the kernel and the proxy's sFlow/LLDP view load NDT_TOPO. `ndt` compared the two by host
+# count only, so a model of another wiring with the same number of hosts ended `up. ready` with a twin
+# that described a network that was not there. Observed twice per shape on a P4 lab: a cable gone, two
+# switch ports swapped, a host named differently, two cables on one port, and the OVS family's model.
+#
+# The fabric's model here is the shipped one, copied over the stand-in above, so the five shapes are made
+# of what a fabric is really built from; they and the copy that must still be honoured are kept in a
+# directory of their own, outside setting/ and outside the fixture checkout.
+reset_fix
+REALSET="$HERE/../../setting"
+cp "$REALSET/StaticNetworkTopologyP4_10Switches_4Hosts.json" "$FIX/setting/"
+OUTSIDE="$FIX.outside"; rm -rf "$OUTSIDE"; mkdir -p "$OUTSIDE"
+python3 - "$REALSET/StaticNetworkTopologyP4_10Switches_4Hosts.json" "$OUTSIDE" <<'PY'
+import copy, json, sys
+base = json.load(open(sys.argv[1])); out = sys.argv[2]
+def cable(m, a, b):
+    es = [e for e in m["edges"] if {(e.get("src_dpid"), e.get("src_interface")), (e.get("dst_dpid"), e.get("dst_interface"))} == {a, b}]
+    assert len(es) == 2
+    return es
+def save(name, m): json.dump(m, open("%s/%s" % (out, name), "w"))
+save("m_copy.json", copy.deepcopy(base))
+m = copy.deepcopy(base)                       # a cable gone
+for e in cable(m, (1, 1), (5, 1)): m["edges"].remove(e)
+save("m_e1.json", m)
+# s1's ports 1 and 2 swapped
+m2 = copy.deepcopy(base)
+for e in m2["edges"]:
+    if (e.get("src_dpid"), e.get("src_interface")) == (1, 1) and e["dst_dpid"] == 5: e["dst_dpid"], e["dst_interface"] = 6, 1
+    elif (e.get("dst_dpid"), e.get("dst_interface")) == (1, 1) and e["src_dpid"] == 5: e["src_dpid"], e["src_interface"] = 6, 1
+    elif (e.get("src_dpid"), e.get("src_interface")) == (1, 2) and e["dst_dpid"] == 6: e["dst_dpid"], e["dst_interface"] = 5, 1
+    elif (e.get("dst_dpid"), e.get("dst_interface")) == (1, 2) and e["src_dpid"] == 6: e["src_dpid"], e["src_interface"] = 5, 1
+save("m_e1b.json", m2)
+m = copy.deepcopy(base)                       # a host the twin would name hz
+next(n for n in m["nodes"] if n.get("ip") == ["10.0.0.4"])["device_name"] = "hz"
+save("m_e2.json", m)
+m = copy.deepcopy(base)                       # two cables on s1 port 1
+for e in m["edges"]:
+    if (e.get("src_dpid"), e.get("src_interface")) == (1, 2): e["src_interface"] = 1
+    if (e.get("dst_dpid"), e.get("dst_interface")) == (1, 2): e["dst_interface"] = 1
+save("m_e3.json", m)
+m = copy.deepcopy(base)                       # nicknames and declared bandwidths: not the network
+for n in m["nodes"]: n["nickname"] = "x" + str(n.get("nickname"))
+for e in m["edges"]: e["link_bandwidth_bps"] = 100000000
+save("m_meta.json", m)
+PY
+cp "$REALSET/StaticNetworkTopologyOVS_10Switches_4Hosts.json" "$OUTSIDE/m_e6.json"
+cp "$REALSET/StaticNetworkTopologyOVS_10Switches_8Hosts.json" "$OUTSIDE/m_ovs8.json"
+
+# What a refusal must leave alone: the host-count knob and everything under .test_run (the record,
+# the claim note, the pid ledger), as one digest.
+snapshot() { ( cd "$FIX" && { cat p4_proxy/mininet/host_count_override; find .test_run -type f 2>/dev/null | sort | xargs -r sha256sum; } | sha256sum ); }
+
+refused_shape() {   # <what it is> <file> <size> <sentences the refusal must contain>...
+    local what="$1" f="$2" size="$3"; shift 3
+    reset_fix
+    local before after; before="$(snapshot)"
+    OUT="$(NDT_TOPO="$f" drive "up_p4 $size")"; after="$(snapshot)"
+    check "  🔴 $what: 'ndt up p4 $size' is refused, rc 5"     "5" "$(rc_of_out "$OUT")"
+    has   "  $what: it says the model is of a different network" "names a model of a different network" "$OUT"
+    local x; for x in "$@"; do has "  $what: and names '$x'" "$x" "$OUT"; done
+    check "  🔴 $what: NOTHING was built: no topo-start, no cleanup" "" "$(cat "$FIX/sudo.log")"
+    check "  $what: no fabric was asked for"                   "" "$(cat "$FIX/stack.log")"
+    check "  $what: the knob, the record and the note are byte-identical" "$before" "$after"
+}
+BASEFILE="StaticNetworkTopologyP4_10Switches_4Hosts.json"
+refused_shape "a cable missing"              "$OUTSIDE/m_e1.json"  4 "s1 port 1" "$BASEFILE"
+refused_shape "two switch ports swapped"     "$OUTSIDE/m_e1b.json" 4 "s1 port 1" "s1 port 2" "$BASEFILE"
+refused_shape "a host named another way"    "$OUTSIDE/m_e2.json"  4 "host 10.0.0.4" "named h4" "hz in m_e2.json" "$BASEFILE"
+refused_shape "two cables on one port"       "$OUTSIDE/m_e3.json"  4 "not a model the fabric could build" "used by two links" "$BASEFILE"
+refused_shape "the OVS family's model"       "$OUTSIDE/m_e6.json"  4 "brand BMv2 in" "OVS in m_e6.json" "$BASEFILE"
+# A size setting/ has no P4 model of: the fabric cannot be built from NDT_TOPO either, so it is not honoured.
+refused_shape "a model for a size setting/ has no P4 model of" "$OUTSIDE/m_ovs8.json" 8 \
+              "none has 8 host(s)" "NDT_TOPO cannot change that" "derive one into setting/"
+# ...and the way out the refusal names is the one that works: drop NDT_TOPO and the same bring-up is refused for the missing model.
+reset_fix
+OUT="$(drive 'up_p4 8')"
+check "  and without NDT_TOPO the same size is the 'no model' refusal, as before" "1" "$(rc_of_out "$OUT")"
+has   "  ...which prints the derive command"                 "derive_p4_topology_json.py" "$OUT"
+
+# 🔴 THE CONTROLS: refusing every NDT_TOPO other than setting/'s own file would satisfy every cell above and
+# remove what NDT_TOPO is for -- naming a copy, or a file with other metadata, of the network the fabric builds.
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(NDT_TOPO="$OUTSIDE/m_copy.json" drive 'up_p4 4')"
+check "  🔴 a byte copy outside setting/ is honoured: 'ndt up p4 4' comes up" "0" "$(rc_of_out "$OUT")"
+has   "  and the fabric really was built"                    "topo-start" "$(cat "$FIX/sudo.log")"
+check "  and the record names the copy"                      "topology=$OUTSIDE/m_copy.json" \
+      "$(grep '^topology=' "$FIX/.test_run/up.target" 2>/dev/null)"
+OUT="$(NDT_TOPO="$OUTSIDE/m_copy.json" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  🔴 topo_for_hosts says rc 0 for it"                 "TRC=0" "$OUT"
+has   "  with the copy's own path"                           "$OUTSIDE/m_copy.json" "$OUT"
+OUT="$(NDT_TOPO="$OUTSIDE/m_meta.json" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  🔴 nicknames and declared bandwidths are not the network: honoured" "TRC=0" "$OUT"
+OUT="$(NDT_TOPO="$FIX/setting/$BASEFILE" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  and the fabric's own model, named by NDT_TOPO, is honoured" "TRC=0" "$OUT"
+
+# The comparison is the P4 plane's: OVS is built by its own verb, and a package's model IS the fabric's.
+OUT="$(NDT_TOPO="$OUTSIDE/m_e1.json" drive 'topo_for_hosts 4 ovs; echo "TRC=$?"')"
+has   "  the OVS plane does not compare wiring (its verb builds the fabric)" "TRC=0" "$OUT"
+OUT="$(NDT_TOPO="$OUTSIDE/m_e1.json" drive 'topo_for_hosts 4 p4 package; echo "TRC=$?"')"
+has   "  🔴 and a package's own model is not compared with setting/'s" "TRC=0" "$OUT"
+
+# [Co-developed with claude code -- Adam]
+# 🔴 THE TWO PLACES WHERE THE COMPARISON CANNOT RUN: the model lookup fails, or the diff answers neither "same"
+# nor "differs". NDT_TOPO is then honoured -- the existing rule for a model whose hosts cannot be counted -- but
+# SAID, on stderr: topo_for_hosts' stdout IS the model path, so a warning on stdout would become part of the
+# file name, and one that is not printed makes a comparison that did not happen look like one that passed.
+# A stand-in for the module answers as scripted (FAKE_TOPO): the lookup fails, or the diff exits 2.
+cat > "$FIX/fake_topo.py" <<'PY'
+import os, sys
+mode = os.environ.get("FAKE_TOPO", "")
+if sys.argv[1] == "fabric-model":
+    if mode == "fm-fails":
+        sys.exit(3)
+    print(os.path.join(sys.argv[2], "StaticNetworkTopologyP4_10Switches_4Hosts.json"))
+    sys.exit(0)
+sys.exit(2)
+PY
+tfh_split() {   # tfh_split <FAKE_TOPO mode> <NDT_TOPO> -- stdout (path, TRC) to $FIX/tfh.out, stderr to $FIX/tfh.err
+    FAKE_TOPO="$1" NDT_TOPO="$2" bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+TOPO_MODEL_MODULE='$FIX/fake_topo.py'
+topo_for_hosts 4 p4; echo \"TRC=\$?\"" > "$FIX/tfh.out" 2> "$FIX/tfh.err"
+}
+for MODE in fm-fails diff-fails; do
+    case "$MODE" in
+        fm-fails)   WHAT="the model lookup fails" ;;
+        diff-fails) WHAT="the diff answers neither 0 nor 1" ;;
+    esac
+    tfh_split "$MODE" "$OUTSIDE/m_e1.json"
+    check "  🔴 $WHAT: the model path is on stdout and nothing else, rc 0" \
+          "$OUTSIDE/m_e1.json"$'\n'"TRC=0" "$(cat "$FIX/tfh.out")"
+    has   "  🔴 $WHAT: and the missing comparison is said, on stderr" "was NOT compared" "$(cat "$FIX/tfh.err")"
+    reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+    OUT="$(NDT_TOPO="$OUTSIDE/m_e1.json" FAKE_TOPO="$MODE" drive "TOPO_MODEL_MODULE='$FIX/fake_topo.py'
+up_p4 4")"
+    check "  🔴 $WHAT: 'ndt up p4 4' builds, rc 0" "0" "$(rc_of_out "$OUT")"
+    has   "  $WHAT: and it was built" "topo-start" "$(cat "$FIX/sudo.log")"
+    has   "  $WHAT: and the operator is told" "was NOT compared" "$OUT"
+done
+
+# The fabric's model is looked up in the fixture's setting/, so a different model there is the one compared.
+reset_fix
+rm -rf "$OUTSIDE"
+mk_topo StaticNetworkTopologyP4_10Switches_4Hosts.json 4 40
 
 # ==========================================================================================
 section "9. H3: a bring-up that overlaps a teardown is refused, on BOTH planes"
@@ -4131,6 +4311,23 @@ check "🔴 33f the host-count knob is the one it was"                       "$B
 check "🔴 33f up.target is the earlier record, not this run's"             "$B_T" "$(bytes33 "$T33")"
 check "🔴 33f the claim note is the one it was"                            "$S0" "$(note33)"
 has   "  the note's put-back is said"                                       "the note is back to what it was" "$RB"
+unset33
+
+# [Co-developed with claude code -- Adam]
+# 33p. a package whose model differs from setting/'s model of the same size is built as it is: its model is the
+# fabric's, so nothing is compared with setting/'s. (Cell 33f above reaches the same line, but only because its
+# package has another size than the fixture's models; this one has the SAME size and another wiring.)
+reset_fix; unset33; mk33_claim "$S0"
+PKG_Z="$FIX/packages33/z"; mkdir -p "$PKG_Z/ndtwin"; echo '{"format": 1}' > "$PKG_Z/package.json"
+mk_topo "33pkgz.json" 4 48; mv "$FIX/setting/33pkgz.json" "$PKG_Z/ndtwin/topology.json"
+OUT="$(NDT_OWNER=$NDT33 drive "$P4_FRESH
+$APP33
+NDT_APP_DIR=$(printf "%q" "$PKG_Z"); up_p4")"
+check "🔴 33p a package whose model is another network than setting/'s 4-host model comes up" "0" "$(rc_of_out "$OUT")"
+has   "  33p the fabric was built"                                          "topo-start" "$(cat "$FIX/sudo.log")"
+hasnt "  33p and nothing was refused as a different network"                "names a model of a different network" "$OUT"
+check "  33p the record names the package's model"                          "topology=packages33/z/ndtwin/topology.json" \
+      "$(grep '^topology=' "$FIX/.test_run/up.target" 2>/dev/null)"
 unset33
 
 # 33f2. the same with nothing there before: the knobs this run created are removed, not left.

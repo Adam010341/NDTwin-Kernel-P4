@@ -53,12 +53,16 @@ PORTS="$REPO/tools/test_workflow/ports.sh"
 # [Co-developed with claude code -- Adam] The module the refusal asks (ntg_config.py): every mutant dir carries a copy and the
 # suite is pointed at it with NTG_MODULE_UNDER_TEST, so M145 can mutate it. Named so check_gate_anchors.py can read the gate.
 NTGCFG="$REPO/p4_proxy/mininet/ntg_config.py"
+# [Co-developed with claude code -- Adam] ...and topo_from_json.py, which ndt asks which model the fabric is built from and whether NDT_TOPO
+# is the same network (M377 and later): every mutant dir carries a copy and the suite is pointed at it with TOPO_MODULE_UNDER_TEST.
+TOPOMOD="$REPO/p4_proxy/mininet/topo_from_json.py"
 TEST="$HERE/test_ndt_up_down_robust.sh"
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-updown-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 # [Co-developed with claude code -- Adam] ntg_config.py is a subject of the gate too (M145 and later): the end-of-run byte check covers it.
 BASE_CFG=$(sha256sum "$NTGCFG" | cut -d' ' -f1)
+BASE_TOPOMOD=$(sha256sum "$TOPOMOD" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -72,7 +76,7 @@ MUTATIONS=0
 #: baseline.
 DEAD=0
 
-run_against() { NDT_UNDER_TEST="$1/ndt" NTG_MODULE_UNDER_TEST="$1/ntg_config.py" timeout 600 bash "$TEST" 2>&1; }
+run_against() { NDT_UNDER_TEST="$1/ndt" NTG_MODULE_UNDER_TEST="$1/ntg_config.py" TOPO_MODULE_UNDER_TEST="$1/topo_from_json.py" timeout 600 bash "$TEST" 2>&1; }
 
 # [Co-developed with claude code -- Adam]
 # 🔴 A MUTANT THAT DOES NOT PARSE IS NOT A MUTANT (the accounting that
@@ -92,6 +96,8 @@ syntax_ok() {   # $1 = mutant dir; prints the error when it is not
     # [Co-developed with claude code -- Adam] A mutated ntg_config.py that does not compile would make every
     # refusal cell fail for one reason and read as "caught": it is dead, like an unparseable ndt.
     [[ -f "$1/ntg_config.py" ]] && python3 -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' "$1/ntg_config.py" 2>&1
+    # [Co-developed with claude code -- Adam] ...and the same for the model comparison module.
+    [[ -f "$1/topo_from_json.py" ]] && python3 -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' "$1/topo_from_json.py" 2>&1
     return 0
 }
 
@@ -162,6 +168,7 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     cp "$REPO/tools/test_workflow/sudo_surface.sh" "$d/sudo_surface.sh"
     cp "$REPO/tools/test_workflow/components.env" "$d/components.env"
     cp "$NTGCFG" "$d/ntg_config.py"
+    cp "$TOPOMOD" "$d/topo_from_json.py"
     # 🔴 AN ANCHOR THAT WILL NOT APPLY IS A SURVIVOR, AND IT MUST SAY WHICH KIND. Until
     # 2026-09-12 this python ran bare: a stale anchor printed a traceback into the gate's own
     # log, the copy stayed UNMUTATED, the suite was green, and the gate said `SURVIVED -- that
@@ -188,6 +195,7 @@ cp "$REPO/tools/test_workflow/ports.sh" "$base/ports.sh"
 cp "$REPO/tools/test_workflow/sudo_surface.sh" "$base/sudo_surface.sh"
 cp "$REPO/tools/test_workflow/components.env" "$base/components.env"
 cp "$NTGCFG" "$base/ntg_config.py"
+cp "$TOPOMOD" "$base/topo_from_json.py"
 run_against "$base" | tail -1
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo
@@ -466,10 +474,11 @@ m=$(mutant m25 "$NDT" \
             TOPO_REFUSAL=')
 # 🔴 Named case chosen after running the gate: with only THIS guard gone, record_up_target
 # still refuses and `up_p4` still returns 1, so "the bring-up is refused" stays green -- two
-# guards mean one can be removed without the property breaking. What only this site can produce
-# is the rc-3 message, so that is what must go red.
+# guards mean one can be removed without the property breaking. The network comparison now
+# refuses with the same sentence, so that sentence no longer tells the guards apart; only the
+# host counts in the reason are this guard's, so that is what must go red.
 report "M25: the host counts are compared and the verdict dropped" "$m" \
-       "  naming a model of a different network"
+       "  🔴 and the refusal names both counts, not a fallback"
 
 # M26: F8's failure mode, which this fix reproduced once already. TOPO_REFUSAL is read back
 # from a command substitution, so the refusal prints its fallback and names no numbers.
@@ -4707,6 +4716,127 @@ m=$(mutant w35 "$NDT" \
 report_green "W35 (behaviour-preserving): the could-not-record warning reworded" "$m" \
        "no cell reads that sentence"
 
+# --- NDT_TOPO must describe the network the fabric is built from (2026-11-22) --------------------------------------
+# Each puts one piece of the comparison back to the old behaviour (host counts only) or widens it, and must turn the named
+# cell red. The cells are in section 8 of the suite; every catch below is a FAILED line of that cell, not a shell abort.
+
+# M377: the comparison runs and its verdict is dropped -- a different wiring with the same host count is built again.
+m=$(mutant m377 "$NDT" \
+    '                if (( ndrc == 1 )); then
+' \
+    '                if false; then
+')
+report "M377: NDT_TOPO of another wiring, same host count, is built again" "$m" \
+       "  🔴 a cable missing: 'ndt up p4 4' is refused, rc 5"
+
+# M378: the widening -- every NDT_TOPO that is not the fabric's own file is refused, copies included.
+m=$(mutant m378 "$NDT" \
+    '                nd="$(python3 -I -B "$TOPO_MODEL_MODULE" diff "$fm" "$NDT_TOPO" 2>/dev/null)"; ndrc=$?' \
+    '                nd="a difference"; ndrc=1')
+report "M378: any NDT_TOPO other than setting/'s own file is refused" "$m" \
+       "  🔴 a byte copy outside setting/ is honoured: 'ndt up p4 4' comes up"
+
+# M379: the widening on the other side -- a model whose hosts cannot be counted is refused instead of warned about.
+m=$(mutant m379 "$NDT" \
+    '            warn "  so '"'"'$want host(s) asked for'"'"' was NOT compared against it." >&2
+            echo "$NDT_TOPO"; return 0' \
+    '            warn "  so '"'"'$want host(s) asked for'"'"' was NOT compared against it." >&2
+            TOPO_REFUSAL="NDT_TOPO names a model of a different network: its hosts cannot be counted"; return 3')
+report "M379: an uncountable NDT_TOPO is refused instead of warned about" "$m" \
+       "  an uncountable model is not refused"
+
+# M380: a size setting/ has no P4 model of -- the fabric cannot be built from NDT_TOPO, but it is honoured.
+m=$(mutant m380 "$NDT" \
+    '            if [[ -z "$fm" ]]; then
+' \
+    '            if [[ -z "$fm" ]]; then echo "$NDT_TOPO"; return 0; fi
+            if false; then
+')
+report "M380: NDT_TOPO for a size with no P4 model in setting/ is honoured" "$m" \
+       "  🔴 a model for a size setting/ has no P4 model of: 'ndt up p4 8' is refused, rc 5"
+
+# M381: an app package's own model is compared with setting/'s (the package skip is gone).
+m=$(mutant m381 "$NDT" \
+    '"$mode" == p4 && "$layout" != package ]]' \
+    '"$mode" == p4 ]]')
+report "M381: a package's own model is compared with setting/'s" "$m" \
+       "  🔴 and a package's own model is not compared with setting/'s"
+
+# M382: the OVS plane is compared too (its verb builds the fabric; setting/ has no P4 model to compare with).
+m=$(mutant m382 "$NDT" \
+    '        if [[ "$mode" == p4 && "$layout"' \
+    '        if [[ "$layout"')
+report "M382: the OVS plane's NDT_TOPO is compared with a P4 model" "$m" \
+       "  the OVS plane does not compare wiring (its verb builds the fabric)"
+
+# M383: up_p4 does not say the model is a package's, so the comparison runs on --app.
+m=$(mutant m383 "$NDT" \
+    'topo_for_hosts "$hosts" p4 ${app_dir:+package};' \
+    'topo_for_hosts "$hosts" p4;')
+report "M383: 'ndt up p4 --app' compares the package's model with setting/'s" "$m" \
+       "🔴 33p a package whose model is another network than setting/'s 4-host model comes up"
+
+# M384: the refusal is printed without the lines that say where the networks differ.
+m=$(mutant m384 "$NDT" \
+    '$(sed '"'"'s/^/  /'"'"' <<<"$nd")' \
+    '')
+report "M384: the refusal names no switch, port or host" "$m" \
+       "  a cable missing: and names 's1 port 1'"
+
+
+# --- the two places where the comparison cannot run (cells in section 8; the module is replaced by a stand-in) ---------
+
+# M385-M387: the lookup of the fabric's model fails. M388-M390: the diff answers neither 0 nor 1. Each is: the warning
+# deleted, the warning's `>&2` deleted (it becomes part of the model path), the branch turned into a refusal.
+m=$(mutant m385 "$NDT" \
+    '                warn "NDT_TOPO=$NDT_TOPO -- $TOPO_MODEL_MODULE did not say which model the fabric is built from," >&2
+                warn "  so NDT_TOPO was NOT compared with it." >&2
+                echo "$NDT_TOPO"; return 0' \
+    '                echo "$NDT_TOPO"; return 0')
+report "M385: a failed model lookup is honoured without a word" "$m" \
+       "  🔴 the model lookup fails: and the missing comparison is said, on stderr"
+
+m=$(mutant m386 "$NDT" \
+    '                warn "NDT_TOPO=$NDT_TOPO -- $TOPO_MODEL_MODULE did not say which model the fabric is built from," >&2
+                warn "  so NDT_TOPO was NOT compared with it." >&2
+                echo "$NDT_TOPO"; return 0' \
+    '                warn "NDT_TOPO=$NDT_TOPO -- $TOPO_MODEL_MODULE did not say which model the fabric is built from,"
+                warn "  so NDT_TOPO was NOT compared with it."
+                echo "$NDT_TOPO"; return 0')
+report "M386: that warning goes to stdout, into the model path" "$m" \
+       "  🔴 the model lookup fails: the model path is on stdout and nothing else, rc 0"
+
+m=$(mutant m387 "$NDT" \
+    '                warn "NDT_TOPO=$NDT_TOPO -- $TOPO_MODEL_MODULE did not say which model the fabric is built from," >&2
+                warn "  so NDT_TOPO was NOT compared with it." >&2
+                echo "$NDT_TOPO"; return 0' \
+    '                TOPO_REFUSAL="NDT_TOPO names a model of a different network: no model lookup"; return 3')
+report "M387: a failed model lookup is a refusal" "$m" \
+       "  🔴 the model lookup fails: 'ndt up p4 4' builds, rc 0"
+
+m=$(mutant m388 "$NDT" \
+    '                    warn "NDT_TOPO=$NDT_TOPO -- the comparison with ${fm#$REPO/} did not run," >&2
+                    warn "  so NDT_TOPO was NOT compared with it." >&2' \
+    '                    :')
+report "M388: a diff that did not run is honoured without a word" "$m" \
+       "  🔴 the diff answers neither 0 nor 1: and the missing comparison is said, on stderr"
+
+m=$(mutant m389 "$NDT" \
+    '                    warn "NDT_TOPO=$NDT_TOPO -- the comparison with ${fm#$REPO/} did not run," >&2
+                    warn "  so NDT_TOPO was NOT compared with it." >&2' \
+    '                    warn "NDT_TOPO=$NDT_TOPO -- the comparison with ${fm#$REPO/} did not run,"
+                    warn "  so NDT_TOPO was NOT compared with it."')
+report "M389: that warning goes to stdout, into the model path" "$m" \
+       "  🔴 the diff answers neither 0 nor 1: the model path is on stdout and nothing else, rc 0"
+
+m=$(mutant m390 "$NDT" \
+    '                    warn "NDT_TOPO=$NDT_TOPO -- the comparison with ${fm#$REPO/} did not run," >&2
+                    warn "  so NDT_TOPO was NOT compared with it." >&2' \
+    '                    TOPO_REFUSAL="NDT_TOPO names a model of a different network: no comparison"; return 3')
+report "M390: a diff that did not run is a refusal" "$m" \
+       "  🔴 the diff answers neither 0 nor 1: 'ndt up p4 4' builds, rc 0"
+
+
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
@@ -4723,8 +4853,16 @@ if [[ "$NOW_CFG" != "$BASE_CFG" ]]; then
     echo "   after:  $NOW_CFG"
     exit 3
 fi
+NOW_TOPOMOD=$(sha256sum "$TOPOMOD" | cut -d' ' -f1)
+if [[ "$NOW_TOPOMOD" != "$BASE_TOPOMOD" ]]; then
+    echo "🔴 baseline CHANGED during the gate -- p4_proxy/mininet/topo_from_json.py was written"
+    echo "   before: $BASE_TOPOMOD"
+    echo "   after:  $NOW_TOPOMOD"
+    exit 3
+fi
 echo "baseline byte-identical: yes  tools/test_workflow/ndt  sha256 $BASE_NDT"
 echo "baseline byte-identical: yes  p4_proxy/mininet/ntg_config.py  sha256 $BASE_CFG"
+echo "baseline byte-identical: yes  p4_proxy/mininet/topo_from_json.py  sha256 $BASE_TOPOMOD"
 # 🔴 A DEAD MUTANT MEANS THERE IS NO VERDICT TO PRINT. Not "0 survived" (it was
 # never measured), not "1 survived" (that is a claim about the SUITE, and the suite never ran
 # against a working mutant). The gate refuses, the way it refuses a red baseline -- and it must
