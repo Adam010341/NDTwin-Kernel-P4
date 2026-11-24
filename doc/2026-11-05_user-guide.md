@@ -643,6 +643,8 @@ checkout that is running (its command, owner, pid, start and step), `an 'ndt up'
 (it stopped at [2/3]) -- ...` for a bring-up that ended with a fabric nobody verified (4.3), or `none`. It only
 reads: it removes and moves no marker. `--check` counts the unfinished bring-up as a problem; a verb that is
 running is a row, not a problem.
+`ndt status` also names a program started by hand from this checkout's `examples/` in a `hand-run` row (and when no app started by `ndt` is
+running, its `apps` row says none was started by `ndt`), but `--check` does not count it: `ndt apps orphans` is the verdict for it (4.8).
 
 `code` is the git commit and the number of uncommitted files of the source, not a statement about the
 binary: it does not show that `build/bin/ndtwin_kernel` was rebuilt after you edited C++. Compare the

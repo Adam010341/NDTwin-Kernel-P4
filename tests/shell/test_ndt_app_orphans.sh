@@ -832,6 +832,138 @@ check "  🔴 the up) arm of ndt calls it before the plan runs"     yes \
       "$(awk '/^    up\)$/ {f=1} f && /hand_run_scan/ {h=NR} f && /^        \$plan$/ {p=NR; exit} END {print (h && p && h < p) ? "yes" : "no"}' "$NDT")"
 : > "$TMPROOT/hr_snapshot"
 check "  control: nothing on the field -> up says nothing"        "RC=0" "$(hr_drive 'hand_run_scan; hand_run_warn up')"
+
+# --- 12. `ndt status` names a hand-run program, and `--check` does not count it (C1-C5) -----
+#
+# [Co-developed with claude code -- Adam]
+# Measured live (2026-11-22): `energy_saving_sdk.py --every 120` started by hand on a `basic` fabric.
+# `ndt apps orphans` said NOT CLEAN over it while `ndt status` printed `apps  none running`. Decided
+# 2026-11-23: status NAMES it and nothing else -- `--check` keeps its exit status and its problem
+# lines, because `ndt apps orphans` is the verdict on this class. The same real python3 fixtures as
+# above (HR1: this checkout's, HR3: another tree's) under the real cmd_status; only what describes
+# THIS machine is stubbed (the shape of tests/shell/test_ndt_status_residue_row.sh).
+echo "ndt status names a hand-run program, report-only (C1-C5)"
+cat > "$TMPROOT/status_stubs.sh" <<'STUBEOF'
+REPO="$ST_REPO"
+HERE="$ST_REPO/tools/test_workflow"
+CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
+MANIFEST="$REPO/manifest.json"
+LAB_CONF="$ST_REPO/etc/ndtwin-lab.conf"
+APP_NAMES="te"
+sudo() { return 0; }
+claim_line() { echo none; }
+git_lines() { :; }
+in_flight() { :; }
+foreign_claim() { :; }
+sample_rate() { echo 256; }
+rate_source() { echo fixture; }
+bmv2_binary() { echo fixture-bmv2; }
+stale_pipeline() { return 1; }
+source_ahead_of_build() { return 1; }
+bmv2_count() { echo 0; }
+mn_count() { echo 0; }
+fabric_host_count() { echo 0; }
+ovs_bridge_count() { echo 0; }
+ovs_daemon_running() { return 1; }
+topo_session() { return 1; }
+live_dataplane_kind() { echo ovs; }
+lab_kernel_dir() { echo "$REPO"; }
+port_open() { return 1; }
+ndt_port_open() { return 1; }
+ndt_port_listener_pids() { return 0; }
+http_get_graph() { :; }
+curl() { return 1; }
+netem_count() { echo 0; }
+ndt_sudo_report() { return 0; }
+ndt_sudo_rows() { echo one-row; }
+check_up_target() { UP_TARGET_PROBLEMS=(); return 0; }
+lab_version_verdict() { echo "same fixture-sha fixture-sha"; }
+measuring_declared() { :; }
+app_ps_snapshot() { cat "$ST_REPO/st_snapshot" 2>/dev/null; return 0; }
+app_probe() { APP_STATE=not-running; APP_LIVE_PIDS=(); [[ -n "${ST_APP_RUNNING:-}" && "$1" == "$ST_APP_RUNNING" ]] && APP_STATE=running
+              [[ -n "${ST_APP_ORPHAN:-}" && "$1" == "$ST_APP_ORPHAN" ]] && { APP_STATE=pidfile-lost-but-alive; APP_LIVE_PIDS=(4242); }; return 0; }
+STUBEOF
+# st_page <args> -> the page (STDOUT only: a row printed to stderr is not on the page a pipe reads), then a
+# trailing RC=<n>. ST_PRE is shell code run after the stubs.
+st_page() {
+    ST_REPO="$TMPROOT" ST_APP_RUNNING="${ST_APP_RUNNING:-}" ST_APP_ORPHAN="${ST_APP_ORPHAN:-}" bash -c "source '$NDT' >/dev/null 2>&1
+source '$TMPROOT/status_stubs.sh'
+${ST_PRE:-}
+cmd_status ${1:-}
+echo \"RC=\$?\"" 2>/dev/null
+}
+st_rc() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
+st_problems() { sed -n '/^check: /,$p;/^  - /p' <<<"$1" | grep -v '^RC=' ; }
+# st_row <label> <page> -- the page's row with that label, and its continuation lines (those with an empty label)
+st_row() { awk -v l="$1" '$0 ~ "^  " l "( |$)" {p=1; print; next} p && /^                 [^ ]/ {print; next} {p=0}' <<<"$2"; }
+
+printf '%s\n' "$HR1_LINE" > "$TMPROOT/st_snapshot"
+ST1="$(st_page)"
+ST1_APPS="$(st_row apps "$ST1")"
+ST1_HR="$(st_row hand-run "$ST1")"
+check "C1 a live hand-run program -> a hand-run row names its pid"  yes "$(has "pid $HR1  " "$ST1_HR")"
+check "  the row names its argv (the script)"                     yes "$(has "$HR_REL" "$ST1_HR")"
+check "  and says it is tracked by nothing and not stopped by ndt" yes "$(has "tracked by nothing; ndt does not stop it (kill $HR1)" "$ST1_HR")"
+check "  and that it was started by hand from this checkout's examples/" yes "$(has "started by hand from this checkout's examples/" "$ST1_HR")"
+check "  the apps row is not a bare 'none running'"              no  "$(has "none running" "$ST1_APPS")"
+check "  it says none was started by ndt and points at the row"   yes "$(has "none started by ndt -- see the hand-run row(s) below" "$ST1_APPS")"
+check "  one pid, exactly two lines"                              2 "$(wc -l <<<"$ST1_HR" | tr -d ' ')"
+ST1B="$(ST_APP_RUNNING=te st_page)"
+check "C1b an app ndt started AND a hand-run one: the apps row is exactly the app" "  apps           te" "$(sed -n '/^  apps /p' <<<"$ST1B")"
+check "  and the hand-run row is still there"                    yes "$(has "pid $HR1  " "$(st_row hand-run "$ST1B")")"
+# C1c: an app ndt started whose pidfile is gone (running, untracked) AND a hand-run one. The page must not
+# say none was started by ndt: one was, and its untracked row names it.
+ST1C="$(ST_APP_ORPHAN=te st_page)"
+check "C1c an app ndt started with no pidfile AND a hand-run one: the apps row does not say none was started by ndt" no "$(has "none started by ndt" "$(st_row apps "$ST1C")")"
+check "  the apps row is the base's own text"                    "  apps           none running" "$(sed -n '/^  apps /p' <<<"$ST1C")"
+check "  the untracked row names the app"                         yes "$(has "te(4242)" "$(st_row untracked "$ST1C")")"
+check "  and the hand-run row is still there"                    yes "$(has "pid $HR1  " "$(st_row hand-run "$ST1C")")"
+
+# C2: --check -- the exit status and the problem lines are the same with and without the program.
+ST2="$(st_page --check)"
+: > "$TMPROOT/st_snapshot"
+ST2_0="$(st_page --check)"
+check "C2 --check names the hand-run row too"                     yes "$(has "pid $HR1  " "$(st_row hand-run "$ST2")")"
+check "  premise: the same fixture state without the program has no hand-run row" no "$(has "hand-run" "$ST2_0")"
+check "  🔴 --check ends with the same rc with and without it"     "$(st_rc "$ST2_0")" "$(st_rc "$ST2")"
+check "  🔴 and with the same problem lines"                       "$(st_problems "$ST2_0")" "$(st_problems "$ST2")"
+check "  nothing in the problem lines mentions it"                no  "$(has "$HR1" "$(st_problems "$ST2")")"
+
+# C3: no hand-run program -> the scan ran, and it added no byte to the page.
+: > "$TMPROOT/st_snapshot"
+ST3="$(st_page)"
+ST3_OFF="$(ST_PRE='hand_run_scan() { HAND_RUN=(); }' st_page)"
+rm -f "$TMPROOT/st_scan_ran"
+ST_PRE='eval "$(declare -f hand_run_scan | sed "1s/.*/hand_run_scan_real ()/")"; hand_run_scan() { : > "$ST_REPO/st_scan_ran"; hand_run_scan_real; }' st_page >/dev/null
+check "C3 plain status runs the hand-run scan"                    yes "$([[ -e "$TMPROOT/st_scan_ran" ]] && echo yes || echo no)"
+check "  with no hand-run program the apps row reads none running" yes "$(has "none running" "$(st_row apps "$ST3")")"
+check "  and the page has no hand-run row"                        no  "$(has "hand-run" "$ST3")"
+check "  the apps row is exactly that, with no byte after it"      "  apps           none running" "$(sed -n '/^  apps /p' <<<"$ST3")"
+check "  and the next line is the blank that ends the block"      "" "$(awk '/^  apps /{getline; print; exit}' <<<"$ST3")"
+check "  🔴 and it is byte-identical to the page with the scan switched off" "$ST3_OFF" "$ST3"
+ST3C="$(printf '%s\n%s\n' "$HR2_LINE" "$HR2C_LINE" > "$TMPROOT/st_snapshot"; st_page)"
+check "  nor do processes that are not candidates change a byte"   "$ST3_OFF" "$ST3C"
+
+# C4: another checkout's copy goes to the elsewhere row and gets no hand-run row.
+printf '%s\n' "$HR3_LINE" > "$TMPROOT/st_snapshot"
+ST4="$(st_page)"
+check "C4 another checkout's copy -> an elsewhere row naming it"  yes "$(has "hand-run($HR3) -- another checkout's; not counted, not stopped" "$(st_row elsewhere "$ST4")")"
+check "  no hand-run row"                                         no  "$(has "pid $HR3" "$(st_row hand-run "$ST4")")"
+check "  and the apps row still reads none running"               yes "$(has "none running" "$(st_row apps "$ST4")")"
+printf '%s\n%s\n' "$HR1_LINE" "$HR3_LINE" > "$TMPROOT/st_snapshot"
+ST4B="$(st_page)"
+check "  ours and theirs together: ours has the row"              yes "$(has "pid $HR1  " "$(st_row hand-run "$ST4B")")"
+check "  theirs is only in elsewhere"                             yes "$(has "($HR3)" "$(st_row elsewhere "$ST4B")")"
+check "  and not in a hand-run row"                               no  "$(has "pid $HR3" "$(st_row hand-run "$ST4B")")"
+
+# C5: a pid whose owner could not be established is named, says so, and is still no problem.
+printf '%s\n' "$HR1_LINE" > "$TMPROOT/st_snapshot"
+ST5="$(ST_PRE="$blind_both" st_page --check)"
+: > "$TMPROOT/st_snapshot"
+check "C5 owner not established -> the row says so"               yes "$(has "who owns it could not be established" "$(st_row hand-run "$ST5")")"
+check "  and --check still has the same rc and problem lines"     "$(st_rc "$ST2_0")|$(st_problems "$ST2_0")" "$(st_rc "$ST5")|$(st_problems "$ST5")"
+: > "$TMPROOT/st_snapshot"
+
 check "no hand-run fixture survives this section"                  0 "$(reap_hr)"
 SNAPSHOT_LINES=""
 rm -f "${PIDDIR:?}"/*.pid
