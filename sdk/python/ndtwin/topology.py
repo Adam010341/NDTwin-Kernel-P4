@@ -61,6 +61,10 @@ class Link:
     bandwidth_bps: int
     telemetry_status: str
     flows: list = field(default=None, compare=False)
+    # "declared" while the twin holds the link down because it was told to (an injection, or a
+    # failure the control plane reported), "switch-unreachable", "none"; None from an older kernel
+    # [Co-developed with claude code -- Adam]
+    down_reason: str = field(default=None, compare=False)
 
 
 class Topology:
@@ -116,7 +120,8 @@ class Topology:
                 utilization_percent=e.get("link_bandwidth_utilization_percent", 0.0),
                 usage_bps=e.get("link_bandwidth_usage_bps", 0),
                 bandwidth_bps=e.get("link_bandwidth_bps", 0),
-                telemetry_status=e.get("telemetry_status"), flows=e.get("flow_set", [])))
+                telemetry_status=e.get("telemetry_status"), flows=e.get("flow_set", []),
+                down_reason=e.get("down_reason")))
             sw = switches.get(e["src_dpid"])
             if sw is not None and not e["dst_dpid"]:
                 ip = ip_str(e["dst_ip"][0])

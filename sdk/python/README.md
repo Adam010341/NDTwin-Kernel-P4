@@ -179,6 +179,8 @@ So catch both `NoDetour` and `Refused` when an app may meet either, or test `not
 | `k.p4.register(name, dpid, index=None, start=None, count=None)` | `GET /ndt/p4/register/{name}` (bmv2 only) |
 | `k.of.write(entry, op="install", *, wait_s=10.0, all_rules=False)` | `POST /ndt/install_flow_entry`, `/ndt/modify_flow_entry` or `/ndt/delete_flow_entry` (§9, §10, §11), then `GET /ndt/get_flow_dispatch_status?request_id=` (§42) until the kernel's record of the write is complete: see "OVS flow entries" |
 | `k.of.dispatch_status(request_id)` | `GET /ndt/get_flow_dispatch_status?request_id=` (§42), the record as the kernel gives it |
+| `with k.link_down(link) as cut:` | `GET /ndt/get_graph_data`, then `POST /ndt/inject_link_failure` (§2b) on entry and `POST /ndt/inject_link_recovery` (§2c) when the block ends, also when it raises: see "Cutting a link" |
+| `k.restore_link(link)` | `GET /ndt/get_graph_data`, then `POST /ndt/inject_link_recovery` (§2c), for a cut no block ended: see "Cutting a link" |
 
 The power API takes a switch's management address, not its dpid. The SDK maps the dpid to the
 address from the topology (the kernel serialises the address as a little-endian integer, which the
@@ -221,8 +223,9 @@ host, up or down). "Usable" means on and reachable. To map ports to switches:
 
 A `Switch` also has `dpid`, `name`, `mgmt_ip`, `admin_state`, `reachable` and `brand`; a `Host` has
 `name`, `ip`, `mac`, `switch` and `port` (the switch's port towards it); a `Link` has `src`,
-`src_port`, `dst`, `dst_port`, `up`, `utilization_percent`, `usage_bps`, `bandwidth_bps` and
-`telemetry_status`.
+`src_port`, `dst`, `dst_port`, `up`, `utilization_percent`, `usage_bps`, `bandwidth_bps`,
+`telemetry_status` and `down_reason` (`"declared"` while the twin holds the link down because it
+was told to, `"switch-unreachable"`, `"none"`; `None` from a kernel that does not send it).
 
 ## What powering a P4 switch needs
 
@@ -316,6 +319,7 @@ when that is unknown. `may_have_landed` is `nothing_written is not True`. An err
 | `WriteNotVerified` | a write was answered and the table read back does not show it, shows entries the API cannot render, or could not be read | `None` | no |
 | `NoDetour` | `plan_routes_off` or `move_routes_off` will not move the routes, or `move_routes_off` finds a switch it would write on NDTwin's own pipeline (the tables belong to NDTwin; a package's `--table-owner ndtwin` table arrives as `Refused` instead, so catch both or test `nothing_written`): see "Moving the routes off a switch" | `True` | no |
 | `PowerError` | the power command failed, or the state read afterwards is not the one commanded | `None`: the kernel's 500 is the same whether the switch was touched or not (a bmv2 switch may have been signalled and still be stopping) | no |
+| `LinkNotRestored` | the recovery of a cut link failed, was refused, has an outcome the SDK cannot know, or did not clear a netem: the link may still be cut; `still_cut`, `tc` and `remedy` say where and how to restore it: see "Cutting a link" | `None` from `link_down`; from `restore_link`, `True` when the recovery changed nothing, else `None` | no |
 | `NDTwinError` | any other case: a proxy 502 on a read, a kernel 504 on a read that was sent, a 501, a reply that is not JSON, a broken connection on a read | `True` for a read, `None` for a write | reads only |
 
 A read is sent again after a broken connection, a kernel 502, a kernel 504 that says the request
@@ -556,6 +560,156 @@ Not offered yet: reading the table view, writing several entries in one request,
 confirms an entry on an OVS switch, `cookie`, `hard_timeout` and `table_id`, and group and meter
 entries.
 
+## Cutting a link
+
+`k.link_down(link)` cuts a link between two switches for the length of a `with` block, through
+the kernel, and puts it back when the block ends, whether the block finishes, raises or is
+interrupted with Ctrl-C. `link` is a `Link` of `k.topology().links` (either direction) or the two
+ends, `((dpid, port), (dpid, port))`.
+
+```python
+link = next(l for l in k.topology().links if (l.src, l.dst) == (1, 2))
+try:
+    with k.link_down(link) as cut:
+        print("on the wire:", cut.on_wire, cut.interfaces or cut.why)
+        # ... what the app does while the link is down
+    print("restored:", cut.restored.removed)
+except ndtwin.LinkNotRestored as err:      # the link may still be cut
+    print("not restored:", err.still_cut, err.remedy)
+```
+
+Entering sends `POST /ndt/inject_link_failure` (§2b) once. The kernel declares both directions of
+the link down in the twin and, on a Mininet deployment, attaches `netem loss 100%` to the
+interfaces at both ends (`s<N>-eth<M>`), or to neither. Leaving sends
+`POST /ndt/inject_link_recovery` (§2c) once: it withdraws the declaration and removes the netem
+this kernel process attached. Neither POST is sent again after a reply, or after a connection
+that broke once the request went out: a repeated injection answers that nothing was attached
+while the first one's netem still cuts the wire, and the kernel keeps no owner of an injection,
+so a repeated recovery that lands after another app injected the same link withdraws that
+app's injection.
+
+`cut` (a `LinkCut`) says what is known about the wire:
+
+| field | what |
+|---|---|
+| `on_wire` | `True`: the netem this injection attached is on every end. `False`: this injection attached no netem: the deployment is not Mininet (`tc` is `"skipped (not MININET)"`), or the kernel refused the cut (a netem already on an interface, a qdisc tree it could not read, an interface it cannot name). `None`: on some ends only (below). The block runs on `True` and `False` |
+| `interfaces` | the interfaces that carry the netem this injection attached |
+| `why` | when `on_wire` is not `True`: the kernel's reason, quoted, where the kernel gave one; the SDK's own sentence when the kernel skipped tc (not a Mininet deployment) |
+| `tc`, `status`, `body`, `lab_claim` | the reply's per-interface detail, status line, body and `lab_claim` key |
+| `restored` | after the block: the recovery's `LinkRestore` (`removed`, `still_cut`, `tc`, `status`, `body`, `lab_claim`) |
+| `restore_error` | after the block: the `LinkNotRestored` the recovery raised, or `None` |
+
+`on_wire` `False` does not mean that packets cross the link. A netem that was already on an
+interface (an injection that outlived a kernel restart, another app's, a fault tool's) is why the
+kernel refused the cut, and it may drop every packet: `cut.why` names it at entry, and
+`cut.restored.still_cut` lists it after the block, since this kernel does not remove a netem it
+did not attach. When the kernel could not read a qdisc tree, nothing is known about that interface.
+
+The kernel cuts both ends or neither, and takes an end off again when the other cannot be cut.
+When it could not take it off (its `tc` detail says `rolled_back` with `ok` false), the netem
+stays on one end only, which is a different fault (it stops the link in one direction): the
+block does not run, the SDK sends the recovery at once and raises an `NDTwinError` whose
+`restore` is that recovery's `LinkRestore` (`nothing_written` `None`: something was written and
+undone), or `LinkNotRestored` when that recovery did not clear it.
+
+Refused before anything is sent: `ValueError` for anything that is not a link, then `Refused`
+(`nothing_written` `True`) for a host-facing link (dpid 0), and then, after one read of the
+topology, `NotFound` for a link the topology does not hold as given (ports included) and
+`Refused` for a link whose two switches have another link between them (the kernel finds a link
+by its two switches only, so it could act on the other one) and for a link already declared down
+(`down_reason` `"declared"`), which the recovery at the end of the block would withdraw. The
+kernel's graph says `"declared"` both for an injection (another block's, or one left behind) and
+for a failure the control plane reported, and does not tell them apart: `k.restore_link`
+withdraws an injection you know was left behind, while a reported failure ends when the control
+plane reports the link back.
+
+The topology read and the POST are two requests. An injection by another app, or a failure the
+control plane reports, that lands between them is not refused: the kernel declares the link again
+and, when another injection's netem is already there, attaches none (`on_wire` `False`); the
+recovery at the end of this block then withdraws that declaration too. A netem that this same
+kernel process attached for another app's injection of the link is this kernel's to remove, so
+that recovery removes it too. Then:
+
+| exception | when | `nothing_written` |
+|---|---|---|
+| `Refused`, `NotFound` | the kernel refused the injection (`400` a payload it cannot read or a dpid 0, `404` no such link): nothing changed, the block does not run | `True` |
+| `NDTwinError` | the kernel's `500` `reverse edge missing from the topology; nothing was injected` | `True` |
+| `OutcomeUnknown` | any other `5xx`, a `400` `JSON parsing error` (the kernel's router answers it for an error thrown after the change too), a `2xx` the SDK cannot read, a connection that broke after the POST went out: the link may be cut; `remedy` is the `k.restore_link(...)` call | `None` |
+| `KernelUnreachable` | no connection to the kernel for the injection (sent again like any request): nothing changed | `True` |
+| `LinkNotRestored` | the recovery at the end of the block was refused (also its `409`), failed, could not connect, has an outcome the SDK cannot know, or answered `200` without clearing an interface this injection attached (a qdisc tree it could not read, a delete that failed, a netem somebody replaced) | `None`: the link may still be cut; the recovery's own error is `__cause__` (`None` after a `200`) |
+
+A `LinkNotRestored` carries `ends`, `still_cut` (the interfaces that may still carry a netem;
+`None` when the SDK cannot tell which, and `None` inside it for an end the kernel cannot name),
+`tc` (the recovery's per-interface detail), `restore` (the `LinkRestore` of a readable `200`) and
+`remedy`: the `k.restore_link(...)` call when sending the recovery again can clear it, and, for a
+netem this kernel process did not attach, how to remove it by hand instead, since a recovery would
+be refused again: after a `409` that text is the SDK's (the `409` names the interfaces, not the
+command), and for a netem left standing it is the kernel's own sentence, which names the exact
+`tc` command. An end the kernel gave no interface name is called "an end the kernel did not name".
+When the block itself raised, its exception
+goes on unchanged and the `LinkNotRestored` is set on it as `link_not_restored` (and added as a
+note on Python 3.11 and later, which a traceback prints), and on `cut.restore_error`. A
+netem on an interface this injection did not attach (it was there before the block) is reported
+in `cut.restored.still_cut` and not raised.
+
+Ctrl-C (or any exception) that arrives while the injection, or the recovery after a cut on some
+ends only, is being sent is not covered: the `with` block has not started, so nothing sends a
+recovery, and the link may be cut. Ctrl-C while the recovery at the end of the block is being sent
+is not covered either: the interrupt goes on, no `LinkNotRestored` is raised, and whether the
+recovery landed is not known. Run `k.restore_link(link)` in both cases.
+
+`k.restore_link(link)` sends the recovery on its own and returns a `LinkRestore`. It refuses
+before sending what `link_down` refuses (a host-facing link, then a link the topology does not
+hold as given or whose switches have another link between them), except a link declared down,
+which is what it is for. It raises `LinkNotRestored` for every interface it does not clear, for a
+`409` (nothing is declared on the link and a netem this kernel process did not attach is on it;
+`still_cut` names it) and for any other failure of the recovery; `nothing_written` is `True`
+there only when the recovery changed nothing. The topology read before it raises, with nothing
+sent, `KernelUnreachable` when the kernel is down and `NDTwinError` for a graph the SDK cannot
+read.
+
+**What a killed app or a restarted kernel leaves behind.** A process that is killed (`SIGKILL`,
+a power cut) runs no recovery: the link stays declared down in the twin and cut on the wire.
+Both outlive the app, and the netem also outlives the kernel. To find and clear what an app left:
+
+```python
+for link in k.topology().links:
+    if link.down_reason == "declared" and 0 < link.src < link.dst:
+        try:
+            done = k.restore_link(link)
+            print(f"s{link.src}-s{link.dst} restored:", done.removed)
+        except ndtwin.LinkNotRestored as err:   # go on with the other links
+            print(f"s{link.src}-s{link.dst} not restored:", err.still_cut, err.remedy)
+        except ndtwin.Refused as err:           # refused before sending: nothing changed
+            print(f"s{link.src}-s{link.dst} skipped:", err)
+```
+
+It withdraws the declaration of every link it restores: also the injection of an app that is
+still running, and a failure the control plane reported. It skips, with nothing sent, a link
+whose two switches have another link between them (`Refused`: the kernel finds a link by its two
+switches only, so the recovery could act on the other one): the SDK restores no such link, and
+the loop goes on with the others. Run it when no other app is cutting links.
+A kernel that restarts forgets its declarations (the link then reads `"none"`) and no longer owns
+the netem it attached: `k.restore_link` then answers `LinkNotRestored` (the kernel's `409`, with
+the interfaces in `still_cut`), and the netem has to be removed by hand on the kernel's machine:
+`sudo tc qdisc del dev <interface> root`, or `parent <id>` where `tc qdisc show dev <interface>`
+shows the netem under a parent. At startup the kernel logs one line naming the interfaces that
+already carry a netem (`netem is already attached`).
+
+**What the cut needs on the kernel's machine.** The kernel runs `sudo -n tc qdisc show`, `add`
+and `del` on `s<N>-eth<M>` interfaces, so the account that runs it needs those as NOPASSWD sudo
+rules: the user guide's section 3.2 gives them as its optional `link-fault API only` line
+(`doc/2026-11-05_user-guide.md`). Without them the kernel cannot read the qdisc tree and attaches
+nothing: `cut.on_wire` is `False` and `cut.why` says so.
+
+**P4 and OVS fabrics.** The routes do not depend on the data plane: the kernel decides only by
+its deployment mode, and a Mininet fabric, OVS (`ndt up`) or bmv2 (`ndt up p4`), names its
+interfaces `<bridge>-eth<port>` from its topology file. A cut was measured on the OVS fabric
+(§2b: LLDP stops crossing the link and the controller reports it down). On bmv2 it has not been
+measured: whether bmv2 stops forwarding on the cut interfaces as OVS does, and what the P4 proxy
+then reports, only a run on that fabric shows. Outside Mininet nothing is cut (`on_wire` `False`).
+The kernel does not check the lock (`k.lock`) on these routes.
+
 ## Tests
 
 ```bash
@@ -563,7 +717,8 @@ python3 tests/python/test_ndtwin_sdk.py -v
 ```
 
 They run the SDK from `sdk/python` against an in-process fake kernel; nothing has to be installed.
-`k.of` has its own file, `python3 tests/python/test_ndtwin_sdk_of.py -v`.
+`k.of` has its own file, `python3 tests/python/test_ndtwin_sdk_of.py -v`, and so do
+`k.link_down` and `k.restore_link`, `python3 tests/python/test_ndtwin_sdk_link.py -v`.
 How the SDK reads the replies the P4 proxy's own handler builds is checked with the proxy's
 tests, under an interpreter that has the proxy's packages:
 

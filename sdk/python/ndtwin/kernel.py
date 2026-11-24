@@ -9,9 +9,10 @@ not used. `of` writes flow entries through the kernel's OpenFlow-shaped flow rou
 import contextlib
 from dataclasses import dataclass
 
+from . import link as _link
 from . import reroute
 from ._http import Transport
-from .errors import NDTwinError, NotFound, PowerError
+from .errors import LinkNotRestored, NDTwinError, NotFound, PowerError, Refused
 from .of import OF
 from .p4 import P4
 from .topology import Topology
@@ -286,6 +287,134 @@ class Kernel:
         self._http.call("POST", "/ndt/release_lock", body={"type": lease.name, "lease": lease.id},
                         retries=retries)
 
+    # --- cutting a link ------------------------------------------------------------------------
+
+    @contextlib.contextmanager
+    def link_down(self, link):
+        """Cut `link` for the `with` block and put it back when the block ends (§2b, §2c); yields
+        a `LinkCut`.
+
+        `link` is a `Link` of `topology().links` (either direction) or ((dpid, port), (dpid,
+        port)). Refused before anything is sent: a host-facing link (dpid 0), first; then, after
+        one read of the topology, NotFound for a link the topology does not hold as given, and
+        Refused (nothing written) for a link whose two switches have another link between them
+        (the kernel finds a link by its two switches only) and for a link already declared down
+        (`down_reason` "declared": an injection, or a failure the control plane reported; the
+        recovery at the end of this block would withdraw it). It then sends
+        `POST /ndt/inject_link_failure` once. The kernel's refusals are Refused or NotFound
+        (nothing changed); an outcome the SDK cannot know is OutcomeUnknown, whose `remedy`
+        names `restore_link`, because the link may be cut.
+
+        `cut.on_wire` False means this injection attached no netem (not a Mininet deployment, or
+        the kernel refused the cut: `cut.why` says why). It does not mean packets cross the link:
+        a netem already on an interface may drop them, and a qdisc tree the kernel could not read
+        says nothing. The block runs either way. When the netem stayed on some ends only (the
+        kernel attached it and could not take it off again), the block does not run: the recovery
+        is sent at once and an NDTwinError raised (`restore` holds what the recovery did), or
+        LinkNotRestored if that recovery did not clear it.
+
+        Leaving the block, also by an exception or Ctrl-C, sends `POST /ndt/inject_link_recovery`
+        once (`cut.restored`). It raises LinkNotRestored (`nothing_written` None: the link may
+        still be cut; the recovery's own error is its `__cause__`, which is None when the recovery
+        answered 200) when the recovery fails, its outcome is unknown, or it does not clear an
+        interface this injection attached. When the
+        block itself raised, its exception goes on unchanged and the LinkNotRestored is set on it
+        as `link_not_restored` (and added as a note on Python 3.11+), and on `cut.restore_error`.
+        Ctrl-C while the injection or a recovery is being sent (the one after a cut on some ends,
+        or the one at the end of the block), and a process that is killed, leave the link in a
+        state nobody reports: see `restore_link`.
+        [Co-developed with claude code -- Adam]
+        """
+        ends = self._cuttable(link, refuse_declared=True)
+        cut = _link.inject(self._http, ends)
+        if cut.on_wire is None:
+            done = self._recover_cut(ends, cut.interfaces)
+            err = NDTwinError(f"POST {_link.INJECT}: {_link.name(ends)}: the kernel attached the "
+                              f"netem and could not take it off again on "
+                              f"{_link.names(cut.interfaces)}, so the link was cut at some ends "
+                              f"only; the block did not run, and the recovery the SDK sent "
+                              f"reported those ends clear (err.restore.removed lists the netem it "
+                              f"removed)", method="POST", path=_link.INJECT,
+                              status=200, body=cut.body, nothing_written=None)
+            err.lab_claim, err.restore = cut.lab_claim, done
+            raise err
+        try:
+            yield cut
+        except BaseException as exc:
+            try:
+                cut.restored = self._recover_cut(ends, cut.interfaces)
+            except LinkNotRestored as err:
+                cut.restore_error = err
+                _attach(exc, err)
+            raise
+        try:
+            cut.restored = self._recover_cut(ends, cut.interfaces)
+        except LinkNotRestored as err:
+            cut.restore_error = err
+            raise
+
+    def restore_link(self, link):
+        """`POST /ndt/inject_link_recovery` (§2c) once, for a link cut by a `link_down` block that
+        did not end (the app was killed, or Ctrl-C came while a POST was being sent) or by an
+        earlier injection: withdraws the twin's declaration, whoever made it, and removes the
+        netem this kernel process attached. Returns a `LinkRestore`.
+
+        `link` as for `link_down`, refused before sending in the same way (a host-facing link,
+        then a link the topology does not hold as given or whose switches have another link
+        between them), except that a link already declared down is what it is for. Raises
+        LinkNotRestored when the recovery is refused (409: a netem this kernel did not attach is
+        on the link and nothing is declared, as after a kernel restart; `still_cut` names it),
+        fails, has an outcome the SDK cannot know, or leaves any interface not cleared (a netem
+        this kernel did not attach, or a qdisc tree it could not read); its `remedy` says what
+        can clear it.
+        [Co-developed with claude code -- Adam]
+        """
+        return _link.recover(self._http, self._cuttable(link, refuse_declared=False))
+
+    def _recover_cut(self, ends, attached):
+        """The recovery of a cut `link_down` made. Its LinkNotRestored has `nothing_written`
+        None whatever the recovery did, since the cut it was to undo may still be there.
+        [Co-developed with claude code -- Adam]"""
+        try:
+            return _link.recover(self._http, ends, attached=attached)
+        except LinkNotRestored as err:
+            err.nothing_written = None
+            raise
+
+    def _cuttable(self, link, refuse_declared):
+        """The ends of `link`, after the topology shows it is a link the kernel addresses as named.
+        [Co-developed with claude code -- Adam]"""
+        ends = _link.ends_of(link)
+        _refuse_host_facing(ends)
+        topo = self.topology()
+        try:
+            pair = {ends[0], ends[1]}
+            same = [l for l in topo.links if {(l.src, l.src_port), (l.dst, l.dst_port)} == pair]
+            switches = {ends[0][0], ends[1][0]}
+            other = sorted({_link.name(((l.src, l.src_port), (l.dst, l.dst_port)))
+                            for l in topo.links if {l.src, l.dst} == switches and l not in same})
+            declared = any(l.down_reason == "declared" for l in same)
+        except (TypeError, KeyError, AttributeError, ValueError) as exc:
+            raise NDTwinError(f"GET /ndt/get_graph_data: links the SDK cannot read: {exc!r}",
+                              method="GET", path="/ndt/get_graph_data", status=200,
+                              nothing_written=True) from exc
+        if not same:
+            raise NotFound(f"no link {_link.name(ends)} in the topology", nothing_written=True)
+        if other:
+            raise Refused(f"{_link.name(ends)}: s{ends[0][0]} and s{ends[1][0]} have another "
+                          f"link between them ({', '.join(other)}), and the kernel finds a link "
+                          f"by its two switches only, so it could act on the other one",
+                          nothing_written=True)
+        if refuse_declared and declared:
+            raise Refused(f"{_link.name(ends)} is already declared down: by an injection (another "
+                          f"block's, or one left behind) or by a failure the control plane "
+                          f"reported, which the kernel's graph does not tell apart. The recovery "
+                          f"at the end of this block would withdraw either. An injection you know "
+                          f"was left behind is withdrawn with {_link.restore_call(ends)}; a "
+                          f"reported failure ends when the control plane reports the link back",
+                          nothing_written=True)
+        return ends
+
     # --- helpers -----------------------------------------------------------------------------
 
     def _mgmt_ip(self, dpid):
@@ -297,3 +426,22 @@ class Kernel:
             raise NotFound(f"no switch {dpid} with a management address in the topology",
                            nothing_written=True)
         return ip
+
+
+def _refuse_host_facing(ends):
+    """Refused (nothing written) for a host-facing link: the kernel refuses dpid 0 on these routes.
+    [Co-developed with claude code -- Adam]"""
+    if 0 in (ends[0][0], ends[1][0]):
+        raise Refused(f"{_link.name(ends)} is host-facing (dpid 0 is a host): the kernel cuts and "
+                      f"restores links between two switches only", nothing_written=True)
+
+
+def _attach(exc, err):
+    """Set the restore's failure on the block's exception, which goes on unchanged.
+    [Co-developed with claude code -- Adam]"""
+    try:
+        exc.link_not_restored = err
+    except (AttributeError, TypeError):
+        pass
+    if hasattr(exc, "add_note"):
+        exc.add_note(str(err))

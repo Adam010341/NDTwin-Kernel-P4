@@ -195,6 +195,29 @@ class NoDetour(NDTwinError):
     switches = None
 
 
+class LinkNotRestored(NDTwinError):
+    """A recovery of a link (`Kernel.restore_link`, or the end of a `Kernel.link_down` block) that
+    failed, was refused, or did not clear a netem: the link may still be cut on the wire, and may
+    still be declared down in the twin.
+
+    `ends` names the link, `still_cut` the interfaces that may still carry a netem (None when the
+    SDK cannot tell which), `tc` the recovery's per-interface detail (None when there was no
+    readable 200), `restore` the `LinkRestore` of that 200 (else None), and `remedy` what can clear
+    it: the restore call again, or, for a netem this kernel process did not attach (which the
+    kernel refuses to remove), how to remove it by hand. From `Kernel.link_down`,
+    `nothing_written` is None: the link may still be cut whatever the recovery did, and the
+    recovery's own error is the `__cause__` (None when the recovery answered 200 and did not
+    clear an interface). From `Kernel.restore_link` it is True when the
+    recovery changed nothing, None otherwise.
+    [Co-developed with claude code -- Adam]
+    """
+
+    ends = None
+    still_cut = None
+    tc = None
+    restore = None
+
+
 # The classes a write reports once the kernel has answered or the request went out: use it to tell
 # them from the rest. It does NOT hold KernelUnreachable (nothing connected) or a bare NDTwinError
 # (a reply that is not JSON, a 501, a broken connection of a read), so an app that must not miss
