@@ -15,8 +15,9 @@ from .errors import (Busy, KernelUnreachable, LockBusy, NDTwinError, NoDetour, N
                      OutcomeUnknown, PowerError, Refused, SwitchRefused, TableFull, Unsettled,
                      WriteError, WriteNotVerified)
 from .kernel import Kernel, Lease, LinkUsage, PowerState
+from .of import OF, FlowEntry, FlowWrite
 from .p4 import P4, Counter, DirectCounter, Register, Settled, Table, TableEntry, WriteResult
 from .reroute import RoutePlan
 from .topology import Host, Link, Switch, Topology
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"

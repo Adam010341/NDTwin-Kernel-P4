@@ -177,6 +177,8 @@ So catch both `NoDetour` and `Refused` when an app may meet either, or test `not
 | `k.p4.counter(name, dpid, index=0)` | `GET /ndt/p4/counter/{name}` (§43, §3) |
 | `k.p4.direct_counter(name, dpid)` | `GET /ndt/p4/direct_counter/{name}` |
 | `k.p4.register(name, dpid, index=None, start=None, count=None)` | `GET /ndt/p4/register/{name}` (bmv2 only) |
+| `k.of.write(entry, op="install", *, wait_s=10.0, all_rules=False)` | `POST /ndt/install_flow_entry`, `/ndt/modify_flow_entry` or `/ndt/delete_flow_entry` (§9, §10, §11), then `GET /ndt/get_flow_dispatch_status?request_id=` (§42) until the kernel's record of the write is complete: see "OVS flow entries" |
+| `k.of.dispatch_status(request_id)` | `GET /ndt/get_flow_dispatch_status?request_id=` (§42), the record as the kernel gives it |
 
 The power API takes a switch's management address, not its dpid. The SDK maps the dpid to the
 address from the topology (the kernel serialises the address as a little-endian integer, which the
@@ -441,6 +443,119 @@ On bmv2 1.15.5 (2026-10-31) the switch's `ALREADY_EXISTS` (an insert sent twice)
 (a delete of a missing entry) came back in `p4rt_error` through the kernel, and a write sent
 again at once while the proxy's threads were all busy was answered `504` again.
 
+## OVS flow entries
+
+`k.of.write(entry, op)` writes one flow entry through the kernel's flow routes (`op` is
+`"install"`, the default, `"modify"` or `"delete"`) and then waits, up to `wait_s` seconds (10 by
+default), for the kernel's record of what its dispatcher did with it. The entry is a `dict` in the
+kernel's request shape (`ndtwin.FlowEntry` gives it `.dpid`, `.priority`, `.match`, `.actions`
+and `.idle_timeout`):
+
+```python
+entry = {"dpid": 1, "priority": 100,
+         "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.2"},
+         "actions": [{"type": "OUTPUT", "port": 3}]}
+try:
+    done = k.of.write(entry, "install")
+    print("request", done.request_id, "taken by the controller; on the switch:", done.on_switch)
+except ndtwin.Refused as err:              # NotFound too: nothing was written
+    print("refused:", err, err.remedy)
+except ndtwin.OutcomeUnknown as err:       # it may have landed, or may still land
+    print("not known:", err, err.request_id)
+```
+
+**A normal return on OVS means the controller took the request, not that the switch has the
+rule.** The kernel answers the POST with `200` `queued` once the entry passed its own checks and
+is on its dispatcher's queue; it may not have reached the controller (Ryu) yet. `write` then
+reads `GET /ndt/get_flow_dispatch_status?request_id=` until it says every job of the request was
+dispatched, and raises for a refusal it finds there. `wait_s` bounds that polling, not a single
+read of the record, which can take the client's `timeout` (20 s by default) and its retries.
+Ryu answers before any switch has acted on the entry, and OpenFlow does not acknowledge a flow
+mod, so a rule the switch itself turns down (a port it does not have, a full table) is reported by
+nothing on the kernel's API. `on_switch` is `None`
+on OVS for that reason, always.
+
+It returns a `FlowWrite`:
+
+| field | what |
+|---|---|
+| `request_id`, `accepted` | from the kernel's `200` body |
+| `on_switch` | `True` when the record says the switch accepted every job (a bmv2 switch, below; after a delete, the delete was applied); `None` otherwise, on OVS always |
+| `failures` | the record's failure list, `[]`; `None` when the call did not wait |
+| `body` | the kernel's `200` body |
+| `lab_claim` | that body's `lab_claim` key; these routes send no `X-NDTwin-Lab-Claim` header |
+
+`wait_s=0` returns as soon as the kernel queued the entry, without reading the record
+(`on_switch` and `failures` `None`); `k.of.dispatch_status(done.request_id)` reads it later. The
+kernel keeps a bounded number of records and forgets them when it restarts.
+
+What it raises, besides `ValueError` for an entry refused before sending (below). Every exception
+of the wait carries `request_id`, `failures` (the records as the kernel gives them) and `remedy`
+(the first one a record carries, or `None`). The POST is sent once: never again after a reply, or
+after a connection that broke once the request went out.
+
+| exception | when | `nothing_written` |
+|---|---|---|
+| `Refused` | the kernel refused the entry (`400` `malformed flow entry`, `Bad entry`); the kernel refused, before queueing, a delete with a priority on a bmv2 switch for a destination-only match (`501`, its reason in `err.body["refused_on_p4_reason"]`); Ryu refused it (`400`, `501`); the P4 proxy refused it (a `4xx`, or `501` with a `remedy`) | `True` |
+| `NotFound` (a `Refused`) | the kernel does not know the dpid (`404`); Ryu answered `404`, which usually means the switch is not connected to Ryu (off, or disconnected), and in Ryu 4.34 also comes from a command, a port or a URL it does not know; the P4 proxy does not know the switch | `True` |
+| `OutcomeUnknown` | the P4 proxy reported the write as failed (its `502`; the kernel's record keeps nothing that says whether the switch itself refused it, and the proxy answers the same for its own gRPC errors); the kernel answered `500`, or `400` `JSON parsing error` (its router answers that for an error anywhere in the handler, also after the entry was queued); the connection broke after the POST went out; Ryu did not answer within the kernel's 5 s, or answered a `5xx`; the record was not complete within `wait_s`; the kernel's dispatcher stopped; the kernel has no record of the request (`unknown request_id`), or no longer keeps some of its failures | `None` |
+| `NDTwinError` | the kernel could not run `curl` to reach the controller (a `500` with no `refused_by` in the record) | `True` |
+| `KernelUnreachable` | no connection to the kernel; sent again like any request | `True` |
+
+Refused with `ValueError` before anything is sent, because the kernel or the controller would take
+the entry and then not do what it says:
+
+| entry | why |
+|---|---|
+| a key other than `dpid`, `priority`, `match`, `actions` and `idle_timeout` (`cookie`, `hard_timeout`, `table_id`, ...) | the kernel forwards only those to the controller and drops the rest without a word |
+| `idle_timeout` on a modify or a delete, `actions` on a delete | the kernel does not forward them on those ops |
+| `match` that is not a `dict`, or has a key Ryu does not know (`ip_dst` for `ipv4_dst`) | Ryu drops an unknown match key with a log line only, so the rule would match more than asked |
+| `eth_type`, `ip_proto` or a TCP, UDP or SCTP port that is not an integer (`"0x0800"`), in any of their spellings (`dl_type`, `nw_proto`, `tp_src`, ...) | Ryu takes it, but on a modify or a delete the kernel reads `eth_type`, `ip_proto` and, for TCP and UDP, the ports as integers when it updates its table view after it queued the entry, and then answers an error for an entry it already queued. It does not read the other spellings or the SCTP ports; the SDK holds them to the same form so that a field is checked alike whatever name it is written with |
+| `tp_src` or `tp_dst` without `ip_proto` (or `nw_proto`) 6 or 17 | Ryu cannot tell TCP from UDP and fails |
+| `actions` that is not a list of `dict`s whose `type` Ryu knows (`[]` is a drop rule) | Ryu drops an unknown action type with a log line only: a forwarding rule would become a drop |
+| a delete without a `match`, or with an empty one, unless `all_rules=True` | without a `priority` it removes every rule in the switch's table 0, the kernel's own included: the LLDP rule to the controller, the table-miss rule and NDTwin's routes; with a `priority`, the match-all rule at that priority (at 0, the table-miss rule) |
+
+What the controller does with what is sent:
+
+- The kernel sends no `table_id`, so Ryu acts on table 0.
+- A delete without `priority` is non-strict: it removes every rule whose match includes the one
+  sent, at any priority, so more specific rules too, NDTwin's own route of that destination
+  included. With a `priority` it removes only the rule with exactly that match and priority. A
+  modify always names a
+  priority (none means 0) and changes only the rule with that match and priority; under
+  OpenFlow 1.3 it changes nothing when there is no such rule, and nothing says so.
+- NDTwin's router installs its routes as `{"eth_type": 2048, "ipv4_dst": <host>}` at priority 10,
+  and installs them again when the links change (`intelligent_router.py`). Under OpenFlow 1.3 an
+  install with the same match and priority replaces the rule that is there, so the router's next
+  install can replace yours too; write at another priority to keep a rule of your own.
+- The kernel does not check the lock (`k.lock`) on these routes: it is for apps that agree to take
+  it.
+
+The kernel's table view, `GET /ndt/get_switch_openflow_table_entries`, is not a read-back. It
+holds the kernel's last poll of each switch, about every 10 s, and the kernel edits it itself when
+it queues a modify or a delete: such a write can show there at once, before the switch has it and
+even when the controller then refuses it (when the request names the ethertype as `dl_type`, or
+not at all). An install shows only after a poll. On OVS an install showed there 3.25 to 3.66 s
+after the POST, and a deleted rule was still listed 9.61 s after the switch dropped it
+(doc/2026-01-02_ndt_api.md §5).
+
+The same call reaches a bmv2 switch, through the P4 proxy. On NDTwin's own pipeline (`ndt up p4`
+without `--app`) the proxy programs the switch before it answers, so a normal return has
+`on_switch` `True`; after a delete, `True` means the delete was applied. There a match on the
+destination alone goes to a table with one entry per destination and no priority: the priority is
+not programmed, and an install replaces that destination's entry instead of adding one above it.
+The proxy ignores `idle_timeout`, and `on_switch` is `True` all the same. A write the proxy reports
+as failed (its `502`) is an `OutcomeUnknown`: the proxy answers it for the switch's refusal and for
+its own gRPC errors alike, and the kernel's record does not tell them apart. On a package's pipeline
+(`ndt up p4 --app`) the proxy writes only a destination route, and only into a route table the
+package gives to NDTwin (`roles.ipv4_route` with owner `ndtwin`); it refuses anything else with
+`501`, which `write` raises as `Refused` with the proxy's `remedy`: write that table with
+`POST /p4/table_entry`, which is `k.p4.write`.
+
+Not offered yet: reading the table view, writing several entries in one request, a read-back that
+confirms an entry on an OVS switch, `cookie`, `hard_timeout` and `table_id`, and group and meter
+entries.
+
 ## Tests
 
 ```bash
@@ -448,6 +563,7 @@ python3 tests/python/test_ndtwin_sdk.py -v
 ```
 
 They run the SDK from `sdk/python` against an in-process fake kernel; nothing has to be installed.
+`k.of` has its own file, `python3 tests/python/test_ndtwin_sdk_of.py -v`.
 How the SDK reads the replies the P4 proxy's own handler builds is checked with the proxy's
 tests, under an interpreter that has the proxy's packages:
 

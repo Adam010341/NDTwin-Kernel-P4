@@ -4,7 +4,7 @@ switch, and the `p4` namespace.
 [Co-developed with claude code -- Adam]
 
 It calls the kernel's `/ndt/...` routes (port 8000) and nothing else; the P4 proxy's own routes are
-not used.
+not used. `of` writes flow entries through the kernel's OpenFlow-shaped flow routes.
 """
 import contextlib
 from dataclasses import dataclass
@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from . import reroute
 from ._http import Transport
 from .errors import NDTwinError, NotFound, PowerError
+from .of import OF
 from .p4 import P4
 from .topology import Topology
 
@@ -71,6 +72,7 @@ class Kernel:
     def __init__(self, url="http://localhost:8000", timeout=20.0, retries=2, retry_wait=1.0):
         self._http = Transport(url, timeout, retries, retry_wait)
         self.p4 = P4(self._http)
+        self.of = OF(self._http)   # [Co-developed with claude code -- Adam]
         self._switch_of = {}
 
     # --- reads -------------------------------------------------------------------------------

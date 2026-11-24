@@ -2211,7 +2211,7 @@ class PackageTest(unittest.TestCase):
         self.assertEqual(
             {c.__name__ for c in ndtwin.WriteError},
             {"OutcomeUnknown", "SwitchRefused", "Busy", "WriteNotVerified", "Refused"})
-        self.assertEqual(json.dumps(ndtwin.__version__), '"1.1.0"')  # new public API: minor
+        self.assertEqual(json.dumps(ndtwin.__version__), '"1.2.0"')  # new public API: minor
         self.assertIsNone(ndtwin.NoDetour("m").path)  # the HTTP route, as on every NDTwinError
         self.assertIsNone(ndtwin.NoDetour("m").switches)
 
