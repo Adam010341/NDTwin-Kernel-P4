@@ -234,6 +234,30 @@ check "case 18e 4.5's rc 3 row points at the same rule" \
 check "case 18f and no line says every down clears it" \
       0 "$(grep -c 'every `ndt down` clears it' "$MANUAL")"
 
+# --- case 19: NDT_TOPO and the network the P4 fabric is built from, in help and in the guide ------
+# [Co-developed with claude code -- Adam] On P4 the fabric is built from the model in setting/ with the asked-for host
+# count, whatever NDT_TOPO says, so NDT_TOPO may only name a copy of that network and `ndt up p4` answers 5 for any
+# other. The guide used to send readers to NDT_TOPO for another size (which the fabric cannot follow), and its rc-5
+# list said "another network" for a host count alone.
+check "case 19a help's 'up' block says the fabric is built from setting/'s model whatever NDT_TOPO says" \
+      1 "$(grep -c "whatever NDT_TOPO says" <<<"$UP_FLAT")"
+check "case 19b help's 'up' block names a different wiring under 5" \
+      1 "$(grep -c 'also another wiring' <<<"$UP_FLAT")"
+check "case 19c guide 4.4 says NDT_TOPO may only name the same network" \
+      1 "$(grep -c 'only one that describes the same network as the' "$MANUAL")"
+check "case 19d and no longer sends readers to NDT_TOPO for another size" \
+      0 "$(grep -c 'or name one with' "$MANUAL")"
+check "case 19e the guide's 5 bullet names a different wiring" \
+      1 "$(grep -c 'or on P4 another wiring' "$MANUAL")"
+check "case 19f section 5's row for the refusal says to make the file describe the network" \
+      1 "$(grep -c 'make the file describe the network of the `setting/` model the refusal names' "$MANUAL")"
+# [Co-developed with claude code -- Adam] With --app the fabric is the package's model and the check is on the FILE: NDT_TOPO
+# must be unset or name that same file, and any other one (a byte copy too) is refused 5 as "two different files".
+check "case 19g help's 'up' block says --app takes NDT_TOPO only when it names the package's own file" \
+      1 "$(grep -c "NDT_TOPO must be unset or name that same file" <<<"$UP_FLAT")"
+check "case 19h guide 4.4 says the same for --app" \
+      1 "$(grep -c '`NDT_TOPO` must be unset or name that same file' "$MANUAL")"
+
 # --- case 14 (CONTROL): a sentence the fix does not touch is still there --------------------
 # Green on the unfixed guide and on the fixed one. If this file ever goes all-red, this case is
 # how you tell a real regression from a test that stopped reading the document.

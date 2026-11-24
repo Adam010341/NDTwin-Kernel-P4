@@ -345,6 +345,28 @@ report "M27: 4.5's rc 3 row says every down clears it again" "$TEST" "$M" "case 
 M=$(manual_mutant m21 '| `refusing to build: NTG does not know mode'$'\x1f''| `NTG does not know mode')
 report "M21: section 5 loses its row for the NTG refusal" "$TEST" "$M" "case 17f section 5 has a row for the NTG refusal"
 
+# --- [Co-developed with claude code -- Adam] M28-M33: NDT_TOPO and the network the P4 fabric is built from (case 19) -------
+N=$(ndt_mutant m28 "from the model in setting/ with the asked-for host count, whatever NDT_TOPO"$'\x1f'"from the model in setting/ with the asked-for host count, whatever it")
+M=$(manual_copy)
+report_ndt "M28: help's up block drops that setting/'s model builds the fabric" "$TEST" "$M" "$N" "case 19a help's 'up' block says the fabric is built from setting/'s model whatever NDT_TOPO says"
+N=$(ndt_mutant m29 "different network (another host count; on P4 also another wiring, switch"$'\x1f'"different network (another host count; on P4 also another, switch")
+report_ndt "M29: help's up block names no different wiring under 5" "$TEST" "$M" "$N" "case 19b help's 'up' block names a different wiring under 5"
+M=$(manual_mutant m30 'but only one that describes the same network as the'$'\x1f''but any one that describes a network like the')
+report "M30: guide 4.4 lets NDT_TOPO name any network again" "$TEST" "$M" "case 19c guide 4.4 says NDT_TOPO may only name the same network"
+M=$(manual_mutant m31 'its arguments are printed by the `no P4 topology model in setting/ has <n> hosts` refusal):'$'\x1f''its arguments are printed by the `no P4 topology model in setting/ has <n> hosts` refusal), or name one with `NDT_TOPO`:')
+report "M31: guide 4.4 sends readers to NDT_TOPO for another size again" "$TEST" "$M" "case 19d and no longer sends readers to NDT_TOPO for another size"
+M=$(manual_mutant m32 'or on P4 another wiring, switch names or hosts than the model the fabric is built from'$'\x1f''or on P4 another size')
+report "M32: the guide's 5 bullet says a host count only" "$TEST" "$M" "case 19e the guide's 5 bullet names a different wiring"
+M=$(manual_mutant m33 'make the file describe the network of the `setting/` model the refusal names'$'\x1f''set the host count')
+report "M33: section 5's row names only the host count again" "$TEST" "$M" "case 19f section 5's row for the refusal says to make the file describe the network"
+# M34 puts the earlier, wrong --app claim back in the help (NDT_TOPO may name a copy of the package's model); M35 does the
+# same in the guide (with --app nothing is compared).
+N=$(ndt_mutant m34 "package's model, and NDT_TOPO must be unset or name that same file"$'\x1f'"package's model, so NDT_TOPO may only name a copy of that network")
+M=$(manual_copy)
+report_ndt "M34: help says --app takes a copy of the package's model" "$TEST" "$M" "$N" "case 19g help's 'up' block says --app takes NDT_TOPO only when it names the package's own file"
+M=$(manual_mutant m35 'so there is nothing to compare: `NDT_TOPO` must be unset or name that same file, and any'$'\x1f''so nothing is compared and any')
+report "M35: guide 4.4 says nothing is compared with --app" "$TEST" "$M" "case 19h guide 4.4 says the same for --app"
+
 # --- C1 (control): a comment is reworded; nothing about the contract changes -------------------
 echo
 M=$(manual_mutant c1 'The only place this guide says how to decide that a lab was restored.'$'\x1f''This is the one place this guide says how to decide that a lab was restored.')
