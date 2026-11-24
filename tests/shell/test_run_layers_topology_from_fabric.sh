@@ -64,6 +64,7 @@ PY
 write_model StaticNetworkTopologyP4_10Switches_4Hosts.json 4
 write_model StaticNetworkTopologyP4_10Switches_128Hosts.json 128
 write_model StaticNetworkTopologyOVS_10Switches_4Hosts.json 4
+write_model StaticNetworkTopologyOVS_10Switches_8Hosts.json 8
 # The real tree's OVS default really does have 128 hosts, which is why the two families
 # overlap on host count and the family has to be part of the query.
 write_model StaticNetworkTopologyMininet_10Switches.json 128
@@ -181,6 +182,54 @@ if [[ "$CHOSE_RC" -eq 0 && "$CHOSEN" == "$TOPO_P4" ]]; then
     t_ok "NDT_TOPO overrides the derivation"
 else
     t_bad "NDT_TOPO overrides the derivation" "rc=$CHOSE_RC chose [$CHOSEN]"
+fi
+
+# --- 7a. the refusal's advice names a source of the SIZE that is running ----------------------
+# [Co-developed with claude code -- Adam]
+# The advice used to derive the 128-host Mininet model for every size: a 128-host model named for
+# 8 hosts, never found for 8, and the same refusal again. The source is the OVS model of the
+# running size; with none, nothing is printed to run and the sizes that ship are listed. It also
+# says what NDT_TOPO is here: a model of the network that is running.
+LIVE_HOSTS=8
+choose p4
+if [[ "$CHOSE_RC" -eq 3 ]] \
+   && grep -qF 'setting/StaticNetworkTopologyOVS_10Switches_8Hosts.json' <<<"$CHOSE_ERR" \
+   && grep -qF 'setting/StaticNetworkTopologyP4_10Switches_8Hosts.json' <<<"$CHOSE_ERR" \
+   && ! grep -qF 'StaticNetworkTopologyMininet_10Switches.json' <<<"$CHOSE_ERR"; then
+    t_ok "the refusal for 8 running hosts derives from the OVS model of 8 hosts, not the 128-host one"
+else
+    t_bad "the refusal for 8 running hosts derives from the OVS model of 8 hosts, not the 128-host one" \
+          "rc=$CHOSE_RC; stderr: ${CHOSE_ERR:0:600}"
+fi
+if grep -qF 'network that is running' <<<"$CHOSE_ERR" && grep -qF 'NDT_TOPO=/path/to/model' <<<"$CHOSE_ERR"; then
+    t_ok "and names NDT_TOPO only as a model of the network that is running"
+else
+    t_bad "and names NDT_TOPO only as a model of the network that is running" "stderr: ${CHOSE_ERR:0:600}"
+fi
+
+LIVE_HOSTS=12
+choose p4
+if [[ "$CHOSE_RC" -eq 3 ]] \
+   && grep -qF 'no model of 12 hosts ships in setting/' <<<"$CHOSE_ERR" \
+   && grep -qF 'hosts in the P4 models in setting/:  4, 128' <<<"$CHOSE_ERR" \
+   && grep -qF 'hosts in the OVS models in setting/: 4, 8, 128' <<<"$CHOSE_ERR" \
+   && ! grep -qF 'derive_p4_topology_json.py' <<<"$CHOSE_ERR"; then
+    t_ok "a size with no OVS model: no derive command, and the sizes that ship are listed"
+else
+    t_bad "a size with no OVS model: no derive command, and the sizes that ship are listed" \
+          "rc=$CHOSE_RC; stderr: ${CHOSE_ERR:0:600}"
+fi
+
+# The deriver turns an OVS model into a P4 one: an OVS run is never told to run it.
+LIVE_HOSTS=12
+choose ovs
+if [[ "$CHOSE_RC" -eq 3 ]] && ! grep -qF 'derive_p4_topology_json.py' <<<"$CHOSE_ERR" \
+   && ! grep -qF 'hosts in the P4 models' <<<"$CHOSE_ERR" \
+   && grep -qF 'hosts in the OVS models in setting/: 4, 8, 128' <<<"$CHOSE_ERR"; then
+    t_ok "an OVS run with no model of the running size is not sent to the P4 deriver"
+else
+    t_bad "an OVS run with no model of the running size is not sent to the P4 deriver" \
+          "rc=$CHOSE_RC; stderr: ${CHOSE_ERR:0:600}"
 fi
 
 # --- 8. an unknown data plane is a usage error, distinct from "cannot derive" -----------------

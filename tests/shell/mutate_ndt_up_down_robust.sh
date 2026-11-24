@@ -4783,7 +4783,6 @@ m=$(mutant m384 "$NDT" \
 report "M384: the refusal names no switch, port or host" "$m" \
        "  a cable missing: and names 's1 port 1'"
 
-
 # --- the two places where the comparison cannot run (cells in section 8; the module is replaced by a stand-in) ---------
 
 # M385-M387: the lookup of the fabric's model fails. M388-M390: the diff answers neither 0 nor 1. Each is: the warning
@@ -4835,6 +4834,53 @@ m=$(mutant m390 "$NDT" \
     '                    TOPO_REFUSAL="NDT_TOPO names a model of a different network: no comparison"; return 3')
 report "M390: a diff that did not run is a refusal" "$m" \
        "  🔴 the diff answers neither 0 nor 1: 'ndt up p4 4' builds, rc 0"
+
+
+# --- the "no P4 model" refusal names a derive source of the right size ------------------------------------------------
+# The cells are in section 8 of the suite, after the 'ndt up p4 8' refusal; every catch is a FAILED line of that cell.
+
+# M391: the derive command's source is the 128-host Mininet model again, for every size.
+m=$(mutant m391 "$NDT" \
+    '        err "      setting/$src \\"' \
+    '        err "      setting/StaticNetworkTopologyMininet_10Switches.json \\"')
+report "M391: the derive command's source is the 128-host model for every size" "$m" \
+       "  🔴 the advice derives from that model"
+
+# M392: the derive command is printed whether or not an OVS model of that size exists.
+m=$(mutant m392 "$NDT" \
+    '    if [[ -f "$REPO/setting/$src" ]]; then
+        err "the kernel would load' \
+    '    if true; then
+        err "the kernel would load')
+report "M392: a derive command is printed for a size with no OVS model" "$m" \
+       "  🔴 and prints no derive command"
+
+# M393: the output is named for the wrong size, so the file that is written is not the one that is looked for.
+m=$(mutant m393 "$NDT" \
+    '        err "      setting/StaticNetworkTopologyP4_10Switches_${n}Hosts.json"' \
+    '        err "      setting/StaticNetworkTopologyP4_10Switches_128Hosts.json"')
+report "M393: the derive command's output is named for another size" "$m" \
+       "  into a P4 model named for 8 hosts"
+
+# M394: the list of sizes that ship is dropped from the refusal.
+m=$(mutant m394 "$NDT" \
+    '        err "  hosts in the P4 models in setting/:  $(model_sizes p4)"
+' \
+    '')
+report "M394: the refusal does not list the P4 sizes that ship" "$m" \
+       "  it lists the P4 sizes that ship"
+
+# M395: the OVS list is read with the P4 file set (a family-blind listing).
+m=$(mutant m395 "$NDT" \
+    '    [[ "$mode" != p4 ]] && pats="StaticNetworkTopologyOVS_*.json StaticNetworkTopologyMininet_*.json"
+    python3 - "$REPO/setting" $pats <<'"'"'PY'"'"' 2>/dev/null
+import glob, json, os, sys
+d, pats = sys.argv[1], sys.argv[2:]' \
+    '    python3 - "$REPO/setting" $pats <<'"'"'PY'"'"' 2>/dev/null
+import glob, json, os, sys
+d, pats = sys.argv[1], sys.argv[2:]')
+report "M395: the OVS sizes are listed from the P4 models" "$m" \
+       "  and the OVS sizes"
 
 
 

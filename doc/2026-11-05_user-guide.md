@@ -598,9 +598,13 @@ Model files shipped in `setting/`:
 | 8, 16, 32, 64 | none | `StaticNetworkTopologyOVS_10Switches_{8,16,32,64}Hosts.json` (not built by `ndt up`) |
 | 128 | `StaticNetworkTopologyP4_10Switches_128Hosts.json` | `StaticNetworkTopologyMininet_10Switches.json` |
 
-For another P4 size derive a model into `setting/` first (`tools/test_workflow/derive_p4_topology_json.py`,
-its arguments are printed by the `no P4 topology model in setting/ has <n> hosts` refusal): the P4 fabric is
-built only from a model in `setting/` that has the asked-for host count, whatever `NDT_TOPO` says.
+For another P4 size derive a model into `setting/` first, from the OVS model of the same size
+(`StaticNetworkTopologyOVS_10Switches_<n>Hosts.json`) with `tools/test_workflow/derive_p4_topology_json.py`
+(its arguments are printed by the `no P4 topology model in setting/ has <n> hosts` refusal): the P4 fabric is
+built only from a model in `setting/` that has the asked-for host count, whatever `NDT_TOPO` says. The script
+refuses an output named `..._<n>Hosts.json` for a model that declares another host count, and writes nothing.
+A size with no OVS model (anything but 4, 8, 16, 32, 64 and 128 hosts) has nothing to derive from: the
+refusal then prints no command and lists the sizes that ship.
 
 On P4, `NDT_TOPO` may name a file outside `setting/`, but only one that describes the same network as the
 model the fabric is built from: a copy, or a file that differs only in nicknames or declared link bandwidths.

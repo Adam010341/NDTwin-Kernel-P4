@@ -2636,7 +2636,7 @@ topo_for_hosts() {
             if [[ -z "$fm" ]]; then
                 TOPO_REFUSAL="NDT_TOPO names a model of a different network: the fabric is built only from a model in setting/, and none has $want host(s); NDT_TOPO cannot change that
   the kernel would load $NDT_TOPO over a fabric no model describes
-derive one into setting/ (ndt up p4 $want, with NDT_TOPO unset, prints how), then ndt up p4 $want again"
+derive one into setting/ (ndt up p4 $want, with NDT_TOPO unset, says what to derive it from), then ndt up p4 $want again"
                 return 3
             fi
             if [[ "$(readlink -f -- "$fm")" != "$(readlink -f -- "$NDT_TOPO")" ]]; then
@@ -2668,6 +2668,50 @@ for pat in pats:
         if sum(1 for n in t["nodes"] if n.get("vertex_type") == 1) == want:
             print(p); raise SystemExit
 PY
+}
+
+# [Co-developed with claude code -- Adam]
+# model_sizes <mode> -- the host counts the models of that family in setting/ declare, ascending, comma
+# separated. The same two file sets topo_for_hosts searches (p4: the P4 family; anything else: the OVS
+# and Mininet models), counted the way it counts them, so "which sizes ship" cannot disagree with "which
+# model does this size find".
+model_sizes() {
+    local mode="${1:-p4}" pats="StaticNetworkTopologyP4_*.json"
+    [[ "$mode" != p4 ]] && pats="StaticNetworkTopologyOVS_*.json StaticNetworkTopologyMininet_*.json"
+    python3 - "$REPO/setting" $pats <<'PY' 2>/dev/null
+import glob, json, os, sys
+d, pats = sys.argv[1], sys.argv[2:]
+sizes = set()
+for pat in pats:
+    for p in glob.glob(os.path.join(d, pat)):
+        try:
+            t = json.load(open(p))
+            sizes.add(sum(1 for n in t["nodes"] if n.get("vertex_type") == 1))
+        except Exception:
+            continue
+print(", ".join(str(n) for n in sorted(sizes)))
+PY
+}
+
+# [Co-developed with claude code -- Adam]
+# no_p4_model_advice <hosts> -- what to say when setting/ has no P4 model of that many hosts. The only
+# source that can be derived from is the OVS model OF THAT SIZE: the 128-host Mininet model derived into a
+# file named for another size is a 128-host model with a wrong name, which is never found for that size
+# and leaves the same refusal behind. With no OVS model of the size there is nothing to derive from, and
+# saying so (with the sizes that do ship) is the whole advice.
+no_p4_model_advice() {
+    local n="$1" src="StaticNetworkTopologyOVS_10Switches_${1}Hosts.json"
+    if [[ -f "$REPO/setting/$src" ]]; then
+        err "the kernel would load a model of a different network. derive one first:"
+        err "  python3 tools/test_workflow/derive_p4_topology_json.py \\"
+        err "      setting/$src \\"
+        err "      setting/StaticNetworkTopologyP4_10Switches_${n}Hosts.json"
+    else
+        err "the kernel would load a model of a different network, and no model of $n hosts ships in"
+        err "setting/ (P4 or OVS), so there is nothing to derive one from."
+        err "  hosts in the P4 models in setting/:  $(model_sizes p4)"
+        err "  hosts in the OVS models in setting/: $(model_sizes ovs)"
+    fi
 }
 
 # set_host_count <n> -- rewrite the override the topology script reads.
@@ -4682,10 +4726,7 @@ up_p4() {
     fi
     if [[ -z "$topo" ]]; then
         err "no P4 topology model in setting/ has $hosts hosts."
-        err "the kernel would load a model of a different network. derive one first:"
-        err "  python3 tools/test_workflow/derive_p4_topology_json.py \\"
-        err "      setting/StaticNetworkTopologyMininet_10Switches.json \\"
-        err "      setting/StaticNetworkTopologyP4_10Switches_${hosts}Hosts.json"
+        no_p4_model_advice "$hosts"
         return 1
     fi
     want_paths=$(( hosts * (hosts - 1) ))
