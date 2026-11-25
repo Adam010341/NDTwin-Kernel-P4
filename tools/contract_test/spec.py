@@ -1475,6 +1475,23 @@ def inv_flow_write_is_honest_about_being_queued(data, ctx):
     return []
 
 
+def inv_unsent_key_refusal_names_table_id(data, ctx):
+    """
+    The 400 for an entry carrying table_id is the shape check's, and names the key.
+
+    [Co-developed with claude code -- Adam] doc/FIXED-ISSUES.md C-10. Without this the case would
+    pass on any 400, the "JSON parsing error" an older kernel gave for a non-integer table_id
+    included.
+    """
+    if not isinstance(data, dict) or data.get("error") != "malformed flow entry":
+        return [f"expected error 'malformed flow entry', got {data!r}"]
+    entries = data.get("entries")
+    if not isinstance(entries, list) or not any(
+            isinstance(e, dict) and '"table_id"' in str(e.get("problem", "")) for e in entries):
+        return [f"no entry's problem names \"table_id\": {entries!r}"]
+    return []
+
+
 def inv_dispatch_counters_close(data, ctx):
     """
     dispatched == succeeded + failed, and the failure list is consistent with the count.
@@ -2197,6 +2214,21 @@ ENDPOINTS = [
          path="/ndt/install_flow_entry", body={"dpid": 1},
          category=ERRORPATH, expect_status=[400, 422],
          schema=Any_()),
+
+    # [Co-developed with claude code -- Adam]
+    # doc/FIXED-ISSUES.md C-10. A key the kernel does not send to the controller is refused with
+    # 400 before anything is queued; table_id 1 was answered 200 and acted on table 0. The dpid is
+    # one no topology holds, so the case changes nothing on any kernel: the shape check runs before
+    # the dpid lookup, so a kernel with the fix answers this 400, and an older one answers 404.
+    dict(name="delete_flow_entry__unsent_key", method="POST",
+         path="/ndt/delete_flow_entry",
+         body={"dpid": 999999999999, "table_id": 1,
+               "match": {"eth_type": 2048, "ipv4_dst": "10.255.255.254"}},
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         invariants=[inv_unsent_key_refusal_names_table_id],
+         note="table_id is not sent to the controller, which would act on table 0; refused"
+              " before queueing (FIXED-ISSUES C-10)"),
 
     dict(name="get_path_switch_count__bad_ip", method="GET",
          path="/ndt/get_path_switch_count",

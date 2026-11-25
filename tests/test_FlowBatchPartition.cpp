@@ -23,6 +23,8 @@
 
 #include <cstdint>
 #include <set>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -410,4 +412,226 @@ TEST(P4PriorityDeleteTest, ADeleteWithoutADpidIsAdmittedRatherThanReadPastItsKey
     EXPECT_TRUE(out.refused.empty());
     ASSERT_EQ(out.admitted.size(), 1u);
     EXPECT_EQ(out.admitted[0], dels[0]);
+}
+
+// --- OpenFlow keys the kernel does not send to the controller ---------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// Ryu's flow-mod reads cookie, cookie_mask, table_id, hard_timeout, flags, buffer_id, out_port and
+// out_group from the body it is sent, and the kernel sends none of them; idle_timeout it sends on
+// an install only. An entry carrying one was answered 200 "queued" and programmed as if the key
+// were absent: an untagged permanent rule, a rule in table 0 instead of the table named, a delete
+// that dropped its cookie or out_port filter and so removed more than it named. The shape check
+// now refuses such a key, unless its value is the one the controller uses anyway.
+//
+// The cases below are the tests' own list, written out here rather than read from the kernel's
+// table, so that they compile against a tree without the check and a key dropped from that table
+// is a test that goes red rather than one that quietly disappears.
+
+namespace
+{
+
+struct UnsentKeyCase
+{
+    const char* key;
+    nlohmann::json value; ///< a value the controller acts on and the kernel would not send
+    bool onInstall;       ///< refused on an install too, not only on modify and delete
+    const char* name = nullptr; ///< the case's name when the key alone does not tell it apart
+};
+
+nlohmann::json
+unsentKeyEntry(FlowOp op)
+{
+    nlohmann::json e{{"dpid", 1},
+                     {"priority", 10},
+                     {"match", {{"eth_type", 2048}, {"ipv4_dst", "10.0.0.2"}}}};
+    if (op != FlowOp::Delete)
+    {
+        e["actions"] = nlohmann::json::array({{{"type", "OUTPUT"}, {"port", 1}}});
+    }
+    return e;
+}
+
+const char*
+opName(FlowOp op)
+{
+    return op == FlowOp::Install ? "install" : op == FlowOp::Modify ? "modify" : "delete";
+}
+
+class FlowEntryUnsentKeyTest : public ::testing::TestWithParam<UnsentKeyCase>
+{
+};
+
+} // namespace
+
+TEST_P(FlowEntryUnsentKeyTest, AKeyTheKernelDoesNotSendIsRefusedOnEveryOp)
+{
+    const auto& c = GetParam();
+    std::vector<FlowOp> ops{FlowOp::Modify, FlowOp::Delete};
+    if (c.onInstall)
+    {
+        ops.push_back(FlowOp::Install);
+    }
+    for (const auto op : ops)
+    {
+        auto e = unsentKeyEntry(op);
+        e[c.key] = c.value;
+        const auto why = describeFlowEntryShapeProblem(e, op);
+        EXPECT_NE(why.find(std::string("\"") + c.key + "\""), std::string::npos)
+            << opName(op) << " with " << c.key << " " << c.value.dump() << ": "
+            << (why.empty() ? std::string("accepted, so the value would be lost") : why);
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EveryUnsentKey,
+    FlowEntryUnsentKeyTest,
+    ::testing::Values(UnsentKeyCase{"cookie", 7, true},
+                      UnsentKeyCase{"cookie_mask", 1, true},
+                      UnsentKeyCase{"table_id", 1, true},
+                      UnsentKeyCase{"hard_timeout", 30, true},
+                      UnsentKeyCase{"flags", 1, true},
+                      UnsentKeyCase{"buffer_id", 1, true},
+                      UnsentKeyCase{"out_port", 2, true},
+                      UnsentKeyCase{"out_group", 1, true},
+                      UnsentKeyCase{"idle_timeout", 30, false},
+                      // Exact 64-bit comparison: neither wraps to OFPP_ANY's 32 bits.
+                      UnsentKeyCase{"out_port", -1, true, "out_port_minus_1"},
+                      UnsentKeyCase{"out_port", 8589934591LL, true, "out_port_8589934591"}),
+    [](const ::testing::TestParamInfo<UnsentKeyCase>& info) {
+        return std::string(info.param.name ? info.param.name : info.param.key);
+    });
+
+TEST(FlowEntryShapeTest, TheControllersOwnDefaultIsAcceptedBecauseNothingIsLost)
+{
+    // A caller that echoes a read-back row (cookie 0, table_id 0, ...) loses nothing by it: the
+    // controller uses these values when the key is absent. Each value is tried both as a json
+    // built in C++ (number_integer) and as the parser stores it (number_unsigned), the two
+    // storages the dpid check once told apart by mistake.
+    const std::pair<const char*, std::uint64_t> defaults[] = {
+        {"cookie", 0},           {"cookie_mask", 0},          {"table_id", 0},
+        {"hard_timeout", 0},     {"flags", 0},                {"buffer_id", 4294967295u},
+        {"out_port", 4294967295u}, {"out_group", 4294967295u}, {"idle_timeout", 0}};
+    for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
+    {
+        auto all = unsentKeyEntry(op);
+        for (const auto& [key, value] : defaults)
+        {
+            for (const auto& v : {nlohmann::json(static_cast<std::int64_t>(value)),
+                                  nlohmann::json::parse(std::to_string(value))})
+            {
+                auto e = unsentKeyEntry(op);
+                e[key] = v;
+                EXPECT_EQ(describeFlowEntryShapeProblem(e, op), "")
+                    << opName(op) << " with " << key << " " << v.dump();
+            }
+            all[key] = value;
+        }
+        EXPECT_EQ(describeFlowEntryShapeProblem(all, op), "") << opName(op) << " " << all.dump();
+    }
+}
+
+TEST(FlowEntryShapeTest, ADefaultSpelledAsSomethingElseIsStillRefused)
+{
+    // Ryu would read "0" or 0.0 as 0, but the kernel's own table view reads table_id as an
+    // integer after the entry is queued, and a string or a null there threw: the reply became an
+    // error for an entry already on its way to the switch. Only a JSON integer is the default.
+    const std::pair<const char*, nlohmann::json> spelled[] = {
+        {"table_id", nlohmann::json("0")},
+        {"table_id", nlohmann::json(nullptr)},
+        {"table_id", nlohmann::json(0.0)},
+        {"cookie", nlohmann::json(false)},
+        {"out_port", nlohmann::json(4294967295.0)}};
+    for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
+    {
+        for (const auto& [key, value] : spelled)
+        {
+            auto e = unsentKeyEntry(op);
+            e[key] = value;
+            const auto why = describeFlowEntryShapeProblem(e, op);
+            EXPECT_NE(why.find(std::string("\"") + key + "\""), std::string::npos)
+                << opName(op) << " with " << key << " " << value.dump() << ": "
+                << (why.empty() ? std::string("accepted") : why);
+        }
+    }
+}
+
+TEST(FlowEntryShapeTest, IdleTimeoutIsNotRefusedOnAnInstall)
+{
+    // The one key of the nine that the kernel does send, and only on an install. That it then
+    // reaches the southbound is UnsentFlowKeyEndpointTest.IdleTimeoutStillTravelsOnAnInstall.
+    for (const auto& v : {nlohmann::json(30), nlohmann::json(0), nlohmann::json::parse("300")})
+    {
+        auto e = unsentKeyEntry(FlowOp::Install);
+        e["idle_timeout"] = v;
+        EXPECT_EQ(describeFlowEntryShapeProblem(e, FlowOp::Install), "") << v.dump();
+    }
+}
+
+// [Co-developed with claude code -- Adam]
+// The refusal's text has to be true on every op. It once said "the rule gets cookie 0", which
+// describes an install: a delete changes no rule's cookie, and a modify leaves it as it was. What
+// holds on every op is what the controller puts in the flow-mod when the key is absent.
+TEST(FlowEntryShapeTest, EveryRefusalSaysWhatTheControllerUsesInstead)
+{
+    const std::pair<const char*, nlohmann::json> refused[] = {
+        {"cookie", 7},   {"cookie_mask", 1}, {"table_id", 1}, {"hard_timeout", 30},
+        {"flags", 1},    {"buffer_id", 1},   {"out_port", 2}, {"out_group", 1},
+        {"idle_timeout", 30}};
+    for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
+    {
+        for (const auto& [key, value] : refused)
+        {
+            if (op == FlowOp::Install && std::string(key) == "idle_timeout")
+            {
+                continue;
+            }
+            auto e = unsentKeyEntry(op);
+            e[key] = value;
+            const auto why = describeFlowEntryShapeProblem(e, op);
+            EXPECT_NE(why.find(std::string("(the controller uses ") + key + " "), std::string::npos)
+                << opName(op) << " with " << key << ": " << why;
+        }
+    }
+}
+
+TEST(FlowEntryShapeTest, TheIdleTimeoutRefusalSaysItIsSentOnAnInstallOnly)
+{
+    for (const auto op : {FlowOp::Modify, FlowOp::Delete})
+    {
+        auto e = unsentKeyEntry(op);
+        e["idle_timeout"] = 30;
+        EXPECT_EQ(describeFlowEntryShapeProblem(e, op),
+                  "\"idle_timeout\" is 30, but the kernel does not send idle_timeout to the "
+                  "controller on a modify or a delete (the controller uses idle_timeout 0); omit "
+                  "it, or send the integer 0")
+            << opName(op);
+    }
+}
+
+TEST(FlowEntryShapeTest, AFullReadBackRowIsTakenOnEveryOp)
+{
+    // A row as the controller's flow stats return it, echoed back: the nine keys at the values
+    // the controller uses anyway, and the counters it reports but does not read from a flow-mod.
+    // Nothing in it is lost, so nothing in it is refused.
+    for (const auto op : {FlowOp::Install, FlowOp::Modify, FlowOp::Delete})
+    {
+        auto row = unsentKeyEntry(op);
+        row["cookie"] = 0;
+        row["cookie_mask"] = 0;
+        row["table_id"] = 0;
+        row["hard_timeout"] = 0;
+        row["flags"] = 0;
+        row["buffer_id"] = 4294967295u;
+        row["out_port"] = 4294967295u;
+        row["out_group"] = 4294967295u;
+        row["idle_timeout"] = 0;
+        row["byte_count"] = 238;
+        row["packet_count"] = 3;
+        row["duration_sec"] = 12;
+        row["duration_nsec"] = 345000000;
+        row["length"] = 96;
+        EXPECT_EQ(describeFlowEntryShapeProblem(nlohmann::json::parse(row.dump()), op), "")
+            << opName(op) << " " << row.dump();
+    }
 }

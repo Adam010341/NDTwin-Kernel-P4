@@ -429,9 +429,16 @@ def _check_one(base_url, ep, ctx, args) -> Result:
             msg += " -- a 5xx means an unhandled exception, not input validation"
         return finish(False, [msg])
 
-    # Error-path checks care only about the status code.
+    # Error-path checks care only about the status code, unless the case names invariants of the
+    # refusal's body. [Co-developed with claude code -- Adam]
     if ep["category"] == ERRORPATH:
-        return finish(True, [])
+        failures = []
+        for inv in ep.get("invariants", []):
+            try:
+                failures.extend(inv(data, ctx))
+            except Exception as exc:  # an invariant itself blowing up is a test bug
+                failures.append(f"invariant {inv.__name__} raised {type(exc).__name__}: {exc}")
+        return finish(not failures, failures)
 
     if transport_err:
         return finish(False, [transport_err])

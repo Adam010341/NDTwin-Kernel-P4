@@ -511,8 +511,8 @@ the entry and then not do what it says:
 
 | entry | why |
 |---|---|
-| a key other than `dpid`, `priority`, `match`, `actions` and `idle_timeout` (`cookie`, `hard_timeout`, `table_id`, ...) | the kernel forwards only those to the controller and drops the rest without a word |
-| `idle_timeout` on a modify or a delete, `actions` on a delete | the kernel does not forward them on those ops |
+| a key other than `dpid`, `priority`, `match`, `actions` and `idle_timeout` (`cookie`, `hard_timeout`, `table_id`, ...) | the kernel forwards only those to the controller. A kernel with the fix for `doc/FIXED-ISSUES.md` C-10 refuses `cookie`, `cookie_mask`, `table_id`, `hard_timeout`, `flags`, `buffer_id`, `out_port` and `out_group` with a 400 unless the value is the controller's default; older kernels drop them without a word |
+| `idle_timeout` on a modify or a delete, `actions` on a delete | the kernel does not forward them on those ops (a kernel with the fix for C-10 refuses `idle_timeout` there with a 400 unless it is 0) |
 | `match` that is not a `dict`, or has a key Ryu does not know (`ip_dst` for `ipv4_dst`) | Ryu drops an unknown match key with a log line only, so the rule would match more than asked |
 | `eth_type`, `ip_proto` or a TCP, UDP or SCTP port that is not an integer (`"0x0800"`), in any of their spellings (`dl_type`, `nw_proto`, `tp_src`, ...) | Ryu takes it, but on a modify or a delete the kernel reads `eth_type`, `ip_proto` and, for TCP and UDP, the ports as integers when it updates its table view after it queued the entry, and then answers an error for an entry it already queued. It does not read the other spellings or the SCTP ports; the SDK holds them to the same form so that a field is checked alike whatever name it is written with |
 | `tp_src` or `tp_dst` without `ip_proto` (or `nw_proto`) 6 or 17 | Ryu cannot tell TCP from UDP and fails |
@@ -521,7 +521,8 @@ the entry and then not do what it says:
 
 What the controller does with what is sent:
 
-- The kernel sends no `table_id`, so Ryu acts on table 0.
+- The kernel sends no `table_id`, so Ryu acts on table 0 (a kernel with the fix for C-10 refuses
+  a `table_id` other than 0).
 - A delete without `priority` is non-strict: it removes every rule whose match includes the one
   sent, at any priority, so more specific rules too, NDTwin's own route of that destination
   included. With a `priority` it removes only the rule with exactly that match and priority. A
