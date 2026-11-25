@@ -1,7 +1,7 @@
 # NDTwin-Kernel-P4
 
 ![C++](https://img.shields.io/badge/kernel-C%2B%2B23-00599C?logo=cplusplus&logoColor=white)
-![Python](https://img.shields.io/badge/P4%20proxy-Python%20%2B%20P4Runtime-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/bmv2%20controller-Python%20%2B%20P4Runtime-3776AB?logo=python&logoColor=white)
 ![Data planes](https://img.shields.io/badge/data%20planes-OVS%20%2B%20Ryu%20%C2%B7%20P4%20%2B%20BMv2-555)
 ![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)
 
@@ -22,16 +22,17 @@ including one that runs a P4 program you wrote yourself.
 
 *Figure from the NDTwin project ([ndtwin-lab](https://github.com/ndtwin-lab), <https://ndtwin.org>), used with attribution.*
 
-This repository is the right-hand path of the figure: the P4 proxy agent, and what it takes to
-make a bmv2 fabric look to the kernel like the network it already knows.
+This repository is the right-hand path of the figure. The box labelled *P4 proxy agent* is, in
+effect, the controller of the bmv2 switches, and the rest is what it takes to make a bmv2 fabric
+look to the kernel like the network it already knows.
 
 ## What is in here
 
-- **A P4 proxy agent** ([`p4_proxy/`](p4_proxy/)). It speaks P4Runtime to the switches and
-  offers the kernel the same northbound API that Ryu does, so the kernel does not need to know
-  which data plane is underneath.
+- **A controller for bmv2** ([`p4_proxy/`](p4_proxy/), the *P4 proxy agent* of the figure). It
+  speaks P4Runtime to the switches and offers the kernel the same northbound API that Ryu does,
+  so the kernel does not need to know which data plane is underneath.
 - **Traffic telemetry that matches Open vSwitch.** The P4 program samples one packet in 256 and
-  the proxy turns the samples into sFlow, the format the kernel already reads. Flow and link
+  the controller turns the samples into sFlow, the format the kernel already reads. Flow and link
   usage are therefore worked out the same way on both data planes.
 - **Your own P4 program.** `ndt up p4 --app <dir>` brings up a fabric in which every switch
   runs your `.p4` with your table entries, and your application reads and writes those tables
@@ -68,8 +69,8 @@ When you do not bring your own, every switch runs
 [`ndtwin_switch.p4`](p4_proxy/p4_src/ndtwin_switch.p4) (v1model). It is an ordinary IPv4
 forwarder with two additions the twin needs. A rule for one exact flow takes priority over the
 route for its destination prefix, so a single flow can be steered without disturbing the others.
-And one packet in 256 is copied to the proxy, which is where the kernel's view of the traffic
-comes from.
+And one packet in 256 is copied to the controller, which is where the kernel's view of the
+traffic comes from.
 
 ```mermaid
 flowchart LR
@@ -78,8 +79,7 @@ flowchart LR
     I --> E["Egress<br/>port counters"]
     E --> D[Deparser]
     D --> TX([Packet out])
-    E -. "unmatched packets and<br/>1-in-256 samples" .-> X[P4 proxy]
-    X -- sFlow --> K[NDTwin kernel]
+    E -.-> X["bmv2 controller<br/>gets unmatched packets<br/>and 1-in-256 samples,<br/>sends sFlow to the kernel"]
 ```
 
 Each table and header is described in [`SPEC.md`](p4_proxy/p4_src/SPEC.md).
