@@ -71,17 +71,19 @@ def build_spec_by_endpoint(endpoints) -> dict:
     """
     Map each bare endpoint name to the spec entry the component check judges it by.
 
-    The route's ordinary case is used whenever it has one: the first entry whose category is
-    not an error path. An error-path entry stands in only for a path that has no other, so
-    adding a refusal case ahead of the ordinary one in spec.py never changes which case a
-    route is judged by. [Co-developed with claude code -- Adam]
+    Per path: the entry named exactly after the endpoint (the route's own case); failing
+    that, the first entry that is not an error path; failing that, the first entry. No
+    refusal variant, whatever its category and wherever it sits in spec.py, can take the
+    place of the route's own case. [Co-developed with claude code -- Adam]
     """
-    picked = {}
+    grouped = {}
     for ep in endpoints:
-        name = ep["path"].removeprefix("/ndt/")
-        held = picked.get(name)
-        if held is None or (held["category"] == ERRORPATH and ep["category"] != ERRORPATH):
-            picked[name] = ep
+        grouped.setdefault(ep["path"].removeprefix("/ndt/"), []).append(ep)
+    picked = {}
+    for name, cases in grouped.items():
+        picked[name] = next(
+            (c for c in cases if c["name"] == name),
+            next((c for c in cases if c["category"] != ERRORPATH), cases[0]))
     return picked
 
 

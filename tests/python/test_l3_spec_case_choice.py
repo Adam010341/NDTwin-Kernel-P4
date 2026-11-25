@@ -37,6 +37,15 @@ class RealSpecChoice(unittest.TestCase):
     def test_install_flow_entry_uses_ordinary_case(self):
         self.assertEqual(l3.SPEC_BY_ENDPOINT["install_flow_entry"]["name"], "install_flow_entry")
 
+    def test_a_case_named_after_its_route_is_the_one_chosen(self):
+        named = 0
+        for e in ENDPOINTS:
+            bare = e["path"].removeprefix("/ndt/")
+            if e["name"] == bare:
+                named += 1
+                self.assertIs(l3.SPEC_BY_ENDPOINT[bare], e, bare)
+        self.assertGreater(named, 10)
+
     def test_no_route_with_an_ordinary_case_is_judged_by_an_error_case(self):
         ordinary = {e["path"] for e in ENDPOINTS if e["category"] != ERRORPATH}
         for name, ep in l3.SPEC_BY_ENDPOINT.items():
@@ -69,6 +78,21 @@ class OrderIndependence(unittest.TestCase):
         self.assertEqual(self._pick([_case("x__bad", self.P, ERRORPATH),
                                      _case("x", self.P, "read"),
                                      _case("x_other", self.P, "mutate")]), "x")
+
+    def test_refusal_variant_outside_the_error_category_does_not_win(self):
+        self.assertEqual(self._pick([_case("x__wrong", self.P, "mutate"),
+                                     _case("x", self.P, "mutate")]), "x")
+
+    def test_case_named_after_the_route_beats_an_earlier_error_free_case(self):
+        self.assertEqual(self._pick([_case("x__a", self.P, ERRORPATH),
+                                     _case("x__wrong", self.P, "mutate"),
+                                     _case("x", self.P, "read"),
+                                     _case("x__b", self.P, "mutate")]), "x")
+
+    def test_no_case_named_after_the_route_takes_first_non_error(self):
+        self.assertEqual(self._pick([_case("x__a", self.P, ERRORPATH),
+                                     _case("x_first", self.P, "read"),
+                                     _case("x_second", self.P, "mutate")]), "x_first")
 
     def test_only_error_cases_keeps_the_first(self):
         self.assertEqual(self._pick([_case("x__a", self.P, ERRORPATH),
