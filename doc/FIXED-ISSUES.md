@@ -65,6 +65,7 @@ Status is one of: fixed, partly fixed, not a defect, decided not to change. The 
 | C-5d | get_power_report showed exempt switches like measured ones. | fixed | `src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp` |
 | C-6 | A full bmv2 table answered HTTP 200 "Failed to add route". | fixed | `p4_proxy/proxy_agent/api_routes.py`; `p4_proxy/tests/test_flowentry_endpoints.py` |
 | C-7 | A priority delete on P4 always failed while the caller got 200 queued; it is now refused with 501. | fixed | `include/ndt_core/routing_management/FlowJob.hpp`; `tests/test_FlowBatchPartition.cpp` |
+| C-10 | The flow-entry routes answered 200 queued for an entry carrying `cookie`, `cookie_mask`, `table_id`, `hard_timeout`, `flags`, `buffer_id`, `out_port` or `out_group` (or `idle_timeout` on a modify or a delete), and the kernel sent the controller the entry without them: an untagged permanent rule in table 0, a delete without its output-port filter or its cookie filter (a cookie with a non-zero `cookie_mask`). A `table_id` that was not an integer was queued and then answered 400 `JSON parsing error`. Such an entry is now refused with 400 `malformed flow entry` before anything is queued, unless the key's value is the integer the controller uses anyway. | fixed | `include/ndt_core/routing_management/FlowJob.hpp`; `tests/test_FlowBatchPartition.cpp`; `tests/test_HttpSessionRouting.cpp`; `tests/shell/mutate_flow_unsent_keys.sh` |
 
 ## Letter D
 

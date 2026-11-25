@@ -1179,10 +1179,51 @@ class DestructiveEndpointTest(unittest.TestCase):
                         self.fail(f"{endpoint['name']}'s {key} reads a Context field that "
                                   f"run_contract_test.Context does not set: {err}")
 
+    def test_the_unsent_key_error_path_changes_nothing_on_any_kernel(self):
+        # [Co-developed with claude code -- Adam] A dpid no topology holds: a kernel with the fix
+        # refuses the table_id before the dpid lookup (400), an older one answers 404 for the
+        # dpid, and neither queues anything.
+        entry = self.named("delete_flow_entry__unsent_key")
+        self.assertEqual(entry["path"], "/ndt/delete_flow_entry")
+        self.assertEqual(entry["expect_status"], [400])
+        self.assertGreater(entry["body"]["dpid"], 10 ** 9)
+        self.assertEqual(entry["body"]["table_id"], 1)
+        self.assertEqual(entry["body"]["match"]["ipv4_dst"], PROBE_IP)
+        self.assertIn(spec.inv_unsent_key_refusal_names_table_id, entry["invariants"])
+
+    def test_the_unsent_key_error_path_requires_the_refusal_to_name_table_id(self):
+        # [Co-developed with claude code -- Adam] Run through the runner itself, so the check is
+        # that the error path really applies its invariant, not only that one is listed.
+        import run_contract_test as runner
+        entry = self.named("delete_flow_entry__unsent_key")
+        ctx = real_ctx()
+
+        def verdict(status, body):
+            real = runner.request
+            runner.request = lambda *a, **k: (status, body, None)
+            try:
+                return runner.check_endpoint("http://127.0.0.1:0", entry, ctx,
+                                             LinkStepPreconditionTest.Args())
+            finally:
+                runner.request = real
+
+        refused = {"status": "error", "error": "malformed flow entry",
+                   "entries": [{"field": "delete_flow_entries", "index": 0,
+                                "problem": '"table_id" is 1, but the kernel does not send'
+                                           ' table_id to the controller'}]}
+        self.assertTrue(verdict(400, refused).ok)
+        other_key = {"status": "error", "error": "malformed flow entry",
+                     "entries": [{"field": "delete_flow_entries", "index": 0,
+                                  "problem": '"dpid" must be a non-negative integer'}]}
+        self.assertFalse(verdict(400, other_key).ok)
+        self.assertFalse(verdict(400, {"error": "JSON parsing error", "details": "x"}).ok)
+        self.assertFalse(verdict(404, {"status": "error", "error": "unknown dpid"}).ok)
+
     def test_the_unknown_dpid_error_paths_use_a_dpid_no_topology_could_contain(self):
         # If it collided with a real dpid the check would install a rule on a live switch and
         # then assert that it failed.
-        for name in ("install_flow_entry__unknown_dpid", "get_num_of_flows__unknown_dpid"):
+        for name in ("install_flow_entry__unknown_dpid", "get_num_of_flows__unknown_dpid",
+                     "delete_flow_entry__unsent_key"):
             self.assertGreater(self.named(name)["body"]["dpid"], 10 ** 9, name)
 
 

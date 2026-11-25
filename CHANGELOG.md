@@ -232,6 +232,14 @@ repository.
     that was not an object became a 500. TESTBED `setSwitchPowerState` updated the graph to whatever
     state the caller *asked for*, regardless of whether the smart-plug gateway accepted the request.
 
+### Fixed (2026-11)
+
+32. **The flow-entry routes refuse keys the kernel does not send** (2026-11-25, FIXED-ISSUES
+    C-10). `cookie`, `cookie_mask`, `table_id`, `hard_timeout`, `flags`, `buffer_id`, `out_port`
+    and `out_group`, and `idle_timeout` on a modify or a delete, were accepted with `200 queued`
+    and never reached the controller. An entry carrying one with a value other than the
+    controller's own default is now a 400 `malformed flow entry`, with nothing queued.
+
 ### Known limitations
 - Every southbound command is still built as `popen("curl … -d '" + json.dump() + "'")`.
   `nlohmann::json::dump()` does not escape single quotes and the JSON comes from

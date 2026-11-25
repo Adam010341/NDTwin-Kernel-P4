@@ -215,6 +215,41 @@ inline constexpr const char* kIpv4MatchFieldPairs[][2] = {{"ipv4_dst", "nw_dst"}
                                                          {"ipv4_src", "nw_src"}};
 
 /**
+ * @brief An OpenFlow key the controller reads from a flow-mod body and the kernel does not send.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * Ryu's flow-mod (`ofctl_v1_3.mod_flow_entry`) reads each of these from the body it is given and
+ * uses `controllerDefault` when it is absent. The kernel builds that body from dpid, priority,
+ * match, actions and, on an install, idle_timeout only, so any other value a caller sends is lost
+ * on the way. The P4 proxy reads none of them either.
+ */
+struct UnsentFlowKey
+{
+    const char* key;
+    std::uint64_t controllerDefault; ///< what the controller uses when the key is absent
+    bool sentOnInstall;              ///< true: sent on an install, lost on modify and delete only
+    const char* instead;             ///< what the controller uses instead, true on every op
+};
+
+/// The keys refused by describeFlowEntryShapeProblem unless absent or equal to the default.
+/// 4294967295 is OpenFlow's OFP_NO_BUFFER, OFPP_ANY and OFPG_ANY.
+/// [Co-developed with claude code -- Adam]
+inline constexpr UnsentFlowKey kUnsentFlowKeys[] = {
+    {"cookie", 0, false, "the controller uses cookie 0"},
+    {"cookie_mask", 0, false, "the controller uses cookie_mask 0, which filters on no cookie"},
+    {"table_id", 0, false, "the controller uses table_id 0"},
+    {"hard_timeout", 0, false, "the controller uses hard_timeout 0"},
+    {"flags", 0, false, "the controller uses flags 0"},
+    {"buffer_id", 4294967295u, false, "the controller uses buffer_id 4294967295, OFP_NO_BUFFER"},
+    {"out_port", 4294967295u, false,
+     "the controller uses out_port 4294967295, OFPP_ANY, which filters on no port"},
+    {"out_group", 4294967295u, false,
+     "the controller uses out_group 4294967295, OFPG_ANY, which filters on no group"},
+    {"idle_timeout", 0, true, "the controller uses idle_timeout 0"},
+};
+
+/**
  * @brief Why one flow-batch entry cannot become a rule, or an empty string if it can.
  *
  * [Co-developed with claude code -- Adam]
@@ -247,11 +282,18 @@ inline constexpr const char* kIpv4MatchFieldPairs[][2] = {{"ipv4_dst", "nw_dst"}
  * field are present (`ipv4_dst` with `nw_dst`, `ipv4_src` with `nw_src`) they must name the same
  * address once normalised (host bits below the mask ignored, `/32` the same as the bare address);
  * two different addresses are refused rather than left to whichever spelling a plane reads
- * first. These and the priority range check are the only content checks; the address checks exist
- * because the table cache reads these fields after the jobs are queued
+ * first. These, the priority range check and the unsent-key check below are the only content
+ * checks; the address checks exist because the table cache reads these fields after the jobs are
+ * queued
  * (DeviceConfigurationAndPowerManager::updateOpenFlowTables): an unreadable one used to throw
  * there, turning the reply into an error for a request that had already been sent to the switch.
  * [Co-developed with claude code -- Adam]
+ *
+ * One more refusal is about what the kernel sends, not what it can read: a key the controller acts
+ * on and the kernel does not forward (kUnsentFlowKeys -- cookie, table_id, hard_timeout, out_port
+ * and the rest; idle_timeout on a modify or a delete) is refused unless it is absent or the JSON
+ * integer the controller uses anyway. Keys the controller does not read (byte_count,
+ * duration_sec, ...) are still ignored. [Co-developed with claude code -- Adam]
  */
 inline std::string
 describeFlowEntryShapeProblem(const nlohmann::json& entry, FlowOp op)
@@ -297,6 +339,36 @@ describeFlowEntryShapeProblem(const nlohmann::json& entry, FlowOp op)
         if (!inRange)
         {
             return R"("priority" must be an integer from 0 to 65535 (omit it for the default))";
+        }
+    }
+    // [Co-developed with claude code -- Adam]
+    // A key the controller would act on but the kernel does not send (kUnsentFlowKeys). It used to
+    // be accepted and lost: an install answered 200 "queued" became an untagged, permanent rule in
+    // table 0, and a delete lost its cookie_mask or out_port filter and removed more than it named.
+    // Absent, or the very integer the controller uses anyway, loses nothing and stays legal; any
+    // other value -- "0" and 0.0 included, which the table cache would also read after queueing --
+    // is refused here, before anything is queued.
+    for (const auto& unsent : kUnsentFlowKeys)
+    {
+        if (op == FlowOp::Install && unsent.sentOnInstall)
+        {
+            continue;
+        }
+        const auto found = entry.find(unsent.key);
+        if (found == entry.end())
+        {
+            continue;
+        }
+        const nlohmann::json& value = *found;
+        const bool nothingIsLost =
+            value.is_number_integer() && value == nlohmann::json(unsent.controllerDefault);
+        if (!nothingIsLost)
+        {
+            const std::string key = unsent.key;
+            return "\"" + key + "\" is " + value.dump() + ", but the kernel does not send " + key +
+                   " to the controller" + (unsent.sentOnInstall ? " on a modify or a delete" : "") +
+                   " (" + unsent.instead + "); omit it, or send the integer " +
+                   std::to_string(unsent.controllerDefault);
         }
     }
     if (const auto match = entry.find("match"); match != entry.end() && match->is_object())

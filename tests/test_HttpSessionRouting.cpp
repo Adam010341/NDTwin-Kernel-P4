@@ -1082,9 +1082,21 @@ class PlaneStub : public FlowRoutingManager
         return m_calls;
     }
 
-    OpResult installAnEntry(uint64_t, int, const nlohmann::json&, const nlohmann::json&,
-                            int) override
+    /// The idle timeout the last install was dispatched with.
+    /// [Co-developed with claude code -- Adam]
+    int lastIdleTimeout() const
     {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_lastIdleTimeout;
+    }
+
+    OpResult installAnEntry(uint64_t, int, const nlohmann::json&, const nlohmann::json&,
+                            int idleTimeout) override
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_lastIdleTimeout = idleTimeout;
+        }
         return answer();
     }
     OpResult modifyAnEntry(uint64_t, int, const nlohmann::json&, const nlohmann::json&) override
@@ -1103,6 +1115,7 @@ class PlaneStub : public FlowRoutingManager
 
     mutable std::mutex m_mutex;
     uint64_t m_calls = 0;
+    int m_lastIdleTimeout = -2; // no install yet
     OpResult m_result = OpResult::success();
 };
 
@@ -3650,4 +3663,160 @@ TEST_F(P4PriorityDeleteEndpointTest, APriorityThatIsNotAnOpenFlowPriorityIsA400A
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     EXPECT_EQ(m_fx.stub->calls(), 0u) << "a malformed priority reached the southbound";
+}
+
+// --- OpenFlow keys the kernel does not send: refused before the queue -------------------------
+//
+// [Co-developed with claude code -- Adam]
+// cookie, cookie_mask, table_id, hard_timeout, flags, buffer_id, out_port and out_group are read
+// by Ryu's flow-mod and never sent to it by the kernel (idle_timeout is sent on an install only).
+// An entry carrying one was answered 200 "queued" and programmed without it. These drive the real
+// routes with the C-7 fixture above: the refusal is the existing 400 "malformed flow entry", the
+// whole batch is refused, nothing reaches the southbound and the table view is not touched. A
+// table_id that is not an integer used to be queued first and then make the table view throw, so
+// the caller got "JSON parsing error" for an entry already on its way to the switch.
+
+namespace
+{
+
+class UnsentFlowKeyEndpointTest : public P4PriorityDeleteEndpointTest
+{
+  protected:
+    static nlohmann::json install(const char* dst)
+    {
+        return {{"dpid", 1},
+                {"priority", 100},
+                {"match", {{"eth_type", 2048}, {"ipv4_dst", dst}}},
+                {"actions", nlohmann::json::array({{{"type", "OUTPUT"}, {"port", 1}}})}};
+    }
+};
+
+} // namespace
+
+TEST_F(UnsentFlowKeyEndpointTest, ACookieIsA400AndNothingIsQueued)
+{
+    for (const char* brand : {"OVS", "BMv2"})
+    {
+        load(brand);
+        auto entry = install("10.0.0.2");
+        entry["cookie"] = 7;
+
+        const auto body = post("/ndt/install_flow_entry", entry, 400u);
+
+        EXPECT_EQ(body.value("error", std::string{}), "malformed flow entry")
+            << brand << ": " << body.dump();
+        ASSERT_TRUE(body.contains("entries")) << brand << ": " << body.dump();
+        ASSERT_EQ(body.at("entries").size(), 1u) << brand << ": " << body.dump();
+        EXPECT_NE(body.at("entries")[0].value("problem", std::string{}).find("\"cookie\""),
+                  std::string::npos)
+            << brand << ": " << body.dump();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(m_fx.stub->calls(), 0u)
+        << "an entry whose cookie would be lost reached the southbound";
+}
+
+TEST_F(UnsentFlowKeyEndpointTest, OneBadEntryRefusesTheWholeBatchAndLeavesTheView)
+{
+    for (const char* brand : {"BMv2", "OVS"})
+    {
+        load(brand);
+        m_power->updateOpenFlowTables(
+            {{"install_flow_entries", nlohmann::json::array({install("10.0.0.2")})},
+             {"modify_flow_entries", nlohmann::json::array()},
+             {"delete_flow_entries", nlohmann::json::array()}});
+        const auto before = m_power->getOpenFlowTables().dump();
+        ASSERT_NE(before.find("10.0.0.2"), std::string::npos) << "fixture row missing: " << before;
+
+        auto modify = install("10.0.0.2");
+        modify["actions"] = nlohmann::json::array({{{"type", "OUTPUT"}, {"port", 2}}});
+        modify["table_id"] = 1;
+        const nlohmann::json batch{
+            {"install_flow_entries", nlohmann::json::array({install("10.0.0.3")})},
+            {"modify_flow_entries", nlohmann::json::array({modify})},
+            {"delete_flow_entries", nlohmann::json::array()}};
+
+        const auto body = post(
+            "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries", batch, 400u);
+
+        EXPECT_EQ(body.value("error", std::string{}), "malformed flow entry")
+            << brand << ": " << body.dump();
+        ASSERT_TRUE(body.contains("entries")) << brand << ": " << body.dump();
+        ASSERT_EQ(body.at("entries").size(), 1u) << brand << ": " << body.dump();
+        EXPECT_EQ(body.at("entries")[0].value("field", std::string{}), "modify_flow_entries")
+            << brand << ": " << body.dump();
+        EXPECT_EQ(m_power->getOpenFlowTables().dump(), before)
+            << brand << ": a refused batch changed the table view";
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(m_fx.stub->calls(), 0u) << "part of a refused batch reached the southbound";
+}
+
+TEST_F(UnsentFlowKeyEndpointTest, ATableIdThatIsNotAnIntegerIsRefusedBeforeQueueingNotAfter)
+{
+    load("OVS");
+    for (const nlohmann::json& bad : {nlohmann::json("1"), nlohmann::json(nullptr)})
+    {
+        const nlohmann::json entry{{"dpid", 1},
+                                   {"match", {{"eth_type", 2048}, {"ipv4_dst", "10.0.0.2"}}},
+                                   {"table_id", bad}};
+
+        const auto body = post("/ndt/delete_flow_entry", entry, 400u);
+
+        EXPECT_EQ(body.value("error", std::string{}), "malformed flow entry")
+            << "table_id " << bad.dump() << ": " << body.dump();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(m_fx.stub->calls(), 0u)
+        << "a delete was queued and the caller was answered with an error";
+}
+
+TEST_F(UnsentFlowKeyEndpointTest, ZeroValuedKeysStillQueue)
+{
+    // The control: the controller's own defaults lose nothing, so the entry is queued as before.
+    load("OVS");
+    auto entry = install("10.0.0.2");
+    entry["cookie"] = 0;
+    entry["table_id"] = 0;
+    entry["out_port"] = 4294967295u;
+
+    const auto body = post("/ndt/install_flow_entry", entry, 200u);
+
+    EXPECT_EQ(body.value("status", std::string{}), "queued") << body.dump();
+    ASSERT_TRUE(waitForCalls(*m_fx.stub, 1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    EXPECT_EQ(m_fx.stub->calls(), 1u) << body.dump();
+}
+
+TEST_F(UnsentFlowKeyEndpointTest, TheProblemIsTheTextTheApiReferenceQuotes)
+{
+    // [Co-developed with claude code -- Adam] doc/2026-01-02_ndt_api.md section 9 quotes this
+    // entry, byte for byte. A change to the text is a change to that page too.
+    load("OVS");
+    auto entry = install("10.0.0.2");
+    entry["table_id"] = 1;
+
+    const auto body = post("/ndt/install_flow_entry", entry, 400u);
+
+    const nlohmann::json expected = nlohmann::json::array(
+        {{{"field", "install_flow_entries"},
+          {"index", 0},
+          {"problem", "\"table_id\" is 1, but the kernel does not send table_id to the controller "
+                      "(the controller uses table_id 0); omit it, or send the integer 0"}}});
+    EXPECT_EQ(body.value("entries", nlohmann::json()), expected) << body.dump();
+}
+
+TEST_F(UnsentFlowKeyEndpointTest, IdleTimeoutStillTravelsOnAnInstall)
+{
+    // [Co-developed with claude code -- Adam] The control for the one key that is sent: on an
+    // install it is queued and reaches the southbound with its value.
+    load("OVS");
+    auto entry = install("10.0.0.2");
+    entry["idle_timeout"] = 30;
+
+    const auto body = post("/ndt/install_flow_entry", entry, 200u);
+
+    EXPECT_EQ(body.value("status", std::string{}), "queued") << body.dump();
+    ASSERT_TRUE(waitForCalls(*m_fx.stub, 1));
+    EXPECT_EQ(m_fx.stub->lastIdleTimeout(), 30);
 }
