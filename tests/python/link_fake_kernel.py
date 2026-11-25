@@ -10,8 +10,10 @@ It serves, on 127.0.0.1 and an ephemeral port:
     kernel's state: which switch pairs are declared down, which interfaces carry a netem this
     kernel attached ("ours"), another one ("foreign"), or one that replaced this kernel's
     ("replaced"), and which switches the topology file gives no bridge name. The order of the checks and every body are
-    the kernel's at 922d9e4ec; the model of the qdisc tree is a made-up minimum (one line per
-    interface), since only the kernel reads it.
+    the kernel's at 922d9e4ec, plus the port check that follows the edge lookup (HS.cpp,
+    refuseWrongPorts): a request whose ports are not the link's is answered 404 naming the link;
+    the model of the qdisc tree is a made-up minimum (one line per interface), since only the
+    kernel reads it.
 Any other route answers the kernel's 404 `Not Found`. A test queues other replies with `script`;
 each is used once, in order, before the model. A reply of None closes the connection without
 answering; a reply body of bytes is sent as it is. Every request is recorded as
@@ -39,6 +41,20 @@ HOST_EDGE = {"error": "src_dpid and dst_dpid must both name a switch: dpid 0 is 
                       "resolve to whichever host edge of the other switch comes first in the "
                       "graph"}                                              # HS.cpp:879-882
 NO_EDGE = {"error": "edge not found in topology"}                         # HS.cpp:1272, :1388
+
+
+def wrong_ports(a, ap, b, bp, held):
+    """The 404 for ports that are not the link's (HS.cpp, refuseWrongPorts); `held` is the link's
+    (port on a, port on b)."""
+    return {"error": f"no link {a}:{ap} -> {b}:{bp} in the topology (dpid:port -> dpid:port): the "
+                     f"link between these two switches is {a}:{held[0]} -> {b}:{held[1]}. "
+                     f"Nothing was changed",
+            "link": {"src_dpid": a, "src_interface": held[0], "dst_dpid": b,
+                     "dst_interface": held[1]}}
+
+
+#: The body above for s1:2 -> s2:1 when the link is s1:1 - s2:1.
+WRONG_PORTS = wrong_ports(1, 2, 2, 1, (1, 1))
 NO_REVERSE_INJECT = {"error": "reverse edge missing from the topology; nothing was injected"}
 #                                                                           ^ HS.cpp:1289
 NO_REVERSE_RECOVER = {"error": "reverse edge missing from the topology; nothing was withdrawn"}
@@ -261,6 +277,12 @@ class LinkFakeKernel:
         pair = frozenset((a, b))
         if not any(frozenset((c[0], c[2])) == pair for c in self.cables):
             return 404, NO_EDGE                    # by the two dpids only, HS.cpp:1268-1274
+        # The ports must be the link's. The kernel's graph holds one edge per direction between two
+        # switches, the first the topology file lists, so the first cable here is the link.
+        cable = next(c for c in self.cables if frozenset((c[0], c[2])) == pair)
+        held = (cable[1], cable[3]) if cable[0] == a else (cable[3], cable[1])
+        if (ap, bp) != held:
+            return 404, wrong_ports(a, ap, b, bp, held)
         ifaces = [None if d in self.no_bridge else f"s{d}-eth{p}" for d, p in ((a, ap), (b, bp))]
         if path == INJECT:
             return self.inject(pair, ifaces)

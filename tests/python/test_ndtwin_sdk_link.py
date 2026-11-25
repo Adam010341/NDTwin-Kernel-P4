@@ -356,7 +356,7 @@ class RefusalsTest(LinkTest):
     """Each refusal of both routes."""
 
     REFUSALS = ((400, fk.INVALID, ndtwin.Refused), (400, fk.HOST_EDGE, ndtwin.Refused),
-                (404, fk.NO_EDGE, ndtwin.NotFound))
+                (404, fk.NO_EDGE, ndtwin.NotFound), (404, fk.WRONG_PORTS, ndtwin.NotFound))
 
     def test_each_refusal_of_the_injection_changes_nothing_and_runs_no_block(self):
         for status, body, cls in self.REFUSALS:
@@ -396,7 +396,8 @@ class RefusalsTest(LinkTest):
 
     def test_each_refusal_of_the_recovery_at_the_end_of_the_block_is_link_not_restored(self):
         for status, body in ((400, fk.INVALID), (400, fk.HOST_EDGE), (404, fk.NO_EDGE),
-                             (500, fk.NO_REVERSE_RECOVER), (409, fk.conflict(["s2-eth1"]))):
+                             (404, fk.WRONG_PORTS), (500, fk.NO_REVERSE_RECOVER),
+                             (409, fk.conflict(["s2-eth1"]))):
             with self.subTest(status=status, body=body):
                 self.fake.requests.clear()
                 self.fake.script("POST", RECOVER, (status, body))
@@ -553,9 +554,10 @@ class BeforeSendingTest(LinkTest):
         self.fake.handle("POST", INJECT, BODY)       # s1:1-s2:1 is cut
         self.fake.cables.append((1, 2, 3, 2))
         self.fake.requests.clear()
-        # The kernel finds the link by its two switches and removes netem on the ports it is
-        # given (link_fake_kernel.link_route): a wrong port would withdraw the declaration and
-        # leave this kernel's netem on s1-eth1 and s2-eth1.
+        # The SDK refuses these before sending. The kernel answers a wrong port with 404 as well
+        # (link_fake_kernel.link_route); kernels before that check found the link by its two
+        # switches and removed netem on the ports given, so a wrong port withdrew the declaration
+        # and left this kernel's netem on s1-eth1 and s2-eth1.
         for ends, cls in ((((1, 1), (2, 2)), ndtwin.NotFound), (((1, 3), (2, 1)), ndtwin.NotFound)):
             with self.subTest(ends=ends):
                 with self.assertRaises(cls):

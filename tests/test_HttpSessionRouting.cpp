@@ -3174,6 +3174,277 @@ TEST_F(DeclaredLinkFailureWireTest, AFailureReportAndItsRecoveryWriteBothDirecti
            "under two locks, and a request between them leaves the link down one way only";
 }
 
+// --- The inject endpoints act only on the link the request names ------------------------------
+//
+// [Co-developed with claude code -- Adam]
+//
+// /ndt/inject_link_failure and /ndt/inject_link_recovery find the link by its two switches, and
+// the request carries the two ports as well. Before this was checked, the ports chose the
+// interfaces tc ran on while the dpids chose the edge that was declared: `{1,2,5,1}` on a fixture
+// whose link is s1:1 <-> s5:1 declared that link down and attached netem to s1-eth2, the host
+// port. Every case below sends ports that are not the link's and asserts that nothing was
+// declared, withdrawn, read or written -- plus one case that a link with two different port
+// numbers is still accepted from either end.
+
+namespace
+{
+
+/// One reply, copied out: send() replaces the peer's response object, so a reference to it does
+/// not survive the next request (edgeFromGraphData() sends one).
+struct KeptLinkReply
+{
+    unsigned status = 0;
+    std::string body;
+};
+
+KeptLinkReply
+postLinkRequest(HttpSessionTestPeer& peer,
+                const std::string& target,
+                uint64_t srcDpid,
+                uint32_t srcPort,
+                uint64_t dstDpid,
+                uint32_t dstPort)
+{
+    const std::string body = nlohmann::json{{"src_dpid", srcDpid},
+                                            {"src_interface", srcPort},
+                                            {"dst_dpid", dstDpid},
+                                            {"dst_interface", dstPort}}
+                                 .dump();
+    const auto& res = peer.send(http::verb::post, target, body);
+    return {res.result_int(), res.body()};
+}
+
+} // namespace
+
+TEST_F(DeclaredLinkFailureWireTest, AnInjectWhosePortIsNotTheLinksIsRefusedAndCutsNothing)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    // s1 port 2 is h1's port in this fixture; the link between s1 and s5 is s1:1 <-> s5:1.
+    const auto reply = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 2, 5, 1);
+
+    EXPECT_EQ(reply.status, 404u) << reply.body;
+    EXPECT_TRUE(fabric.calls.empty())
+        << "a request for a link the topology does not hold still ran tc:\n" << fabric.argvLog();
+    EXPECT_FALSE(fabric.hasNetem("s1-eth2")) << "the host port was cut";
+    EXPECT_FALSE(fabric.hasNetem("s5-eth1"));
+    EXPECT_FALSE(edgeFor(1, 5).declaredDown) << "the link between s1 and s5 was declared down";
+    EXPECT_FALSE(edgeFor(5, 1).declaredDown);
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false));
+    EXPECT_TRUE(edgeFromGraphData(peer, 5, 1).value("is_up", false));
+}
+
+TEST_F(DeclaredLinkFailureWireTest, AnInjectWhoseDstPortIsWrongIsRefused)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    const auto reply = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 1, 5, 7);
+
+    EXPECT_EQ(reply.status, 404u) << reply.body;
+    EXPECT_TRUE(fabric.calls.empty()) << fabric.argvLog();
+    EXPECT_FALSE(fabric.hasNetem("s5-eth7"));
+    EXPECT_FALSE(edgeFor(1, 5).declaredDown);
+    EXPECT_FALSE(edgeFor(5, 1).declaredDown);
+}
+
+/// The refusal says what the caller probably meant: the link between those two switches as the
+/// topology holds it, as text and as the four request fields.
+TEST_F(DeclaredLinkFailureWireTest, TheRefusalNamesTheLinkAsTheTopologyHoldsIt)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    const auto reply = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 2, 5, 1);
+    ASSERT_EQ(reply.status, 404u) << reply.body;
+
+    const auto body = nlohmann::json::parse(reply.body, nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << reply.body;
+    ASSERT_TRUE(body.contains("link")) << reply.body;
+    const nlohmann::json held{
+        {"src_dpid", 1}, {"src_interface", 1}, {"dst_dpid", 5}, {"dst_interface", 1}};
+    EXPECT_EQ(body.at("link"), held) << reply.body;
+    EXPECT_NE(body.value("error", std::string()).find("1:1 -> 5:1"), std::string::npos)
+        << "the error does not name the link the topology holds: " << reply.body;
+}
+
+/// The control: a link whose two ends use different port numbers is accepted when it is named
+/// from either end, and its own recovery takes it back. A check that compared the wrong fields
+/// would refuse one of these.
+TEST_F(DeclaredLinkFailureWireTest, AnInjectOfALinkWithUnequalPortsIsAcceptedInEitherDirection)
+{
+    const auto s1 = boost::vertex(0, *m_graph);
+    const auto s3 = addSwitch(3, "s3");
+    addEdge(s1, s3, 1, 3, 3, 4);
+    addEdge(s3, s1, 3, 1, 4, 3);
+
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    const auto injected = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 3, 3, 4);
+    EXPECT_EQ(injected.status, 200u) << injected.body;
+    EXPECT_TRUE(fabric.hasNetem("s1-eth3")) << fabric.argvLog();
+    EXPECT_TRUE(fabric.hasNetem("s3-eth4")) << fabric.argvLog();
+    EXPECT_TRUE(edgeFor(1, 3).declaredDown);
+    EXPECT_TRUE(edgeFor(3, 1).declaredDown);
+
+    const auto recovered = postLinkRequest(peer, "/ndt/inject_link_recovery", 3, 4, 1, 3);
+    EXPECT_EQ(recovered.status, 200u) << recovered.body;
+    EXPECT_FALSE(fabric.hasNetem("s1-eth3")) << fabric.argvLog();
+    EXPECT_FALSE(fabric.hasNetem("s3-eth4")) << fabric.argvLog();
+    EXPECT_FALSE(edgeFor(1, 3).declaredDown);
+    EXPECT_FALSE(edgeFor(3, 1).declaredDown);
+}
+
+TEST_F(DeclaredLinkFailureWireTest, AnInjectWithTheTwoPortsSwappedIsRefused)
+{
+    const auto s1 = boost::vertex(0, *m_graph);
+    const auto s3 = addSwitch(3, "s3");
+    addEdge(s1, s3, 1, 3, 3, 4);
+    addEdge(s3, s1, 3, 1, 4, 3);
+
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    // The link is s1:3 <-> s3:4; this names s1:4 -> s3:3.
+    const auto reply = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 4, 3, 3);
+
+    EXPECT_EQ(reply.status, 404u) << reply.body;
+    EXPECT_TRUE(fabric.calls.empty()) << fabric.argvLog();
+    EXPECT_FALSE(edgeFor(1, 3).declaredDown);
+    EXPECT_FALSE(edgeFor(3, 1).declaredDown);
+}
+
+/// A recovery that names a port the link does not have takes nothing back: the injection stays
+/// declared and both of its netems stay where they are.
+TEST_F(DeclaredLinkFailureWireTest, ARecoveryWhosePortIsNotTheLinksWithdrawsAndDeletesNothing)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+    const auto injected = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 1, 5, 1);
+    ASSERT_EQ(injected.status, 200u) << injected.body;
+    ASSERT_TRUE(fabric.hasNetem("s1-eth1"));
+    ASSERT_TRUE(fabric.hasNetem("s5-eth1"));
+    const std::size_t callsBefore = fabric.calls.size();
+
+    const auto reply = postLinkRequest(peer, "/ndt/inject_link_recovery", 1, 2, 5, 1);
+
+    EXPECT_EQ(reply.status, 404u) << reply.body;
+    EXPECT_EQ(fabric.calls.size(), callsBefore)
+        << "the refused recovery ran tc:\n" << fabric.argvLog();
+    EXPECT_TRUE(edgeFor(1, 5).declaredDown) << "the injection was withdrawn";
+    EXPECT_TRUE(edgeFor(5, 1).declaredDown);
+    EXPECT_TRUE(edgeFor(1, 5).injected);
+    EXPECT_TRUE(edgeFor(5, 1).injected);
+    EXPECT_TRUE(fabric.hasNetem("s1-eth1"));
+    EXPECT_TRUE(fabric.hasNetem("s5-eth1")) << "the injection's netem on s5-eth1 was deleted";
+    EXPECT_EQ(fabric.writesOn("s5-eth1"), 1) << fabric.argvLog();
+    EXPECT_EQ(fabric.writesOn("s1-eth2"), 0) << fabric.argvLog();
+}
+
+/// Two links injected; a recovery whose src port is the OTHER link's s1 end. That port must not
+/// reach tc: before the check, the second link's netem on s1-eth3 was this kernel's and was
+/// deleted, the first link was withdrawn, and both answered ok.
+TEST_F(DeclaredLinkFailureWireTest, ARecoveryWithAWrongPortLeavesAnotherInjectedLinkAlone)
+{
+    const auto s1 = boost::vertex(0, *m_graph);
+    const auto s3 = addSwitch(3, "s3");
+    addEdge(s1, s3, 1, 3, 3, 4);
+    addEdge(s3, s1, 3, 1, 4, 3);
+
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+    const auto first = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 1, 5, 1);
+    ASSERT_EQ(first.status, 200u) << first.body;
+    const auto second = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 3, 3, 4);
+    ASSERT_EQ(second.status, 200u) << second.body;
+
+    const auto reply = postLinkRequest(peer, "/ndt/inject_link_recovery", 1, 3, 5, 1);
+
+    EXPECT_EQ(reply.status, 404u) << reply.body;
+    EXPECT_TRUE(edgeFor(1, 5).declaredDown);
+    EXPECT_TRUE(edgeFor(5, 1).declaredDown);
+    EXPECT_TRUE(edgeFor(1, 3).declaredDown);
+    EXPECT_TRUE(edgeFor(3, 1).declaredDown);
+    EXPECT_TRUE(fabric.hasNetem("s1-eth1")) << fabric.argvLog();
+    EXPECT_TRUE(fabric.hasNetem("s5-eth1")) << fabric.argvLog();
+    EXPECT_TRUE(fabric.hasNetem("s1-eth3")) << "the other link's netem was deleted:\n"
+                                            << fabric.argvLog();
+    EXPECT_TRUE(fabric.hasNetem("s3-eth4")) << fabric.argvLog();
+}
+
+/// Outside MININET no tc runs, and the ports still have to be the link's: the request names a
+/// link on every deployment.
+TEST_F(DeclaredLinkFailureWireTest, OutsideMininetAWrongPortIsRefusedToo)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+
+    const auto wrongInject = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 2, 5, 1);
+    EXPECT_EQ(wrongInject.status, 404u) << wrongInject.body;
+    EXPECT_FALSE(edgeFor(1, 5).declaredDown);
+    EXPECT_FALSE(edgeFor(5, 1).declaredDown);
+
+    const auto rightInject = postLinkRequest(peer, "/ndt/inject_link_failure", 1, 1, 5, 1);
+    ASSERT_EQ(rightInject.status, 200u) << rightInject.body;
+    ASSERT_TRUE(edgeFor(1, 5).declaredDown);
+
+    const auto wrongRecovery = postLinkRequest(peer, "/ndt/inject_link_recovery", 1, 2, 5, 1);
+    EXPECT_EQ(wrongRecovery.status, 404u) << wrongRecovery.body;
+    EXPECT_TRUE(edgeFor(1, 5).declaredDown) << "a recovery for another port withdrew the link";
+    EXPECT_TRUE(edgeFor(5, 1).declaredDown);
+}
+
+/// The reverse edge the graph holds between the two switches does not point back along the named
+/// link: by its ports it belongs to another cable, so this link's reverse is missing and the
+/// existing 500 answers, with nothing changed.
+TEST_F(DeclaredLinkFailureWireTest, AReverseEdgeFromAnotherCableIsTheMissingReverse)
+{
+    const auto s7 = addSwitch(7, "s7");
+    const auto s8 = addSwitch(8, "s8");
+    addEdge(s7, s8, 7, 8, 1, 1);
+    addEdge(s8, s7, 8, 7, 2, 2);
+
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    const auto injected = postLinkRequest(peer, "/ndt/inject_link_failure", 7, 1, 8, 1);
+    EXPECT_EQ(injected.status, 500u) << injected.body;
+    const auto injectBody = nlohmann::json::parse(injected.body, nullptr, false);
+    ASSERT_FALSE(injectBody.is_discarded()) << injected.body;
+    EXPECT_EQ(injectBody.value("error", std::string()),
+              "reverse edge missing from the topology; nothing was injected")
+        << injected.body;
+    EXPECT_TRUE(fabric.calls.empty()) << fabric.argvLog();
+    EXPECT_FALSE(edgeFor(7, 8).declaredDown);
+    EXPECT_FALSE(edgeFor(8, 7).declaredDown);
+
+    const auto recovered = postLinkRequest(peer, "/ndt/inject_link_recovery", 7, 1, 8, 1);
+    EXPECT_EQ(recovered.status, 500u) << recovered.body;
+    const auto recoverBody = nlohmann::json::parse(recovered.body, nullptr, false);
+    ASSERT_FALSE(recoverBody.is_discarded()) << recovered.body;
+    EXPECT_EQ(recoverBody.value("error", std::string()),
+              "reverse edge missing from the topology; nothing was withdrawn")
+        << recovered.body;
+    EXPECT_TRUE(fabric.calls.empty()) << fabric.argvLog();
+}
+
 // --- G-32 option C: the lab claim on a write reply -------------------------------------------
 //
 // [Co-developed with claude code -- Adam]

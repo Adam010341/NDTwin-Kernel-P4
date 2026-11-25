@@ -1242,6 +1242,119 @@ mininetIfaceFor(const Graph& graph, uint64_t dpid, uint32_t port)
     return {};
 }
 
+// [Co-developed with claude code -- Adam]
+// A request names a link by four fields, and the inject endpoints act on what the ports name (tc
+// runs on `<bridge>-eth<port>`) as much as on what the dpids name (the edge that is declared). So
+// the ports have to be the link's. Three choices are made here and nowhere else:
+//   1. a request whose ports are not the link's is answered 404, and the body names the link the
+//      topology holds between those two switches (kWrongPortsStatus);
+//   2. it is refused on every deployment, not only where tc runs
+//      (kWrongPortsRefusedOutsideMininet);
+//   3. only the two inject endpoints check. /ndt/link_failure_detected and
+//      /ndt/link_recovery_detected run no tc, and the control plane sends them the ports it saw.
+constexpr http::status kWrongPortsStatus = http::status::not_found;
+constexpr bool kWrongPortsRefusedOutsideMininet = true;
+
+/// The 500 each inject endpoint answers when the link's reverse edge is missing.
+constexpr const char* kInjectFailureReverseMissing =
+    R"({"error":"reverse edge missing from the topology; nothing was injected"})";
+constexpr const char* kInjectRecoveryReverseMissing =
+    R"({"error":"reverse edge missing from the topology; nothing was withdrawn"})";
+
+/// The ports of one directed edge as the topology holds them.
+struct HeldPorts
+{
+    bool found = false;
+    uint32_t src = 0;
+    uint32_t dst = 0;
+};
+
+/// The (srcDpid -> dstDpid) edge's ports, read by walking the given copy's own edges. Indexing a
+/// copy with a descriptor found in the live graph would read the live graph instead, without its
+/// lock: a Boost edge descriptor carries a pointer to the properties of the graph it came from.
+HeldPorts
+heldPorts(const Graph& graph, uint64_t srcDpid, uint64_t dstDpid)
+{
+    for (auto e : boost::make_iterator_range(boost::edges(graph)))
+    {
+        const auto& ep = graph[e];
+        if (ep.srcDpid == srcDpid && ep.dstDpid == dstDpid)
+        {
+            return HeldPorts{true, ep.srcInterface, ep.dstInterface};
+        }
+    }
+    return HeldPorts{};
+}
+
+std::string
+describeLinkEnds(uint64_t srcDpid, uint32_t srcPort, uint64_t dstDpid, uint32_t dstPort)
+{
+    return std::to_string(srcDpid) + ":" + std::to_string(srcPort) + " -> " +
+           std::to_string(dstDpid) + ":" + std::to_string(dstPort);
+}
+
+/// Answers a request whose ports are not the link's and returns true; returns false and writes
+/// nothing when they are. Called after both edges were found and before anything is read from or
+/// written to the graph or the fabric, so "nothing was changed" in the reply is literal.
+/// When the forward edge matches and the reverse edge's ports do not point back along it, the
+/// reverse edge the graph holds belongs to another cable: this link's reverse is missing, and the
+/// endpoint's own 500 (`reverseMissingBody`) is the answer.
+bool
+refuseWrongPorts(const Graph& graph,
+                 const LinkFailedEventPayload& req,
+                 utils::DeploymentMode mode,
+                 const char* endpoint,
+                 const char* reverseMissingBody,
+                 http::response<http::string_body>& res)
+{
+    if (!kWrongPortsRefusedOutsideMininet && mode != utils::DeploymentMode::MININET)
+    {
+        return false;
+    }
+    const HeldPorts fwd = heldPorts(graph, req.srcDpid, req.dstDpid);
+    const HeldPorts rev = heldPorts(graph, req.dstDpid, req.srcDpid);
+    const std::string asked =
+        describeLinkEnds(req.srcDpid, req.srcInterface, req.dstDpid, req.dstInterface);
+
+    if (!fwd.found || fwd.src != req.srcInterface || fwd.dst != req.dstInterface)
+    {
+        json refusal;
+        refusal["error"] = "no link " + asked + " in the topology. Nothing was changed";
+        if (fwd.found)
+        {
+            const std::string held = describeLinkEnds(req.srcDpid, fwd.src, req.dstDpid, fwd.dst);
+            refusal["error"] = "no link " + asked + " in the topology (dpid:port -> dpid:port): "
+                               "the link between these two switches is " + held +
+                               ". Nothing was changed";
+            refusal["link"] = {{"src_dpid", req.srcDpid},
+                               {"src_interface", fwd.src},
+                               {"dst_dpid", req.dstDpid},
+                               {"dst_interface", fwd.dst}};
+        }
+        res.result(kWrongPortsStatus);
+        res.body() = refusal.dump();
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} {} refused: the topology holds no such link, so nothing was "
+                           "declared, withdrawn or run",
+                           endpoint,
+                           asked);
+        return true;
+    }
+    if (!rev.found || rev.src != req.dstInterface || rev.dst != req.srcInterface)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} {}: the reverse edge the topology holds between these switches "
+                           "does not point back along this link, so this link's reverse edge is "
+                           "missing; nothing was changed",
+                           endpoint,
+                           asked);
+        res.result(http::status::internal_server_error);
+        res.body() = reverseMissingBody;
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 void
@@ -1285,8 +1398,16 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
                            data->srcDpid,
                            data->dstDpid);
         res.result(http::status::internal_server_error);
-        res.body() =
-            R"({"error":"reverse edge missing from the topology; nothing was injected"})";
+        res.body() = kInjectFailureReverseMissing;
+        return;
+    }
+
+    // [Co-developed with claude code -- Adam] The ports must be the link's, or nothing below runs:
+    // no declaration, no event, no tc. See refuseWrongPorts.
+    const auto graph = m_topologyAndFlowMonitor->getGraph();
+    if (refuseWrongPorts(
+            graph, *data, m_mode, "inject link failure", kInjectFailureReverseMissing, res))
+    {
         return;
     }
 
@@ -1317,7 +1438,6 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
         return;
     }
 
-    const auto graph = m_topologyAndFlowMonitor->getGraph();
     const std::string srcIface = mininetIfaceFor(graph, data->srcDpid, data->srcInterface);
     const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
 
@@ -1397,8 +1517,17 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
                            data->srcDpid,
                            data->dstDpid);
         res.result(http::status::internal_server_error);
-        res.body() =
-            R"({"error":"reverse edge missing from the topology; nothing was withdrawn"})";
+        res.body() = kInjectRecoveryReverseMissing;
+        return;
+    }
+
+    // [Co-developed with claude code -- Adam] The ports must be the link's, or nothing below runs:
+    // not the tc reads either, so a refusal here never answers 409 for a netem on an interface
+    // the request should not have named. See refuseWrongPorts.
+    const auto graph = m_topologyAndFlowMonitor->getGraph();
+    if (refuseWrongPorts(
+            graph, *data, m_mode, "inject link recovery", kInjectRecoveryReverseMissing, res))
+    {
         return;
     }
 
@@ -1415,7 +1544,6 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     std::vector<utils::netem::NetemSighting> sighted;
     if (m_mode == utils::DeploymentMode::MININET)
     {
-        const auto graph = m_topologyAndFlowMonitor->getGraph();
         ifaces = {mininetIfaceFor(graph, data->srcDpid, data->srcInterface),
                   mininetIfaceFor(graph, data->dstDpid, data->dstInterface)};
         std::vector<std::string> foreign;

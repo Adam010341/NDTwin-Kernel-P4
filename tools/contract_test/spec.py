@@ -296,6 +296,8 @@ LAB_CLAIM_BEARING_ENDPOINTS = (
     "inject_link_failure",
     "inject_link_recovery",
     "inject_link_recovery_cleanup",
+    "inject_link_failure__wrong_port",
+    "inject_link_recovery__wrong_port",
 )
 
 #: Shared by the three single-entry flow writes, whose reply shapes are identical. Three copies of
@@ -414,6 +416,13 @@ LINK_FAILURE_INJECTED = Obj({
 #: §2c success.
 LINK_RECOVERY_INJECTED = Obj({"status": Str(nonempty=True), "tc": TC_REPORT},
                              optional={"lab_claim": LAB_CLAIM})
+
+#: §2b and §2c: the 404 for a request whose ports are not the link's. `link` is the link the
+#: topology holds between the two switches, in the request's direction; it is absent only when
+#: the topology holds no edge between them, which the checks that use this schema never send.
+#: [Co-developed with claude code -- Adam]
+LINK_PORTS_REFUSED = Obj({"error": Str(nonempty=True), "link": LINK_REQUEST},
+                         optional={"lab_claim": LAB_CLAIM})
 
 FLOW_KEY = Obj({
     "src_ip": Int(min=0, max=UINT32_MAX),
@@ -1871,6 +1880,20 @@ def link_endpoint_body(ctx):
     return dict(link) if link else dict(NO_LINK_CHOSEN_PAYLOAD)
 
 
+#: A port number no switch has. [Co-developed with claude code -- Adam]
+NO_SUCH_PORT = 4294967294
+
+
+def link_endpoint_body_with_a_wrong_port(ctx):
+    """
+    The chosen link with a src_interface no switch has. Both inject endpoints must refuse it
+    with 404 and change nothing (§2b, §2c). [Co-developed with claude code -- Adam]
+    """
+    body = link_endpoint_body(ctx)
+    body["src_interface"] = NO_SUCH_PORT
+    return body
+
+
 def link_step_precondition(ctx):
     """
     None when the sequence has a link to act on; otherwise why it has not.
@@ -2657,6 +2680,26 @@ ENDPOINTS = [
               "paired with nothing, so this recovery must be DECLINED and must say so in the "
               "body -- the status line is 200 either way, deliberately, because Ryu logs 'NDT "
               "REJECTED this notification' on any 4xx"),
+
+    # [Co-developed with claude code -- Adam] Two refusals between step 4 and step 5. The link is
+    # injected here; both requests name it with a src_interface no switch has, and both must
+    # answer 404 with nothing changed. They come before step 5 so that on a kernel that does not
+    # check the ports, whatever they did is still taken back by steps 5 and 6.
+    dict(name="inject_link_failure__wrong_port", method="POST",
+         path="/ndt/inject_link_failure",
+         body=link_endpoint_body_with_a_wrong_port, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
+         category=MUTATE, expect_status=[404], schema=LINK_PORTS_REFUSED,
+         note="the ports must be the link's: a kernel that took the interfaces for tc from the "
+              "request's ports declared this link and cut whatever interface the port named"),
+
+    dict(name="inject_link_recovery__wrong_port", method="POST",
+         path="/ndt/inject_link_recovery",
+         body=link_endpoint_body_with_a_wrong_port, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
+         category=MUTATE, expect_status=[404], schema=LINK_PORTS_REFUSED,
+         note="the same for the withdrawal: a wrong port must not withdraw the injection of step "
+              "3 or delete a netem on another interface"),
 
     dict(name="inject_link_recovery", method="POST", path="/ndt/inject_link_recovery",
          body=link_endpoint_body, request_schema=LINK_REQUEST,

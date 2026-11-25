@@ -33,6 +33,11 @@
 #             declaration": it pinned the half-applied write that branch used to make, and with the
 #             refusal that write and its anchor are gone. M57 now names the first of the refusal
 #             mutants, so a result recorded earlier under "M57" is about the old mutation.
+#   ports     /ndt/inject_link_failure and /ndt/inject_link_recovery act only on the link the
+#             request names: ports that are not the link's are refused with 404 before anything is
+#             declared, withdrawn or read from the fabric, on every deployment, and a reverse edge
+#             whose ports do not point back along the link is the missing reverse (500).
+#             M64 .. M73, W16.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -372,6 +377,16 @@ add_anchor "lone-recovery-body" "$HS" '                           srcDpid);
         res.result(http::status::internal_server_error);
         res.body() =
             R"({"error":"reverse edge missing from the topology; nothing was changed"})";'
+# [Co-developed with claude code -- Adam] The port check of the two inject endpoints: its two call
+# sites, the comparisons, the body that names the held link and the every-deployment switch.
+add_anchor "ports-call-failure" "$HS" '    if (refuseWrongPorts(
+            graph, *data, m_mode, "inject link failure", kInjectFailureReverseMissing, res))'
+add_anchor "ports-call-recovery" "$HS" '    if (refuseWrongPorts(
+            graph, *data, m_mode, "inject link recovery", kInjectRecoveryReverseMissing, res))'
+add_anchor "ports-forward" "$HS" '    if (!fwd.found || fwd.src != req.srcInterface || fwd.dst != req.dstInterface)'
+add_anchor "ports-reverse" "$HS" '    if (!rev.found || rev.src != req.dstInterface || rev.dst != req.srcInterface)'
+add_anchor "ports-body"    "$HS" '                               "the link between these two switches is " + held +'
+add_anchor "ports-mode"    "$HS" 'constexpr bool kWrongPortsRefusedOutsideMininet = true;'
 add_anchor "log-decline-text" "$HS" '                               "declaration was retained and the link is still down. POST "
                                "/ndt/inject_link_recovery to withdraw it",'
 
@@ -1475,6 +1490,132 @@ mutate "link_recovery_detected refuses even when the reverse edge is present" \
     LinkTransitionEndpointsTest.ARecoveryWithBothDirectionsPresentBringsBothUpAndAnswers200
 
 # ================================================================================================
+#   ports: the two inject endpoints act only on the link the request names. M64 .. M73, W16.
+#   [Co-developed with claude code -- Adam]
+#
+#   Before the check, /ndt/inject_link_failure found the link by its two dpids and ran tc on
+#   `<bridge>-eth<port>` for the REQUEST's ports: `{1,2,5,1}` declared s1:1 <-> s5:1 down and cut
+#   s1-eth2, a host port, with 200. /ndt/inject_link_recovery withdrew the link and deleted
+#   whichever netem of this kernel's sat on the named interfaces, another link's included.
+# ================================================================================================
+
+# pre_apply <file> <anchor> <new>: the first half of a mutation made of two replacements, for a
+# check MOVED rather than removed. The mutate() call right after it makes the second half, and its
+# restore puts back both. An anchor that cannot be applied here is drift, so no verdict.
+pre_apply() {
+    if ! apply "$1" "$2" "$3"; then
+        echo "🔴 the first half of a two-part mutation could not be applied; no verdict" >&2
+        exit 2
+    fi
+}
+
+PORTS_CHECK_FAILURE='    if (refuseWrongPorts(
+            graph, *data, m_mode, "inject link failure", kInjectFailureReverseMissing, res))
+    {
+        return;
+    }'
+PORTS_CHECK_RECOVERY='    if (refuseWrongPorts(
+            graph, *data, m_mode, "inject link recovery", kInjectRecoveryReverseMissing, res))
+    {
+        return;
+    }'
+
+# M64. 🔴 THE DEFECT VERBATIM for the failure endpoint: no port check, so the ports choose the
+#      interfaces tc cuts while the dpids choose the link that is declared.
+mutate "inject_link_failure does not check the ports (= the code before the check)" \
+    "$HS" \
+    "$PORTS_CHECK_FAILURE" \
+    '    // [mutant] the port check is gone from this endpoint' \
+    DeclaredLinkFailureWireTest.AnInjectWhosePortIsNotTheLinksIsRefusedAndCutsNothing \
+    DeclaredLinkFailureWireTest.AnInjectWhoseDstPortIsWrongIsRefused \
+    DeclaredLinkFailureWireTest.AnInjectWithTheTwoPortsSwappedIsRefused \
+    DeclaredLinkFailureWireTest.TheRefusalNamesTheLinkAsTheTopologyHoldsIt \
+    DeclaredLinkFailureWireTest.OutsideMininetAWrongPortIsRefusedToo \
+    DeclaredLinkFailureWireTest.AReverseEdgeFromAnotherCableIsTheMissingReverse
+
+# M65. The same for the recovery endpoint: a wrong port withdraws the link and deletes this
+#      kernel's netem on whatever interface it names.
+mutate "inject_link_recovery does not check the ports (= the code before the check)" \
+    "$HS" \
+    "$PORTS_CHECK_RECOVERY" \
+    '    // [mutant] the port check is gone from this endpoint' \
+    DeclaredLinkFailureWireTest.ARecoveryWhosePortIsNotTheLinksWithdrawsAndDeletesNothing \
+    DeclaredLinkFailureWireTest.ARecoveryWithAWrongPortLeavesAnotherInjectedLinkAlone \
+    DeclaredLinkFailureWireTest.OutsideMininetAWrongPortIsRefusedToo \
+    DeclaredLinkFailureWireTest.AReverseEdgeFromAnotherCableIsTheMissingReverse
+
+# M66. Half a check: the src port is compared and the dst port is not.
+mutate "only the src port is compared" \
+    "$HS" \
+    '    if (!fwd.found || fwd.src != req.srcInterface || fwd.dst != req.dstInterface)' \
+    '    if (!fwd.found || fwd.src != req.srcInterface)' \
+    DeclaredLinkFailureWireTest.AnInjectWhoseDstPortIsWrongIsRefused
+
+# M67. The reverse edge is found by its dpids alone again: one that belongs to another cable is
+#      taken as this link's.
+mutate "the reverse edge's ports are not compared" \
+    "$HS" \
+    '    if (!rev.found || rev.src != req.dstInterface || rev.dst != req.srcInterface)' \
+    '    if (!rev.found)' \
+    DeclaredLinkFailureWireTest.AReverseEdgeFromAnotherCableIsTheMissingReverse
+
+# M68. The ends compared crosswise: the request's src port against the edge's dst port. Accepts the
+#      two ports swapped and refuses a correct request for a link with unequal port numbers.
+mutate "the request's ports are compared with the edge's ends swapped" \
+    "$HS" \
+    'fwd.src != req.srcInterface || fwd.dst != req.dstInterface)' \
+    'fwd.dst != req.srcInterface || fwd.src != req.dstInterface)' \
+    DeclaredLinkFailureWireTest.AnInjectOfALinkWithUnequalPortsIsAcceptedInEitherDirection \
+    DeclaredLinkFailureWireTest.AnInjectWithTheTwoPortsSwappedIsRefused
+
+# M69. The failure endpoint refuses, but only after the declaration is made: "nothing was
+#      changed" is then false.
+pre_apply "$HS" "$PORTS_CHECK_FAILURE" '    // [mutant] the port check moved below the declaration'
+mutate "inject_link_failure checks the ports after declaring the link down" \
+    "$HS" \
+    '    m_topologyAndFlowMonitor->setLinkDownByInjection(fwdOpt.value(), revOpt.value());' \
+    "    m_topologyAndFlowMonitor->setLinkDownByInjection(fwdOpt.value(), revOpt.value());
+$PORTS_CHECK_FAILURE" \
+    DeclaredLinkFailureWireTest.AnInjectWhosePortIsNotTheLinksIsRefusedAndCutsNothing
+
+# M70. The recovery endpoint refuses, but only after the tc reads and the withdrawal.
+pre_apply "$HS" "$PORTS_CHECK_RECOVERY" '    // [mutant] the port check moved below the withdrawal'
+mutate "inject_link_recovery checks the ports after withdrawing the link" \
+    "$HS" \
+    '    m_topologyAndFlowMonitor->withdrawLinkDeclarationAndRaise(fwdOpt.value(), revOpt.value());' \
+    "    m_topologyAndFlowMonitor->withdrawLinkDeclarationAndRaise(fwdOpt.value(), revOpt.value());
+$PORTS_CHECK_RECOVERY" \
+    DeclaredLinkFailureWireTest.ARecoveryWhosePortIsNotTheLinksWithdrawsAndDeletesNothing
+
+# M71. The refusal no longer says which link the topology holds, as text or as `link`.
+mutate "the 404 does not name the link the topology holds" \
+    "$HS" \
+    '        if (fwd.found)
+        {
+            const std::string held = describeLinkEnds(req.srcDpid, fwd.src, req.dstDpid, fwd.dst);' \
+    '        if (false)
+        {
+            const std::string held = describeLinkEnds(req.srcDpid, fwd.src, req.dstDpid, fwd.dst);' \
+    DeclaredLinkFailureWireTest.TheRefusalNamesTheLinkAsTheTopologyHoldsIt
+
+# M72. The check only where tc runs: on any other deployment a wrong port declares and withdraws.
+mutate "the ports are checked on MININET only" \
+    "$HS" \
+    'constexpr bool kWrongPortsRefusedOutsideMininet = true;' \
+    'constexpr bool kWrongPortsRefusedOutsideMininet = false;' \
+    DeclaredLinkFailureWireTest.OutsideMininetAWrongPortIsRefusedToo
+
+# M73. 🔴 THE OVER-CORRECTION: every request is a mismatch, so no link can be injected or taken
+#      back at all.
+mutate "every request is refused as a wrong port" \
+    "$HS" \
+    '    if (!fwd.found || fwd.src != req.srcInterface || fwd.dst != req.dstInterface)' \
+    '    if (true || !fwd.found || fwd.src != req.srcInterface || fwd.dst != req.dstInterface)' \
+    DeclaredLinkFailureWireTest.AnInjectionThisKernelMadeIsWithdrawnAndItsNetemRemoved \
+    DeclaredLinkFailureWireTest.ASecondInjectRecoveryIsStillAnIdempotentNoop \
+    DeclaredLinkFailureWireTest.AnInjectOfALinkWithUnequalPortsIsAcceptedInEitherDirection
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -1636,6 +1777,14 @@ widen "the recovery endpoint's refusal body is reworded (it still says both fact
         res.body() =
             R"({"error":"reverse edge missing from the topology, so nothing was changed"})";'
 
+# W16. [Co-developed with claude code -- Adam] The control for M71: the wrong-port 404 is reworded
+#      while it still names the held link as text and as `link`. A case that reddens here is
+#      pinning the sentence, not the fact.
+widen "the wrong-port refusal is reworded (it still names the link the topology holds)" \
+    "$HS" \
+    '                               "the link between these two switches is " + held +' \
+    '                               "these two switches are linked as " + held +'
+
 # ================================================================================================
 # 7. restore and verdict
 # ================================================================================================
@@ -1696,4 +1845,6 @@ echo "  advice, no link endpoint can write the two directions of its link apart 
 echo "  inject_link_recovery cannot withdraw a declaration apart from raising the edge again."
 echo "  A missing reverse edge cannot make either notification endpoint write, emit or answer"
 echo "  the half-applied body again, and neither refuses a request whose two directions are there."
+echo "  Neither inject endpoint can act on interfaces the request's ports name for another link,"
+echo "  refuse after it has written, stop naming the link it holds, or refuse a correct request."
 exit 0

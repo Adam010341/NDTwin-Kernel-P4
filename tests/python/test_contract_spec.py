@@ -1517,6 +1517,11 @@ LINK_SEQUENCE = ["link_failure_detected", "link_recovery_detected", "inject_link
                  "link_recovery_detected__declined_after_injection", "inject_link_recovery",
                  "inject_link_recovery_cleanup"]
 
+#: The two wrong-port refusals, and where they run: after step 4, while the link is injected, and
+#: before step 5 takes the injection back. [Co-developed with claude code -- Adam]
+LINK_WRONG_PORT_CHECKS = ["inject_link_failure__wrong_port", "inject_link_recovery__wrong_port"]
+LINK_RUN_ORDER = LINK_SEQUENCE[:4] + LINK_WRONG_PORT_CHECKS + LINK_SEQUENCE[4:]
+
 
 class LinkEndpointContractTest(unittest.TestCase):
     """
@@ -1821,7 +1826,61 @@ class LinkEndpointContractTest(unittest.TestCase):
         # It cuts a real link for the length of two requests. Anything reading the graph while it
         # is cut would be reading a network this suite broke.
         names = [e["name"] for e in spec.ENDPOINTS]
-        self.assertEqual(names[-len(LINK_SEQUENCE):], LINK_SEQUENCE)
+        self.assertEqual(names[-len(LINK_RUN_ORDER):], LINK_RUN_ORDER)
+
+    # --- the ports must be the link's (§2b, §2c) ---------------------------------------------
+    # [Co-developed with claude code -- Adam]
+
+    def test_the_wrong_port_checks_change_only_the_src_port_of_the_chosen_link(self):
+        # The rest of the body must be the link the sequence injected, or a 404 would only prove
+        # the unknown-edge branch again.
+        ctx = real_ctx()
+        link = spec.link_endpoint_body(ctx)
+        with open(P4_TOPOLOGY) as fh:
+            ports = {e[k] for e in json.load(fh)["edges"] for k in ("src_interface", "dst_interface")}
+        self.assertNotIn(spec.NO_SUCH_PORT, ports)
+        for name in LINK_WRONG_PORT_CHECKS:
+            body = self.named(name)["body"](ctx)
+            self.assertEqual(body, {**link, "src_interface": spec.NO_SUCH_PORT}, name)
+
+    def test_the_wrong_port_checks_require_404_alone_and_the_refusal_schema(self):
+        # 200 is what a kernel that takes the tc interfaces from the ports answers, and 409 would
+        # send the SDK to a foreign-netem remedy. Only 404 says the link was not found.
+        for name in LINK_WRONG_PORT_CHECKS:
+            entry = self.named(name)
+            self.assertEqual(entry["expect_status"], [404], name)
+            self.assertIs(entry["schema"], spec.LINK_PORTS_REFUSED, name)
+            self.assertIs(entry["precondition"], spec.link_step_precondition, name)
+
+    def test_the_wrong_port_checks_need_allow_mutations(self):
+        # On a kernel that does not check the ports they declare and withdraw; a read-only run
+        # must not send them, and nothing after them would take that back.
+        for name in LINK_WRONG_PORT_CHECKS:
+            self.assertEqual(self.named(name)["category"], spec.MUTATE, name)
+
+    def test_the_wrong_port_checks_run_between_the_injection_and_its_withdrawal(self):
+        names = [e["name"] for e in spec.endpoints_by_category([spec.MUTATE])]
+        injected = names.index("inject_link_failure")
+        withdrawn = names.index("inject_link_recovery")
+        for name in LINK_WRONG_PORT_CHECKS:
+            self.assertLess(injected, names.index(name), name)
+            self.assertLess(names.index(name), withdrawn, name)
+        self.assertEqual(self.named("inject_link_failure__wrong_port")["path"],
+                         "/ndt/inject_link_failure")
+        self.assertEqual(self.named("inject_link_recovery__wrong_port")["path"],
+                         "/ndt/inject_link_recovery")
+
+    def test_the_refusal_schema_needs_the_link_the_topology_holds(self):
+        documented = {"error": "no link 1:2 -> 5:1 in the topology (dpid:port -> dpid:port): the "
+                               "link between these two switches is 1:1 -> 5:1. Nothing was changed",
+                      "link": {"src_dpid": 1, "src_interface": 1, "dst_dpid": 5,
+                               "dst_interface": 1}}
+        self.assertEqual(validate(spec.LINK_PORTS_REFUSED, documented), [])
+        without_link = {"error": documented["error"]}
+        self.assertTrue(validate(spec.LINK_PORTS_REFUSED, without_link),
+                        "a refusal that does not name the link was accepted")
+        self.assertTrue(validate(spec.LINK_PORTS_REFUSED, {"error": "edge not found in topology"}),
+                        "the unknown-edge body was accepted as the wrong-port refusal")
 
     def test_every_step_of_the_sequence_needs_allow_mutations(self):
         for name in LINK_SEQUENCE:
@@ -2719,8 +2778,9 @@ class LinkStepPreconditionTest(unittest.TestCase):
                                  "dst_dpid": 0, "dst_interface": 0}]}
 
     LINK_STEPS = ("link_failure_detected", "link_recovery_detected", "inject_link_failure",
-                  "link_recovery_detected__declined_after_injection", "inject_link_recovery",
-                  "inject_link_recovery_cleanup")
+                  "link_recovery_detected__declined_after_injection",
+                  "inject_link_failure__wrong_port", "inject_link_recovery__wrong_port",
+                  "inject_link_recovery", "inject_link_recovery_cleanup")
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
