@@ -64,14 +64,29 @@ from run_contract_test import (  # noqa: E402
     request,
     supports_colour,
 )
-from spec import ENDPOINTS  # noqa: E402
+from spec import ENDPOINTS, ERRORPATH  # noqa: E402
+
+
+def build_spec_by_endpoint(endpoints) -> dict:
+    """
+    Map each bare endpoint name to the spec entry the component check judges it by.
+
+    The route's ordinary case is used whenever it has one: the first entry whose category is
+    not an error path. An error-path entry stands in only for a path that has no other, so
+    adding a refusal case ahead of the ordinary one in spec.py never changes which case a
+    route is judged by. [Co-developed with claude code -- Adam]
+    """
+    picked = {}
+    for ep in endpoints:
+        name = ep["path"].removeprefix("/ndt/")
+        held = picked.get(name)
+        if held is None or (held["category"] == ERRORPATH and ep["category"] != ERRORPATH):
+            picked[name] = ep
+    return picked
+
 
 # Endpoints whose contract is covered by spec.py, keyed by bare endpoint name.
-SPEC_BY_ENDPOINT = {}
-for _ep in ENDPOINTS:
-    _name = _ep["path"].removeprefix("/ndt/")
-    # Keep the first (canonical) spec for each path; later entries are error-path variants.
-    SPEC_BY_ENDPOINT.setdefault(_name, _ep)
+SPEC_BY_ENDPOINT = build_spec_by_endpoint(ENDPOINTS)
 
 
 def probe_exists(base_url, endpoint, ctx, timeout) -> tuple[bool, int, str]:
