@@ -257,6 +257,14 @@ LINK_RECOVERY_INJECTED_SAMPLE = {
     ],
 }
 
+#: §2b and §2c: a request whose ports are not the link's. Copied from the document's example.
+#: [Co-developed with claude code -- Adam]
+LINK_PORTS_REFUSED_SAMPLE = {
+    "error": "no link 1:2 -> 5:1 in the topology (dpid:port -> dpid:port): the link between "
+             "these two switches is 1:1 -> 5:1. Nothing was changed",
+    "link": {"src_dpid": 1, "src_interface": 1, "dst_dpid": 5, "dst_interface": 1},
+}
+
 # --- doc/2026-01-02_ndt_api.md section 37: GET /ndt/get_openflow_capacity ---------------------
 # [Co-developed with claude code -- Adam] The capacity endpoint (FIXED-ISSUES C-6's workaround).
 # Trimmed to the fields the invariants read; the vendor blocks keep their catalogue numbers and
@@ -425,6 +433,8 @@ FIXTURES = {
         spec.LINK_FAILURE_INJECTED, LINK_FAILURE_INJECTED_NOT_MININET),
     "inject_link_recovery": (
         spec.LINK_RECOVERY_INJECTED, LINK_RECOVERY_INJECTED_SAMPLE),
+    "inject_link_failure__wrong_port": (spec.LINK_PORTS_REFUSED, LINK_PORTS_REFUSED_SAMPLE),
+    "inject_link_recovery__wrong_port": (spec.LINK_PORTS_REFUSED, LINK_PORTS_REFUSED_SAMPLE),
     "link request body (all four endpoints take the same one)": (
         spec.LINK_REQUEST,
         {"src_dpid": 106225808402492, "src_interface": 23,
