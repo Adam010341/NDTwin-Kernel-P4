@@ -1,0 +1,70 @@
+name: PR review
+
+# [Co-developed with claude code -- Adam]
+#
+# Reviews each PR's diff with Claude (tools/pr_review/review.py) and posts the result as a PR
+# review comment. It runs only on Adam010341/NDTwin-Kernel-P4, where the ANTHROPIC_API_KEY secret
+# lives; the ndtwin-lab mirror carries the same file and skips it. Without the secret the job
+# also skips instead of failing, so a missing key never turns a PR red.
+#
+# Model and effort can be changed with the repository variables REVIEW_MODEL and REVIEW_EFFORT.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    if: github.repository == 'Adam010341/NDTwin-Kernel-P4' && !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      REVIEW_MODEL: ${{ vars.REVIEW_MODEL || 'claude-opus-5-5' }}
+      REVIEW_EFFORT: ${{ vars.REVIEW_EFFORT || 'high' }}
+    steps:
+      - name: Check for the API key
+        id: key
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY is not set; skipping the review."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        if: steps.key.outputs.present == 'true'
+        with:
+          python-version: '3.12'
+
+      - name: Review the diff
+        if: steps.key.outputs.present == 'true'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pip install --quiet 'anthropic>=2.3,<3'
+          python3 tools/pr_review/review.py \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" \
+            --title "$PR_TITLE" \
+            --out review.md
+
+      - name: Post the review
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr review "${{ github.event.pull_request.number }}" --comment --body-file review.md
