@@ -468,6 +468,9 @@ except ndtwin.OutcomeUnknown as err:       # it may have landed, or may still la
     print("not known:", err, err.request_id)
 ```
 
+Not yet verified on a live fabric: `k.of.write` has been tested only against an in-process fake
+kernel.
+
 **A normal return on OVS means the controller took the request, not that the switch has the
 rule.** The kernel answers the POST with `200` `queued` once the entry passed its own checks and
 is on its dispatcher's queue; it may not have reached the controller (Ryu) yet. `write` then
@@ -578,6 +581,10 @@ try:
 except ndtwin.LinkNotRestored as err:      # the link may still be cut
     print("not restored:", err.still_cut, err.remedy)
 ```
+
+Not yet verified on a live fabric: `k.link_down` and `k.restore_link` have been tested only
+against an in-process fake kernel, and no link cut on a P4 fabric has been recorded (see "P4 and
+OVS fabrics" below for what is not measured on bmv2).
 
 Entering sends `POST /ndt/inject_link_failure` (§2b) once. The kernel declares both directions of
 the link down in the twin and, on a Mininet deployment, attaches `netem loss 100%` to the
